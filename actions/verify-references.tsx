@@ -2,7 +2,7 @@
 
 import { Reference } from "@/types/reference"
 import { fetchGoogleSearchResults } from "@/actions/serper-API"
-import { verifyGoogleSearchResultWithLLM } from "@/actions/openAI"
+import { verifyGoogleSearchResultWithLLM } from "@/actions/openAI-verify"
 
 // Primary function to verify reference details
 export async function verifyReference(reference: Reference): Promise<{ isValid: boolean, message: string, source?: string }> {
@@ -143,7 +143,7 @@ async function verifyOpenLibrary(reference: Reference): Promise<{ isValid: boole
 async function verifyGoogleSearch(reference: Reference): Promise<{ isValid: boolean, message: string }> {
     // Build a search query from available fields in the reference
     const query = [
-        reference.author?.join(" "), // Join author array into a single string if not null
+        reference.authors?.join(" "), // Join author array into a single string if not null
         reference.title,
         reference.journal,
         reference.year,
