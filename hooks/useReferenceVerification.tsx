@@ -1,54 +1,122 @@
-import { useEffect, useState } from "react";
-import { verifyReference } from "@/actions/verify-references";
-import { Reference } from "@/types/reference";
+// hooks/useReferenceVerification.ts
+import { useState, useCallback, useRef } from 'react';
+import type { Reference, ReferenceStatus } from '@/types/reference';
+import { verifyReferenceAndUpdateStatus } from '@/utils/reference-utils';
 
-interface VerifiedReference extends Reference {
-    status: "checking" | "valid" | "invalid";
-    message?: string;
-    source?: string;
+interface VerificationResults {
+  verified: number;
+  issues: number;
+  pending: number;
+  totalReferences: number;
 }
 
-export function useReferenceVerification(referencesJson: string) {
-    const [verifiedReferences, setVerifiedReferences] = useState<VerifiedReference[]>([]);
-    const [loading, setLoading] = useState(false);
+interface VerificationState {
+  progress: number;
+  currentReference: number;
+  stats: VerificationResults;
+  references: Reference[];
+}
 
-    useEffect(() => {
-        let references: Reference[] = [];
-        try {
-            const parsedData = JSON.parse(referencesJson);
-            references = parsedData.references || [];
-        } catch (error) {
-            console.error("Failed to parse references JSON:", error);
-        }
+export function useReferenceVerification(
+  initialContent: string,
+  onComplete: (data: { stats: VerificationResults; references: Reference[] }) => void
+) {
+  const completedRef = useRef(false);
+  const [state, setState] = useState<VerificationState>(() => {
+    try {
+      const parsedData = JSON.parse(initialContent);
+      const references = parsedData.references || [];
+      
+      const initialReferences = references.map((ref: Reference, index: number) => ({
+        ...ref,
+        id: ref.id || index + 1,
+        status: 'pending' as ReferenceStatus
+      }));
 
-        // Initialize verifiedReferences
-        const initializedReferences: VerifiedReference[] = references.map(ref => ({
-            ...ref,
-            status: "checking" as "checking",
-            message: "",
-            source: "",
-        }));
+      const totalReferences = initialReferences.length;
 
-        setVerifiedReferences(initializedReferences);
+      return {
+        progress: 0,
+        currentReference: totalReferences > 0 ? 1 : 0,
+        stats: {
+          verified: 0,
+          issues: 0,
+          pending: totalReferences,
+          totalReferences
+        },
+        references: initialReferences
+      };
+    } catch (error) {
+      console.error('Initialization error:', error);
+      return {
+        progress: 0,
+        currentReference: 0,
+        stats: { verified: 0, issues: 0, pending: 0, totalReferences: 0 },
+        references: []
+      };
+    }
+  });
 
-        const verifyAllReferences = async () => {
-            setLoading(true);
-            for (let i = 0; i < initializedReferences.length; i++) {
-                const ref = initializedReferences[i];
-                const { isValid, message, source } = await verifyReference(ref);
+  const processNextReference = useCallback(async () => {
+    if (completedRef.current) return;
 
-                setVerifiedReferences(prevRefs => {
-                    const updatedRefs = [...prevRefs];
-                    updatedRefs[i] = { ...ref, status: isValid ? "valid" : "invalid", message, source };
-                    return updatedRefs;
-                });
-            }
-            setLoading(false);
+    const pendingRefs = state.references.filter(ref => ref.status === 'pending');
+    
+    if (pendingRefs.length === 0 && !completedRef.current) {
+      completedRef.current = true;
+      onComplete({
+        stats: {
+          verified: state.references.filter(ref => ref.status === 'verified').length,
+          issues: state.references.filter(ref => 
+            ref.status === 'unverified' || ref.status === 'error'
+          ).length,
+          pending: 0,
+          totalReferences: state.stats.totalReferences
+        },
+        references: state.references
+      });
+      return;
+    }
+
+    try {
+      const nextRef = pendingRefs[0];
+      const verifiedRef = await verifyReferenceAndUpdateStatus(nextRef);
+
+      setState(prevState => {
+        const newReferences = prevState.references.map(ref => 
+          ref.id === verifiedRef.id ? verifiedRef : ref
+        );
+
+        const verified = newReferences.filter(ref => ref.status === 'verified').length;
+        const issues = newReferences.filter(ref => 
+          ref.status === 'unverified' || ref.status === 'error'
+        ).length;
+        const pending = newReferences.filter(ref => ref.status === 'pending').length;
+
+        const processed = verified + issues;
+        const progress = (processed / prevState.stats.totalReferences) * 100;
+        const currentReference = Math.min(processed + 1, prevState.stats.totalReferences);
+
+        return {
+          progress,
+          currentReference,
+          stats: {
+            verified,
+            issues,
+            pending,
+            totalReferences: prevState.stats.totalReferences
+          },
+          references: newReferences
         };
+      });
+    } catch (error) {
+      console.error('Error processing reference:', error);
+    }
+  }, [state.references, onComplete]);
 
-        verifyAllReferences();
-    }, [referencesJson]); // Ensures it only reruns if referencesJson changes
-
-
-    return { verifiedReferences, loading };
+  return { 
+    state, 
+    processNextReference, 
+    completedRef 
+  };
 }

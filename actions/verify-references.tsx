@@ -1,6 +1,6 @@
 'use server'
 
-import { Reference } from "@/types/reference";
+import { Reference } from "@/types/reference"
 import { fetchGoogleSearchResults } from "@/actions/serper-API"
 import { verifyGoogleSearchResultWithLLM } from "@/actions/openAI"
 
