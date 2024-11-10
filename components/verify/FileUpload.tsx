@@ -1,18 +1,15 @@
-'use client'
+'use client';
 
 import { useState, useRef } from 'react';
-import { Upload } from "lucide-react";
-import type { FileData } from '@/types/types';
+import { Upload } from 'lucide-react';
+import type { FileData } from '@/types/reference';
 
 interface FileUploadProps {
   fileData: FileData;
   setFileData: (data: FileData) => void;
 }
 
-export function FileUpload({ 
-  fileData, 
-  setFileData 
-}: FileUploadProps) {
+export function FileUpload({ fileData, setFileData }: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,9 +17,9 @@ export function FileUpload({
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
+    if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
-    } else if (e.type === "dragleave") {
+    } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
   };
@@ -58,13 +55,13 @@ export function FileUpload({
   return (
     <div className="space-y-4">
       <div
-        className={`border-2 border-dashed rounded-[2rem] p-12 text-center transition-all duration-300 
-          ${dragActive
-            ? 'border-indigo-500 bg-indigo-900/20'
-            : 'border-gray-700 bg-gray-800/50'
+        className={`border-2 border-dashed rounded-[2rem] p-12 text-center transition-all duration-300
+          ${
+            dragActive
+              ? 'border-indigo-500 bg-indigo-900/20'
+              : 'border-gray-700 bg-gray-800/50'
           }
-          cursor-pointer`
-        }
+          cursor-pointer`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -100,12 +97,8 @@ export function FileUpload({
           </div>
         </div>
       </div>
-      
-      {error && (
-        <div className="text-red-500 text-center text-sm">
-          {error}
-        </div>
-      )}
+
+      {error && <div className="text-red-500 text-center text-sm">{error}</div>}
     </div>
   );
 }
