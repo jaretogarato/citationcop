@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import Card from '@/components/ui/Card';
 import CardContent from "@/components/ui/Card";
+import { StatsCards } from '@/components/verify/StatsCard'
 import { CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import type { Reference, ReferenceStatus, StatusColorMap, StatusTextMap } from '@/types/reference';
 
@@ -73,34 +74,43 @@ export default function DisplayReferences({ data, onComplete }: DisplayReference
     );
   }
 
+  const statsData = {
+    totalCount: data.length,
+    verified: summary.verified,
+    invalid: summary.invalid,
+    warning: summary.warning
+  };
+
   return (
     <div className="p-8">
       {/* Results Header */}
-      <div className="text-center mb-8">
+      <div className="text-center mb-12">
         <h2 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-pink-400 inline-block text-transparent bg-clip-text">
           Reference Analysis Results
         </h2>
-        <div className="text-indigo-300 mt-2 space-y-1">
-          <p>Found {data.length} references</p>
-          <p className="text-sm">
-            {summary.verified} verified · {summary.invalid} invalid · {summary.warning} need review
-          </p>
+
+        <StatsCards data={statsData} />
+
+        {/* Verify More Button */}
+        <div className="flex justify-center mt-8">
+          <button
+            onClick={onComplete}
+            className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 rounded-full text-white font-medium hover:opacity-90 transition-opacity shadow-lg"
+          >
+            Verify More Results
+          </button>
         </div>
       </div>
 
       {/* Reference Cards Grid */}
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-[1400px] mx-auto border-none">
         {data.map((reference: Reference) => (
-
-
           <Card
             key={reference.id}
             title=""
-            variant="borderless" // Add this to remove borders
+            variant="borderless"
           >
             <div className={`w-full min-w-[280px] max-w-[400px] justify-self-center bg-gradient-to-br ${getStatusColor(reference.status)} rounded-[1.5rem] overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-[1.02] transform group`}>
-
               <CardContent title={''}>
                 <div className="space-y-4">
                   {/* Status Header */}
@@ -141,7 +151,6 @@ export default function DisplayReferences({ data, onComplete }: DisplayReference
                             ))
                           : 'No authors listed'}
                       </p>
-
                     </div>
                     <div className="flex justify-between items-start text-sm">
                       <div>
@@ -166,10 +175,8 @@ export default function DisplayReferences({ data, onComplete }: DisplayReference
               </CardContent>
             </div>
           </Card>
-
-
         ))}
       </div>
-    </div >
+    </div>
   );
 }
