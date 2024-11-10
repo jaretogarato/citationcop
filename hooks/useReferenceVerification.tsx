@@ -19,19 +19,24 @@ interface VerificationState {
 
 export function useReferenceVerification(
   initialContent: string,
-  onComplete: (data: { stats: VerificationResults; references: Reference[] }) => void
+  onComplete: (data: {
+    stats: VerificationResults;
+    references: Reference[];
+  }) => void
 ) {
   const completedRef = useRef(false);
   const [state, setState] = useState<VerificationState>(() => {
     try {
       const parsedData = JSON.parse(initialContent);
       const references = parsedData.references || [];
-      
-      const initialReferences = references.map((ref: Reference, index: number) => ({
-        ...ref,
-        id: ref.id || index + 1,
-        status: 'pending' as ReferenceStatus
-      }));
+
+      const initialReferences = references.map(
+        (ref: Reference, index: number) => ({
+          ...ref,
+          id: ref.id || index + 1,
+          status: 'pending' as ReferenceStatus
+        })
+      );
 
       const totalReferences = initialReferences.length;
 
@@ -60,15 +65,18 @@ export function useReferenceVerification(
   const processNextReference = useCallback(async () => {
     if (completedRef.current) return;
 
-    const pendingRefs = state.references.filter(ref => ref.status === 'pending');
-    
+    const pendingRefs = state.references.filter(
+      (ref) => ref.status === 'pending'
+    );
+
     if (pendingRefs.length === 0 && !completedRef.current) {
       completedRef.current = true;
       onComplete({
         stats: {
-          verified: state.references.filter(ref => ref.status === 'verified').length,
-          issues: state.references.filter(ref => 
-            ref.status === 'unverified' || ref.status === 'error'
+          verified: state.references.filter((ref) => ref.status === 'verified')
+            .length,
+          issues: state.references.filter(
+            (ref) => ref.status === 'unverified' || ref.status === 'error'
           ).length,
           pending: 0,
           totalReferences: state.stats.totalReferences
@@ -82,20 +90,27 @@ export function useReferenceVerification(
       const nextRef = pendingRefs[0];
       const verifiedRef = await verifyReferenceAndUpdateStatus(nextRef);
 
-      setState(prevState => {
-        const newReferences = prevState.references.map(ref => 
+      setState((prevState) => {
+        const newReferences = prevState.references.map((ref) =>
           ref.id === verifiedRef.id ? verifiedRef : ref
         );
 
-        const verified = newReferences.filter(ref => ref.status === 'verified').length;
-        const issues = newReferences.filter(ref => 
-          ref.status === 'unverified' || ref.status === 'error'
+        const verified = newReferences.filter(
+          (ref) => ref.status === 'verified'
         ).length;
-        const pending = newReferences.filter(ref => ref.status === 'pending').length;
+        const issues = newReferences.filter(
+          (ref) => ref.status === 'unverified' || ref.status === 'error'
+        ).length;
+        const pending = newReferences.filter(
+          (ref) => ref.status === 'pending'
+        ).length;
 
         const processed = verified + issues;
         const progress = (processed / prevState.stats.totalReferences) * 100;
-        const currentReference = Math.min(processed + 1, prevState.stats.totalReferences);
+        const currentReference = Math.min(
+          processed + 1,
+          prevState.stats.totalReferences
+        );
 
         return {
           progress,
@@ -114,9 +129,9 @@ export function useReferenceVerification(
     }
   }, [state.references, onComplete]);
 
-  return { 
-    state, 
-    processNextReference, 
-    completedRef 
+  return {
+    state,
+    processNextReference,
+    completedRef
   };
 }
