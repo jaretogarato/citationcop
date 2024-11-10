@@ -2,11 +2,7 @@
 import OpenAI from "openai"
 import { NextResponse } from "next/server"
 
-//export const runtime = 'edge'
-
-export const config = {
-  runtime: "edge",
-}
+export const runtime = 'edge'
 
 const openAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
