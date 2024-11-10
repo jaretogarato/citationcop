@@ -6,7 +6,7 @@ import React, {useEffect } from 'react';
 import type { Reference } from '@/types/reference';
 import { ProgressHeader } from './ProgressHeader';
 import { useReferenceVerification } from '@/hooks/usereferenceVerification';
-//import { ProgressBar } from './ProgressBar';
+import { ProgressBar } from './ProgressBar';
 import { StatusIndicators } from './StatusIndicator';
 
 interface VerifyReferencesProps {
@@ -56,8 +56,8 @@ export default function VerifyReferences({ data, onComplete }: VerifyReferencesP
           currentReference={state.currentReference}
           totalReferences={state.stats.totalReferences}
         />
-        {/*}
-        <ProgressBar progress={state.progress} */}
+        
+        <ProgressBar onProgress={state.progress} />
         <StatusIndicators stats={state.stats} />
         
         {state.progress < 100 && (
