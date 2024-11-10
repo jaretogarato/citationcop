@@ -3,7 +3,8 @@
 
 import React from 'react'
 import VerifyController from '@/components/verify/VerifyController'
-import Card from '@/components/ui/Card'
+
+
 
 
 export default function VerifyPage(): JSX.Element {
@@ -16,12 +17,12 @@ export default function VerifyPage(): JSX.Element {
 
 
         {/* Step Container */}
-        <Card title="VerifyContainer">
+      
           <div
             className="bg-gray-800/50 backdrop-blur-sm border-indigo-500/20 rounded-[3rem] overflow-hidden shadow-2xl shadow-indigo-500/10">
             <VerifyController />
           </div>
-        </Card>
+        
       </div>
     </div>
   );

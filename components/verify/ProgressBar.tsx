@@ -16,17 +16,30 @@ const ProgressBar = React.forwardRef<HTMLDivElement, ProgressBarProps>(
       <Progress.Root
         ref={ref}
         className={cn(
-          "relative h-4 w-full overflow-hidden rounded-full bg-secondary",
+          "relative w-full h-4 overflow-hidden rounded-full bg-black/10",
+          "before:absolute before:w-full before:h-full before:bg-[length:300%_100%]",
+          "before:animate-shimmer before:bg-gradient-to-r",
+          "before:from-transparent before:via-white/10 before:to-transparent",
           className
         )}
         value={onProgress}
       >
         <Progress.Indicator
-          className="h-full w-full flex-1 bg-primary duration-300 ease-in-out"
+          className={cn(
+            "w-full h-full transition-transform duration-500 ease-out",
+            "bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500",
+            "animate-pulse"
+          )}
           style={{
-            background: indicatorColor || 'linear-gradient(to right, #6366F1, #8B5CF6, #EC4899)',
             transform: `translateX(-${100 - onProgress}%)`
           }}
+        />
+        <div 
+          className={cn(
+            "absolute inset-0 w-full h-full",
+            "bg-gradient-to-r from-black/5 to-transparent",
+            "pointer-events-none"
+          )}
         />
       </Progress.Root>
     )

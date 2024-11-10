@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import Card from "@/components/ui/Card";
+import Card from '@/components/ui/Card';
 import CardContent from "@/components/ui/Card";
 import { CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 import type { Reference, ReferenceStatus, StatusColorMap, StatusTextMap } from '@/types/reference';
@@ -89,15 +89,19 @@ export default function DisplayReferences({ data, onComplete }: DisplayReference
       </div>
 
       {/* Reference Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {data.map((reference: Reference) => (
-          <Card
-            key={reference.id}
-            title={reference.title}
 
-          >
-            <div className={`bg-gradient-to-br ${getStatusColor(reference.status)} border-none rounded-[1.5rem] overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-[1.02] transform group`}>
-              <CardContent title={reference.title}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-[1400px] mx-auto">
+        {data.map((reference: Reference) => (
+          <div className={`w-full min-w-[280px] max-w-[400px] justify-self-center bg-gradient-to-br ${getStatusColor(reference.status)} border-none rounded-[1.5rem] overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-[1.02] transform group`}>
+
+
+            <Card
+              key={reference.id}
+              title={reference.title}
+
+            >
+
+              <CardContent title={''}>
                 <div className="space-y-4">
                   {/* Status Header */}
                   <div className="flex items-center gap-2 bg-black/20 rounded-xl p-3 group-hover:bg-black/30 transition-colors">
@@ -160,10 +164,12 @@ export default function DisplayReferences({ data, onComplete }: DisplayReference
                   </div>
                 </div>
               </CardContent>
-            </div>
-          </Card>
+
+            </Card>
+          </div>
+
         ))}
       </div>
-    </div>
+    </div >
   );
 }
