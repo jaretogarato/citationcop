@@ -90,16 +90,16 @@ export default function DisplayReferences({ data, onComplete }: DisplayReference
 
       {/* Reference Cards Grid */}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-[1400px] mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-[1400px] mx-auto border-none">
         {data.map((reference: Reference) => (
-          <div className={`w-full min-w-[280px] max-w-[400px] justify-self-center bg-gradient-to-br ${getStatusColor(reference.status)} border-none rounded-[1.5rem] overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-[1.02] transform group`}>
 
 
-            <Card
-              key={reference.id}
-              title={reference.title}
-
-            >
+          <Card
+            key={reference.id}
+            title=""
+            variant="borderless" // Add this to remove borders
+          >
+            <div className={`w-full min-w-[280px] max-w-[400px] justify-self-center bg-gradient-to-br ${getStatusColor(reference.status)} rounded-[1.5rem] overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-[1.02] transform group`}>
 
               <CardContent title={''}>
                 <div className="space-y-4">
@@ -164,9 +164,9 @@ export default function DisplayReferences({ data, onComplete }: DisplayReference
                   </div>
                 </div>
               </CardContent>
+            </div>
+          </Card>
 
-            </Card>
-          </div>
 
         ))}
       </div>
