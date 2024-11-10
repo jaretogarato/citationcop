@@ -57,8 +57,8 @@ export default function VerifyReferences({ data, onComplete }: VerifyReferencesP
           totalReferences={state.stats.totalReferences}
         />
         {/*}
-        <ProgressBar progress={state.progress} />
-        <StatusIndicators stats={state.stats} />*/}
+        <ProgressBar progress={state.progress} */}
+        <StatusIndicators stats={state.stats} />
         
         {state.progress < 100 && (
           <div className="max-w-xl mx-auto">

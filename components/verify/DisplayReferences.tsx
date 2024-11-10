@@ -94,70 +94,73 @@ export default function DisplayReferences({ data, onComplete }: DisplayReference
           <Card
             key={reference.id}
             title={reference.title}
+
           >
-            <CardContent title={reference.title}>
-              <div className="space-y-4">
-                {/* Status Header */}
-                <div className="flex items-center gap-2 bg-black/20 rounded-xl p-3 group-hover:bg-black/30 transition-colors">
-                  {getStatusIcon(reference.status)}
-                  <span className="text-lg font-semibold text-white">
-                    {getStatusText(reference.status)}
-                  </span>
-                </div>
-
-                {/* Reference Details */}
-                <div className="space-y-3 bg-black/20 rounded-xl p-4 group-hover:bg-black/30 transition-colors">
-                  <div>
-                    <h3 className="text-sm font-medium text-indigo-300">Title</h3>
-                    <p className="text-white font-medium leading-tight">{reference.title}</p>
+            <div className={`bg-gradient-to-br ${getStatusColor(reference.status)} border-none rounded-[1.5rem] overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-200 hover:scale-[1.02] transform group`}>
+              <CardContent title={reference.title}>
+                <div className="space-y-4">
+                  {/* Status Header */}
+                  <div className="flex items-center gap-2 bg-black/20 rounded-xl p-3 group-hover:bg-black/30 transition-colors">
+                    {getStatusIcon(reference.status)}
+                    <span className="text-lg font-semibold text-white">
+                      {getStatusText(reference.status)}
+                    </span>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-indigo-300">Authors</h3>
-                    <p className="text-white text-sm">
-                      {Array.isArray(reference.authors) && reference.authors.length > 0
-                        ? reference.authors.length > 2
-                          ? (
-                            <>
-                              {reference.authors.slice(0, 2).map((name, index) => (
-                                <span key={index}>
-                                  {name}
-                                  {index < 1 ? ', ' : ''}
-                                </span>
-                              ))}
-                              <span>... et al.</span>
-                            </>
-                          )
-                          : reference.authors.map((name, index) => (
-                            <span key={index}>
-                              {name}
-                              {index < reference.authors.length - 1 ? ', ' : ''}
-                            </span>
-                          ))
-                        : 'No authors listed'}
-                    </p>
 
-                  </div>
-                  <div className="flex justify-between items-start text-sm">
+                  {/* Reference Details */}
+                  <div className="space-y-3 bg-black/20 rounded-xl p-4 group-hover:bg-black/30 transition-colors">
                     <div>
-                      <h3 className="text-sm font-medium text-indigo-300">Year</h3>
-                      <p className="text-white">{reference.year}</p>
+                      <h3 className="text-sm font-medium text-indigo-300">Title</h3>
+                      <p className="text-white font-medium leading-tight">{reference.title}</p>
                     </div>
-                    <div className="text-right">
-                      <h3 className="text-sm font-medium text-indigo-300">Journal</h3>
-                      <p className="text-white">{reference.journal}</p>
+                    <div>
+                      <h3 className="text-sm font-medium text-indigo-300">Authors</h3>
+                      <p className="text-white text-sm">
+                        {Array.isArray(reference.authors) && reference.authors.length > 0
+                          ? reference.authors.length > 2
+                            ? (
+                              <>
+                                {reference.authors.slice(0, 2).map((name, index) => (
+                                  <span key={index}>
+                                    {name}
+                                    {index < 1 ? ', ' : ''}
+                                  </span>
+                                ))}
+                                <span>... et al.</span>
+                              </>
+                            )
+                            : reference.authors.map((name, index) => (
+                              <span key={index}>
+                                {name}
+                                {index < reference.authors.length - 1 ? ', ' : ''}
+                              </span>
+                            ))
+                          : 'No authors listed'}
+                      </p>
+
+                    </div>
+                    <div className="flex justify-between items-start text-sm">
+                      <div>
+                        <h3 className="text-sm font-medium text-indigo-300">Year</h3>
+                        <p className="text-white">{reference.year}</p>
+                      </div>
+                      <div className="text-right">
+                        <h3 className="text-sm font-medium text-indigo-300">Journal</h3>
+                        <p className="text-white">{reference.journal}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Verification Notes */}
-                <div className="bg-black/20 rounded-xl p-4 group-hover:bg-black/30 transition-colors">
-                  <h3 className="text-sm font-medium text-indigo-300 mb-1">Verification Notes</h3>
-                  <p className="text-white text-sm leading-relaxed group-hover:line-clamp-none line-clamp-4">
-                    {reference.message}
-                  </p>
+                  {/* Verification Notes */}
+                  <div className="bg-black/20 rounded-xl p-4 group-hover:bg-black/30 transition-colors">
+                    <h3 className="text-sm font-medium text-indigo-300 mb-1">Verification Notes</h3>
+                    <p className="text-white text-sm leading-relaxed group-hover:line-clamp-none line-clamp-4">
+                      {reference.message}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
+              </CardContent>
+            </div>
           </Card>
         ))}
       </div>

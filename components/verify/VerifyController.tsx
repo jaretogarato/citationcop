@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import GetReferences from './GetReferences'
 import VerifyReferences from './VerifyReferences'
 import DisplayReferences from './DisplayReferences'
-import type { VerifyStep, Reference } from '@/types/types'
+import type { VerifyStep, Reference } from '@/types/reference'
 
 interface VerificationData {
   stats: {
