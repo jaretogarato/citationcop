@@ -5,6 +5,7 @@ import {
   getSubscription,
   getUser
 } from '@/utils/supabase/queries';
+import HomePage from '@/components/verify/HomePage';
 
 export default async function PricingPage() {
   const supabase = createClient();
@@ -15,10 +16,11 @@ export default async function PricingPage() {
   ]);
 
   return (
-    <Pricing
-      user={user}
-      products={products ?? []}
-      subscription={subscription}
-    />
+    <HomePage />
+    //<Pricing
+    //  user={user}
+    //  products={products ?? []}
+    //  subscription={subscription}
+    ///>
   );
 }
