@@ -1,6 +1,5 @@
 'use client';
 
-import Button from '@/components/ui/Button';
 import { useState } from 'react';
 import { ArrowRight, CheckCircle } from 'lucide-react';
 import { useCounter } from '@/hooks/useCounter';
@@ -44,7 +43,7 @@ export default function HomePage(): JSX.Element {
         </h1>
 
         <p className="text-xl text-indigo-300 mb-12 max-w-2xl mx-auto">
-          Fast, accurate reference validation for academic papers
+          Fast, accurate reference validation for academic writing
         </p>
 
         <div className="flex justify-center gap-6">
