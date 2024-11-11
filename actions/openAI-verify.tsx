@@ -22,12 +22,12 @@ export async function getReferences(text: string): Promise<string> {
       "pages": "page range if available",
       "conference": "conference name if applicable",
       "url": "URL if available. Do NOT create a URL if it does not exist.",
-      "date_of_access": "date of access if applicable"
+      "date_of_access": "date of access if applicable, will come after url"
     }
   ]
 }
 
-Note: do not include the title and information about this particular text in the references. Note Date of Access generally will come just after the url.
+Do not include the the article itself as a reference. 
 
 Text:
 

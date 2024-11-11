@@ -28,6 +28,7 @@ export async function parsePDF(binaryData: number[]): Promise<string> {
 }
 
 function cleanText(text: string): string {
+    // First pass: basic cleaning
     let lines = text
         .split('\n')
         .map(line => {
@@ -40,22 +41,27 @@ function cleanText(text: string): string {
                 .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
                 .trim()
         })
-        .filter(line => line.length > 1)
+        .filter(line => line.length > 30 && line.length < 500) // Minimum length for citations
+
+    // Remove common paper sections and headers
+    lines = lines.filter(line => !isBoilerplateText(line))
 
     // Keep lines that look like references
     lines = lines.filter(line => {
-        // Common patterns in references
-        const hasYear = /\b(19|20)\d{2}\b/.test(line)              // Has a year
-        const hasAuthors = /[A-Z][a-z]+,\s*[A-Z]/.test(line)      // Has names with capitals
-        const hasDOI = /doi\.org|DOI:/i.test(line)                // Has DOI
-        const hasURL = /http|www\./i.test(line)                    // Has URL
-        const hasVolume = /Vol\.|Volume/i.test(line)               // Has volume
-        const hasPages = /pp\.|pages|[\d]+[-–]\d+/.test(line)      // Has page numbers
-        const hasPublisher = /Press|Publishers|Publishing/i.test(line)
-        const hasJournal = /Journal|Proceedings|Conference|Trans\./i.test(line)
+        // Enhanced patterns for references
+        const hasYear = /\b(19|20)\d{2}\b/.test(line)
+        const hasAuthors = /([A-Z][a-z]+[\s,]+){1,}/.test(line) || // Multiple capitalized words
+                         /[A-Z][a-z]+\s+and\s+[A-Z][a-z]+/.test(line) || // Author "and" Author
+                         /[A-Z][a-z]+,\s*[A-Z]\./.test(line) // Last, F.
+        const hasDOI = /doi\.org|DOI:/i.test(line)
+        const hasURL = /http|www\./i.test(line)
+        const hasVolume = /Vol\.|Volume|\b\d+\(\d+\)/.test(line)
+        const hasPages = /pp\.|pages|[\d]+[-–]\d+/.test(line)
+        const hasPublisher = /Press|Publishers|Publishing|University/i.test(line)
+        const hasJournal = /Journal|Proceedings|Conference|Trans\.|Symposium/i.test(line)
+        const hasCitation = /^\[\d+\]/.test(line) || /\(\d{4}\)/.test(line)
         
-        // Probably a reference if it has some of these patterns
-        const likelyReference = [
+        const referenceIndicators = [
             hasYear,
             hasAuthors,
             hasDOI,
@@ -63,20 +69,47 @@ function cleanText(text: string): string {
             hasVolume,
             hasPages,
             hasPublisher,
-            hasJournal
-        ].filter(Boolean).length >= 2  // Must match at least 2 patterns
+            hasJournal,
+            hasCitation
+        ].filter(Boolean).length
 
-        // Keep shorter lines that look like references
-        return likelyReference && line.length < 500
+        // More strict requirements: must have more indicators or specific combinations
+        return (referenceIndicators >= 3) || // Must match at least 3 patterns
+               (hasAuthors && hasYear && (hasJournal || hasPublisher)) // Or must have crucial citation elements
     })
 
-    // If we have too few lines, we might have filtered too aggressively
+    // If we filtered too aggressively, try a more lenient approach
     if (lines.length < 5) {
-        // Fallback to simpler filtering
         lines = text.split('\n')
-            .filter(line => line.trim().length > 1)
-            .filter(line => /\b(19|20)\d{2}\b/.test(line)) // At least keep lines with years
+            .filter(line => line.trim().length > 30)
+            .filter(line => {
+                const hasYear = /\b(19|20)\d{2}\b/.test(line)
+                const hasAuthors = /([A-Z][a-z]+[\s,]+){1,}/.test(line)
+                return hasYear && hasAuthors
+            })
     }
 
     return lines.join('\n')
+}
+
+function isBoilerplateText(line: string): boolean {
+    const boilerplatePatterns = [
+        /^Abstract/i,
+        /^Introduction/i,
+        /^Methodology/i,
+        /^Results/i,
+        /^Discussion/i,
+        /^Conclusion/i,
+        /^References$/i,
+        /^Bibliography$/i,
+        /^Table of Contents/i,
+        /^Chapter \d+/i,
+        /^Figure \d+/i,
+        /^Appendix/i,
+        /^\d+\s+[A-Z][A-Z\s]+$/,  // Page headers
+        /^Page \d+$/i,
+        /^\d+$/  // Page numbers
+    ]
+
+    return boilerplatePatterns.some(pattern => pattern.test(line.trim()))
 }
