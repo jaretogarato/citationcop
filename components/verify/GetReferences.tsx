@@ -40,11 +40,8 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         const binaryData = Array.from(new Uint8Array(arrayBuffer))
         const extractedText = await parsePDF(binaryData)
 
-        console.log("Cleaned text from PDF:", extractedText)
-        //debugger
-
-        //processedContent = await getReferences(extractedText);
-        processedContent = await extractReferences(extractedText)
+         processedContent = await extractReferences(extractedText)
+        console.log('Processed content:', processedContent)
       }
 
       if (text.trim()) {

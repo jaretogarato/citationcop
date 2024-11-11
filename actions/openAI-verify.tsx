@@ -4,6 +4,8 @@ import OpenAI from 'openai';
 import { Reference } from '@/types/reference';
 
 export async function getReferences(text: string): Promise<string> {
+  console.log('Extracting references from text:', text);
+
   const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const prompt = `Extract the references from the following text and provide them in the following JSON format:
@@ -45,7 +47,7 @@ References (in JSON format):`;
       });
 
       let content = response.choices[0]?.message?.content;
-      //console.log("Raw Content from OpenAI:", content);
+      console.log("Raw Content from OpenAI:", content);
 
       if (!content) {
         throw new Error('No content received from LLM');
@@ -63,6 +65,8 @@ References (in JSON format):`;
         );
       }
       content = content.trim();
+      console.log("Extracted JSON Content:", content);
+      
       // Step 2: Validate JSON format using regex
       //const isValidJsonFormat = /^[\[{].*[\]}]$/.test(content);
       /*if (!isValidJsonFormat) {
