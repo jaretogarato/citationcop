@@ -167,8 +167,17 @@ export default function DisplayReferences({ data, onComplete }: DisplayReference
                   {/* Verification Notes */}
                   <div className="bg-black/20 rounded-xl p-4 group-hover:bg-black/30 transition-colors">
                     <h3 className="text-sm font-medium text-indigo-300 mb-1">Verification Notes</h3>
-                    <p className="text-white text-sm leading-relaxed group-hover:line-clamp-none line-clamp-4">
-                      {reference.message}
+                    <p className="text-white text-sm leading-relaxed group-hover:line-clamp-none line-clamp-4 whitespace-pre-wrap">
+                      {reference.message?.split(' ').map((word, index) => {
+                      const urlPattern = /https?:\/\/[^\s]+/;
+                      return urlPattern.test(word) ? (
+                        <a key={index} href={word} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">
+                          {word.length > 40 ? `${word.slice(0, 40)}...` : word}
+                        </a>
+                      ) : (
+                        <span key={index}>{word} </span>
+                      );
+                      })}
                     </p>
                   </div>
                 </div>
