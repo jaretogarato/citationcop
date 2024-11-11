@@ -36,9 +36,13 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
       // Process based on which input has content
       if (fileData.file) {
         // Process PDF file
-        const arrayBuffer = await fileData.file.arrayBuffer();
-        const binaryData = Array.from(new Uint8Array(arrayBuffer));
-        const extractedText = await parsePDF(binaryData);
+        const arrayBuffer = await fileData.file.arrayBuffer()
+        const binaryData = Array.from(new Uint8Array(arrayBuffer))
+        const extractedText = await parsePDF(binaryData)
+
+        console.log("Cleaned text from PDF:", extractedText)
+        //debugger
+
         //processedContent = await getReferences(extractedText);
         processedContent = await extractReferences(extractedText)
       }
