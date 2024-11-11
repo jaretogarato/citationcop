@@ -1,7 +1,8 @@
 import Link from 'next/link';
-
-import Logo from '@/components/icons/Logo';
+import Image from 'next/image';
+//import Logo from '@/components/icons/Logo';
 import GitHub from '@/components/icons/GitHub';
+//import s from '../Navbar/Navbar.module.css';
 
 export default function Footer() {
   return (
@@ -10,13 +11,28 @@ export default function Footer() {
         <div className="col-span-1 lg:col-span-2">
           <Link
             href="/"
+            className="flex flex-col items-center justify-center space-y-2 text-center"
+            aria-label="Logo"
+          >
+            {/* Import and scale the new logo */}
+            <Image
+              src="/source-verify-logo-d.png" // Replace with your actual logo path
+              alt="SourceVerify Logo"
+              width={50} // Adjust the width
+              height={50} // Adjust the height to keep aspect ratio
+              priority // Optimizes loading for the logo
+            />
+            SourceVerify™
+          </Link>
+          {/*<Link
+            href="/"
             className="flex items-center flex-initial font-bold md:mr-24"
           >
             <span className="mr-2 border rounded-full border-zinc-700">
               <Logo />
             </span>
             <span>ACME</span>
-          </Link>
+          </Link>*/}
         </div>
         <div className="col-span-1 lg:col-span-2">
           <ul className="flex flex-col flex-initial md:flex-1">
@@ -33,7 +49,15 @@ export default function Footer() {
                 href="/"
                 className="text-white transition duration-150 ease-in-out hover:text-zinc-200"
               >
-                About
+                Pricing
+              </Link>
+            </li>
+            <li className="py-3 md:py-0 md:pb-4">
+              <Link
+                href="/verify"
+                className="text-white transition duration-150 ease-in-out hover:text-zinc-200"
+              >
+                Give it a go
               </Link>
             </li>
             <li className="py-3 md:py-0 md:pb-4">
@@ -41,15 +65,7 @@ export default function Footer() {
                 href="/"
                 className="text-white transition duration-150 ease-in-out hover:text-zinc-200"
               >
-                Careers
-              </Link>
-            </li>
-            <li className="py-3 md:py-0 md:pb-4">
-              <Link
-                href="/"
-                className="text-white transition duration-150 ease-in-out hover:text-zinc-200"
-              >
-                Blog
+                Account
               </Link>
             </li>
           </ul>
@@ -80,31 +96,31 @@ export default function Footer() {
           </ul>
         </div>
         <div className="flex items-start col-span-1 text-white lg:col-span-6 lg:justify-end">
-          <div className="flex items-center h-10 space-x-6">
+          {/*<div className="flex items-center h-10 space-x-6">
             <a
               aria-label="Github Repository"
               href="https://github.com/vercel/nextjs-subscription-payments"
             >
               <GitHub />
             </a>
-          </div>
+          </div>*/}
         </div>
       </div>
       <div className="flex flex-col items-center justify-between py-12 space-y-4 md:flex-row bg-zinc-900">
         <div>
           <span>
-            &copy; {new Date().getFullYear()} ACME, Inc. All rights reserved.
+            &copy; {new Date().getFullYear()} SourceVerify. All rights reserved.
           </span>
         </div>
         <div className="flex items-center">
-          <span className="text-white">Crafted by</span>
+          {/*<span className="text-white">Crafted by</span>
           <a href="https://vercel.com" aria-label="Vercel.com Link">
             <img
               src="/vercel.svg"
               alt="Vercel.com Logo"
               className="inline-block h-6 ml-4 text-white"
             />
-          </a>
+          </a>*/}
         </div>
       </div>
     </footer>
