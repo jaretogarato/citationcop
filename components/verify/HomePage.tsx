@@ -1,32 +1,37 @@
-'use client'
+'use client';
 
-import Button from "@/components/ui/Button"
-import { ArrowRight, CheckCircle } from "lucide-react"
-import { useCounter } from "@/hooks/useCounter"
-import { useRouter } from "next/navigation"
-
-
+import Button from '@/components/ui/Button';
+import { useState } from 'react';
+import { ArrowRight, CheckCircle } from 'lucide-react';
+import { useCounter } from '@/hooks/useCounter';
+import { useRouter } from 'next/navigation';
 
 // Define types for number formatting
 type FormatNumberFunc = (num: number) => string;
 
 export default function HomePage(): JSX.Element {
-  const router = useRouter()
-  const refsVerified = useCounter({ end: 152847 })
-  const phonyRefs = useCounter({ end: 23492 })
-  const minutesSaved = useCounter({ end: 45981 })
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const refsVerified = useCounter({ end: 152847 });
+  const phonyRefs = useCounter({ end: 23492 });
+  const minutesSaved = useCounter({ end: 45981 });
 
   const formatNumber: FormatNumberFunc = (num) => {
-    return new Intl.NumberFormat('en-US').format(num)
-  }
+    return new Intl.NumberFormat('en-US').format(num);
+  };
 
   const handleSignUp = () => {
     router.push('/signup');
-  }
+  };
 
   const handleLogin = () => {
-    router.push('/verify')
-  }
+    router.push('/verify');
+  };
+
+  const handleLoading = (url: string) => {
+    setIsLoading(true);
+    router.push(url);
+  };
 
   return (
     <div>
@@ -34,31 +39,45 @@ export default function HomePage(): JSX.Element {
       <main className="max-w-4xl mx-auto px-8 pt-24 pb-16 text-center">
         <h1 className="text-5xl md:text-6xl font-bold mb-6">
           <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 inline-block text-transparent bg-clip-text">
-            Validate Your References
+            SourceVerify
           </span>
         </h1>
 
         <p className="text-xl text-indigo-300 mb-12 max-w-2xl mx-auto">
-          Fast, accurate reference checking for academic papers
+          Fast, accurate reference validation for academic papers
         </p>
 
         <div className="flex justify-center gap-6">
-          <a
+          {/*<a
             className="relative px-8 py-6 text-lg font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl shadow-lg shadow-indigo-500/20 transform hover:scale-105 transition-all duration-200 group"
+            href="/verify"
           >
             <span className="flex items-center gap-2">
-              Sign Up
+              Give it a go
               <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
             </span>
-
-          </a>
-
-          <Button
-           
-            className="relative px-8 py-6 text-lg font-semibold text-indigo-300 hover:text-white border-indigo-500/30 hover:bg-indigo-600/20 rounded-xl transform hover:scale-105 transition-all duration-200"
+          </a> */}
+          <button
+            className={`relative px-8 py-6 text-lg font-semibold rounded-xl shadow-lg shadow-indigo-500/20 transform transition-all duration-200 group ${
+              isLoading
+                ? 'bg-gray-500 cursor-not-allowed'
+                : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white'
+            }`}
+            onClick={() => handleLoading('/verify')}
+            disabled={isLoading}
           >
-            Give it a go
-          </Button>
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <span className="w-5 h-5 border-2 border-t-2 border-t-white border-indigo-300 rounded-full animate-spin"></span>
+                Loading...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                Give it a go
+                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Stats Section */}
@@ -106,7 +125,9 @@ export default function HomePage(): JSX.Element {
               <CheckCircle className="w-6 h-6 text-pink-400" />
             </div>
             <h3 className="text-white font-semibold mb-2">Detailed Reports</h3>
-            <p className="text-indigo-300">Comprehensive analysis for each reference</p>
+            <p className="text-indigo-300">
+              Comprehensive analysis for each reference
+            </p>
           </div>
         </div>
       </main>
