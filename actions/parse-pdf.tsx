@@ -13,7 +13,7 @@ export async function parsePDF(binaryData: number[]): Promise<string> {
 
             extractedText = cleanText(extractedText)
             
-            console.log("Cleaned text from PDF:", extractedText)
+            //console.log("Cleaned text from PDF:", extractedText)
             resolve(extractedText)
         })
 

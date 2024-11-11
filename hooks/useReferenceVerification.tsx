@@ -15,7 +15,7 @@ interface VerificationState {
   currentReference: number;
   stats: VerificationResults;
   references: Reference[];
-  articleTitle: string; // Add this
+  
 }
 
 
@@ -25,7 +25,6 @@ export function useReferenceVerification(
   onComplete: (data: {
     stats: VerificationResults;
     references: Reference[];
-    articleTitle: string; // Add this
   }) => void
 ) {
   const completedRef = useRef(false);

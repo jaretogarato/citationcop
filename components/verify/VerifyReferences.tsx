@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-//import { Progress } from "@/components/ui/progress";
-//import { CheckCircle, AlertCircle, Clock } from "lucide-react";
+
 import type { Reference } from '@/types/reference';
 import { ProgressHeader } from './ProgressHeader';
 import { useReferenceVerification } from '@/hooks/useReferenceVerification';
