@@ -75,6 +75,7 @@ async function verifyURL(reference: Reference): Promise<{ isValid: boolean, mess
     }
 }
 
+// ** NEED TO ADD MATCH CHECK FOR THE TITLE JUST BECAUSE IT RECEIVES THE RESULTS ISN"T SUFFICIENT
 // Verification using OpenAlex API
 async function verifyOpenAlex(reference: Reference): Promise<{ isValid: boolean, message: string }> {
     if (!reference.title) return { isValid: false, message: "No title provided for OpenAlex search." };
@@ -82,6 +83,11 @@ async function verifyOpenAlex(reference: Reference): Promise<{ isValid: boolean,
         const titleQuery = encodeURIComponent(reference.title);
         const openAlexResponse = await fetch(`https://api.openalex.org/works?filter=title.search:${titleQuery}`);
         const openAlexData = await openAlexResponse.json();
+        
+        // check that there is a match of the titles
+        //TODO: check if the title is in the results
+        
+        
         if (openAlexData.results && openAlexData.results.length > 0) {
             return { isValid: true, message: "Verified via OpenAlex." };
         }

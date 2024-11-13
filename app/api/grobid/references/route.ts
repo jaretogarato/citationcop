@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { XMLParser } from 'fast-xml-parser';
 import { Reference, ReferenceType } from '@/types/reference';
 
-export const config = {
-  runtime: 'edge'
-};
+export const runtime = 'edge';
 
 // Configuration with environment variable
 const GROBID_HOST = process.env.GROBID_HOST;
