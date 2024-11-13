@@ -5,8 +5,13 @@ import { TabSelector } from './TabSelector';
 import { FileUpload } from './FileUpload';
 import { TextInput } from './TextInput';
 import { SubmitButton } from './SubmitButton';
-import { parsePDF } from '@/actions/parse-pdf';
-//import { getReferences } from '@/actions/openAI-verify';
+//import { parsePDF } from '@/actions/parse-pdf';
+import type { Reference } from '@/types/reference';
+
+interface ExtractResponse {
+  references: Reference[];
+  error?: string;
+}
 
 export interface FileData {
   file: File | null;
@@ -33,37 +38,63 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
     try {
       let processedContent: string = '';
 
-      // Process based on which input has content
+      // Process PDF file if present
       if (fileData.file) {
-        // Process PDF file
-        const arrayBuffer = await fileData.file.arrayBuffer()
-        const binaryData = Array.from(new Uint8Array(arrayBuffer))
-        const extractedText = await parsePDF(binaryData)
+        try {
+          const formData = new FormData();
+          formData.append('file', fileData.file);
 
-         processedContent = await extractReferences(extractedText)
-        console.log('Processed content:', processedContent)
+          const response = await fetch('/api/grobid/references', {
+            method: 'POST',
+            body: formData
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data: ExtractResponse = await response.json();
+
+          if (data.error) {
+            throw new Error(data.error);
+          }
+
+          // Convert references array to string to match existing interface
+          processedContent = JSON.stringify(data.references);
+          console.log('Extracted references:', data.references);
+
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to process PDF');
+          throw err; // Re-throw to prevent onComplete from being called
+        }
       }
 
+      // Process text input if present
       if (text.trim()) {
-        // If there's also text input, process and combine with file references
-        //const textReferences = await getReferences(text);
-        const textReferences = await extractReferences(text)
-        processedContent = fileData.file ?
-          `${processedContent}\n${textReferences}` :
-          textReferences;
+        try {
+          const textReferences = await extractReferences(text);
+          processedContent = fileData.file ?
+            `${processedContent}\n${textReferences}` :
+            textReferences
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to process text')
+          throw err
+        }
       }
 
+      // Call onComplete with processed content
       onComplete({
         type: 'text',
         content: processedContent
-      });
+      })
+
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      console.error('Processing error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      console.error('Processing error:', err)
     } finally {
-      setIsProcessing(false);
+      setIsProcessing(false)
     }
-  };
+  }
 
   // Enable submit if either input has content
   const hasContent = fileData.file !== null || text.trim().length > 0;
@@ -133,7 +164,7 @@ const extractReferences = async (text: string): Promise<string> => {
     }
 
     const data = await response.json()
-    
+
     // Ensure the response has the correct structure
     if (!data.references || !Array.isArray(data.references)) {
       throw new Error('Invalid response structure')

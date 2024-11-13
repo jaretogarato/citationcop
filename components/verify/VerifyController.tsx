@@ -16,6 +16,11 @@ interface VerificationData {
   references: Reference[]
 }
 
+interface VerifyControllerProps {
+  currentStep: VerifyStep
+  onStepComplete: (step: VerifyStep, data?: any) => void
+}
+
 export default function VerifyController(): JSX.Element {
   const [currentStep, setCurrentStep] = useState<VerifyStep>('get')
   const [referenceData, setReferenceData] = useState<any>(null)
