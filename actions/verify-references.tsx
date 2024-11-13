@@ -27,7 +27,7 @@ export async function verifyReference(reference: Reference): Promise<{ isValid: 
     if (openLibraryResult.isValid) return openLibraryResult;
 
     // 6. Fallback: Verify via Google Search
-    const googleSearchResult = await verifyGoogleSearch(reference);
+    const googleSearchResult = await verifyGoogleSearch(reference)
     if (googleSearchResult.isValid) {
         // Call LLM-based analysis for deeper verification on Google search results
         const llmResult = await verifyGoogleSearchResultWithLLM(reference, googleSearchResult.message);
