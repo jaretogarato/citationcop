@@ -63,28 +63,28 @@ export function useReferenceVerification(
 
   const processingRef = useRef(false);
 
+
   const processNextReference = useCallback(async () => {
     if (completedRef.current || processingRef.current) return;
 
     processingRef.current = true;
-    const pendingRefs = state.references.filter((ref) => ref.status === 'pending');
-
-    if (pendingRefs.length === 0) {
-      completedRef.current = true;
-      onComplete({
-        stats: {
-          verified: state.references.filter((ref) => ref.status === 'verified').length,
-          issues: state.references.filter((ref) => ref.status === 'unverified' || ref.status === 'error').length,
-          pending: 0,
-          totalReferences: state.stats.totalReferences,
-        },
-        references: state.references,
-      });
-      processingRef.current = false;
-      return;
-    }
-
     try {
+      const pendingRefs = state.references.filter((ref) => ref.status === 'pending');
+
+      if (pendingRefs.length === 0) {
+        completedRef.current = true;
+        onComplete({
+          stats: {
+            verified: state.references.filter((ref) => ref.status === 'verified').length,
+            issues: state.references.filter((ref) => ref.status === 'unverified' || ref.status === 'error').length,
+            pending: 0,
+            totalReferences: state.stats.totalReferences,
+          },
+          references: state.references,
+        });
+        return;
+      }
+
       const nextRef = pendingRefs[0];
       const verifiedRef = await verifyReferenceAndUpdateStatus(nextRef);
 

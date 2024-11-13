@@ -38,6 +38,7 @@ export type ReferenceType =
   | 'webpage'    // Web content
 
 export interface Reference {
+  date_of_access: any;
   // Core fields
   id: number
   type?: ReferenceType
