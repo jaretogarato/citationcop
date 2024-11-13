@@ -47,15 +47,7 @@ export default function HomePage(): JSX.Element {
         </p>
 
         <div className="flex justify-center gap-6">
-          {/*<a
-            className="relative px-8 py-6 text-lg font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl shadow-lg shadow-indigo-500/20 transform hover:scale-105 transition-all duration-200 group"
-            href="/verify"
-          >
-            <span className="flex items-center gap-2">
-              Give it a go
-              <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-            </span>
-          </a> */}
+         
           <button
             className={`relative px-8 py-6 text-lg font-semibold rounded-xl shadow-lg shadow-indigo-500/20 transform transition-all duration-200 group ${
               isLoading

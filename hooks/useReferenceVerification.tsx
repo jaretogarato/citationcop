@@ -15,13 +15,11 @@ interface VerificationState {
   currentReference: number;
   stats: VerificationResults;
   references: Reference[];
-  
+
 }
 
-
-
 export function useReferenceVerification(
-  initialContent: string,
+  initialContent: Reference[],  // Change type from string to Reference[]
   onComplete: (data: {
     stats: VerificationResults;
     references: Reference[];
@@ -30,10 +28,8 @@ export function useReferenceVerification(
   const completedRef = useRef(false);
   const [state, setState] = useState<VerificationState>(() => {
     try {
-      const parsedData = JSON.parse(initialContent);
-      const references = parsedData.references || [];
-
-      const initialReferences = references.map(
+      // No need to parse, initialContent is already Reference[]
+      const initialReferences = initialContent.map(
         (ref: Reference, index: number) => ({
           ...ref,
           id: ref.id || index + 1,
@@ -63,33 +59,32 @@ export function useReferenceVerification(
         references: []
       };
     }
-  });
+  })
+
+  const processingRef = useRef(false);
+
 
   const processNextReference = useCallback(async () => {
-    if (completedRef.current) return;
+    if (completedRef.current || processingRef.current) return;
 
-    const pendingRefs = state.references.filter(
-      (ref) => ref.status === 'pending'
-    );
-
-    if (pendingRefs.length === 0 && !completedRef.current) {
-      completedRef.current = true;
-      onComplete({
-        stats: {
-          verified: state.references.filter((ref) => ref.status === 'verified')
-            .length,
-          issues: state.references.filter(
-            (ref) => ref.status === 'unverified' || ref.status === 'error'
-          ).length,
-          pending: 0,
-          totalReferences: state.stats.totalReferences
-        },
-        references: state.references
-      });
-      return;
-    }
-
+    processingRef.current = true;
     try {
+      const pendingRefs = state.references.filter((ref) => ref.status === 'pending');
+
+      if (pendingRefs.length === 0) {
+        completedRef.current = true;
+        onComplete({
+          stats: {
+            verified: state.references.filter((ref) => ref.status === 'verified').length,
+            issues: state.references.filter((ref) => ref.status === 'unverified' || ref.status === 'error').length,
+            pending: 0,
+            totalReferences: state.stats.totalReferences,
+          },
+          references: state.references,
+        });
+        return;
+      }
+
       const nextRef = pendingRefs[0];
       const verifiedRef = await verifyReferenceAndUpdateStatus(nextRef);
 
@@ -98,22 +93,13 @@ export function useReferenceVerification(
           ref.id === verifiedRef.id ? verifiedRef : ref
         );
 
-        const verified = newReferences.filter(
-          (ref) => ref.status === 'verified'
-        ).length;
-        const issues = newReferences.filter(
-          (ref) => ref.status === 'unverified' || ref.status === 'error'
-        ).length;
-        const pending = newReferences.filter(
-          (ref) => ref.status === 'pending'
-        ).length;
+        const verified = newReferences.filter((ref) => ref.status === 'verified').length;
+        const issues = newReferences.filter((ref) => ref.status === 'unverified' || ref.status === 'error').length;
+        const pending = newReferences.filter((ref) => ref.status === 'pending').length;
 
         const processed = verified + issues;
         const progress = (processed / prevState.stats.totalReferences) * 100;
-        const currentReference = Math.min(
-          processed + 1,
-          prevState.stats.totalReferences
-        );
+        const currentReference = Math.min(processed + 1, prevState.stats.totalReferences);
 
         return {
           progress,
@@ -122,13 +108,15 @@ export function useReferenceVerification(
             verified,
             issues,
             pending,
-            totalReferences: prevState.stats.totalReferences
+            totalReferences: prevState.stats.totalReferences,
           },
-          references: newReferences
+          references: newReferences,
         };
       });
     } catch (error) {
       console.error('Error processing reference:', error);
+    } finally {
+      processingRef.current = false;
     }
   }, [state.references, onComplete]);
 

@@ -16,6 +16,11 @@ interface VerificationData {
   references: Reference[]
 }
 
+interface VerifyControllerProps {
+  currentStep: VerifyStep
+  onStepComplete: (step: VerifyStep, data?: any) => void
+}
+
 export default function VerifyController(): JSX.Element {
   const [currentStep, setCurrentStep] = useState<VerifyStep>('get')
   const [referenceData, setReferenceData] = useState<any>(null)
@@ -23,13 +28,22 @@ export default function VerifyController(): JSX.Element {
 
   const handleStepComplete = (step: VerifyStep, data?: any) => {
     console.log(`Step ${step} completed with data:`, data);
-    
+
     switch (step) {
       case 'get':
-        setReferenceData(data)
-        console.log("Initial reference data:", data)
-        setCurrentStep('verify')
-        break
+        try {
+          // data.content is already a string of references
+          const references = JSON.parse(data.content);
+          setReferenceData({
+            type: data.type,
+            content: references as Reference[]
+          });
+          console.log("Initial reference data:", references);
+          setCurrentStep('verify');
+        } catch (error) {
+          console.error("Error parsing reference data:", error);
+        }
+        break;
       case 'verify':
         const verificationData = data as VerificationData;
         console.log("Verification completed with data:", verificationData);
@@ -52,15 +66,16 @@ export default function VerifyController(): JSX.Element {
         <GetReferences onComplete={(data) => handleStepComplete('get', data)} />
       )}
       {currentStep === 'verify' && referenceData && (
-        <VerifyReferences 
-          data={referenceData} 
-          onComplete={(data) => handleStepComplete('verify', data)} 
+        console.log("Reference data going into VERIFY", referenceData),
+        <VerifyReferences
+          data={referenceData}
+          onComplete={(data) => handleStepComplete('verify', data)}
         />
       )}
       {currentStep === 'display' && verifiedReferences && (
-        <DisplayReferences 
-          data={verifiedReferences} 
-          onComplete={() => handleStepComplete('display')} 
+        <DisplayReferences
+          data={verifiedReferences}
+          onComplete={() => handleStepComplete('display')}
         />
       )}
     </>
