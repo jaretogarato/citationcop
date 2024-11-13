@@ -34,6 +34,9 @@ export default function VerifyReferences({
     useReferenceVerification(data.content, onComplete)
 
 
+
+
+
   useEffect(() => {
     console.log('Progress:', state.progress);
 
@@ -41,23 +44,20 @@ export default function VerifyReferences({
       console.log('Calling onComplete from useEffect');
       onComplete({
         stats: state.stats,
-        references: state.references
+        references: state.references,
       });
+      completedRef.current = true; // Mark completion
     } else if (state.progress < 100) {
       processNextReference();
     }
 
+    // Remove cleanup or modify its behavior appropriately
     return () => {
-      completedRef.current = false;
+      // completedRef.current = false; <-- Avoid resetting
     };
-  }, [
-    state.progress,
-    state.stats,
-    state.references,
-    processNextReference,
-    completedRef,
-    onComplete
-  ]);
+  }, [state.progress, processNextReference, onComplete]);
+
+
 
   return (
     <div className="p-16">

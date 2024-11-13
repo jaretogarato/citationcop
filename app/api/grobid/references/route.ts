@@ -58,21 +58,36 @@ function parseReferences(xml: string): Reference[] {
     const monogr = ref.monogr || {};
     const imprint = monogr.imprint || {};
 
+    // Determine the reference type based on titles and levels
+    let type: ReferenceType = 'article';
+    if (monogr.title?.['@_level'] === 'm' && !analytic.title) {
+      // If only monograph title exists with level 'm', it's likely a book or report
+      type = 'book'; // or could be 'report' based on other indicators
+    } else if (monogr.title?.['@_level'] === 'j') {
+      type = 'article';
+    } else if (ref['@_type']) {
+      type = ref['@_type'] as ReferenceType;
+    }
+
     // Get all identifiers
     const identifiers = ref.idno || [];
     const idArray = Array.isArray(identifiers) ? identifiers : [identifiers];
 
     // Handle authors correctly
-    const analyticAuthors = analytic.author 
-      ? (Array.isArray(analytic.author) ? analytic.author : [analytic.author])
+    const analyticAuthors = analytic.author
+      ? Array.isArray(analytic.author)
+        ? analytic.author
+        : [analytic.author]
       : [];
-    const monogrAuthors = monogr.author 
-      ? (Array.isArray(monogr.author) ? monogr.author : [monogr.author])
+    const monogrAuthors = monogr.author
+      ? Array.isArray(monogr.author)
+        ? monogr.author
+        : [monogr.author]
       : [];
 
     const authorList = [...analyticAuthors, ...monogrAuthors]
       .filter((author): author is NonNullable<typeof author> => author != null)
-      .map(author => {
+      .map((author) => {
         try {
           if (!author?.persName) return null;
           // Handle both single and multiple forenames
@@ -87,7 +102,8 @@ function parseReferences(xml: string): Reference[] {
               firstName = author.persName.forename['#text'] || '';
             }
           }
-          const surname = author.persName.surname?.['#text'] || author.persName.surname || '';
+          const surname =
+            author.persName.surname?.['#text'] || author.persName.surname || '';
           const fullName = `${firstName} ${surname}`.trim();
           return fullName || null;
         } catch (error) {
@@ -103,11 +119,13 @@ function parseReferences(xml: string): Reference[] {
     // Better handling of page ranges
     let pages = null;
     if (imprint.biblScope) {
-      const scopeArray = Array.isArray(imprint.biblScope) 
-        ? imprint.biblScope 
+      const scopeArray = Array.isArray(imprint.biblScope)
+        ? imprint.biblScope
         : [imprint.biblScope];
-      
-      const pageScope = scopeArray.find((scope: any) => scope['@_unit'] === 'page');
+
+      const pageScope = scopeArray.find(
+        (scope: any) => scope['@_unit'] === 'page'
+      );
       if (pageScope) {
         if (pageScope['@_from'] && pageScope['@_to']) {
           pages = `${pageScope['@_from']}-${pageScope['@_to']}`;
@@ -118,32 +136,55 @@ function parseReferences(xml: string): Reference[] {
     }
 
     // Get volume from biblScope
-    const volume = Array.isArray(imprint.biblScope) 
-      ? imprint.biblScope.find((scope: any) => scope['@_unit'] === 'volume')?.['#text']
-      : imprint.biblScope?.['@_unit'] === 'volume' ? imprint.biblScope['#text'] : null;
+    const volume = Array.isArray(imprint.biblScope)
+      ? imprint.biblScope.find((scope: any) => scope['@_unit'] === 'volume')?.[
+          '#text'
+        ]
+      : imprint.biblScope?.['@_unit'] === 'volume'
+        ? imprint.biblScope['#text']
+        : null;
 
     // Handle year with fallback
-    const year = imprint.date?.['@_when'] || 
-                 imprint.date?.['#text']?.toString() || 
-                 null;
+    const year =
+      imprint.date?.['@_when'] || imprint.date?.['#text']?.toString() || null;
+
+    let journal: string | null = null;
+    if (type === 'article' && monogr.title?.['@_level'] === 'j') {
+      journal = monogr.title['#text'] || null;
+    }
+
+    const title = analytic.title?.['#text'] || monogr.title?.['#text'] || '';
+
+    if (
+      ref.note?.['@_type'] === 'report_type' ||
+      title.toLowerCase().includes('report') ||
+      monogr.ptr?.['@_target']?.includes('blog') ||
+      monogr.ptr?.['@_target']?.includes('news')
+    ) {
+      type = 'report';
+    }
 
     return {
       id: Date.now() + index,
       authors: authorList,
-      type: (ref['@_type'] as ReferenceType) || 'article',
-      title: analytic.title?.['#text'] || monogr.title?.['#text'] || '',
+      type,
+      title,
       year,
       DOI: extractIdentifier(idArray, 'DOI'),
       url,
-      journal: monogr.title?.['#text'] || null,
+      journal,
       volume,
-      issue: imprint.biblScope?.['@_unit'] === 'issue' ? imprint.biblScope['#text'] : null,
+      issue:
+        imprint.biblScope?.['@_unit'] === 'issue'
+          ? imprint.biblScope['#text']
+          : null,
       pages,
       publisher: imprint.publisher?.['#text'] || null,
       arxivId: extractIdentifier(idArray, 'arXiv'),
       PMID: extractIdentifier(idArray, 'PMID'),
       ISBN: extractIdentifier(idArray, 'ISBN'),
-      conference: ref['@_type'] === 'inproceedings' ? monogr.title?.['#text'] : null,
+      conference:
+        ref['@_type'] === 'inproceedings' ? monogr.title?.['#text'] : null,
       status: 'pending',
       date_of_access: null
     };
