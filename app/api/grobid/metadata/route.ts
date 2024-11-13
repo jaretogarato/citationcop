@@ -3,9 +3,7 @@ import { XMLParser } from 'fast-xml-parser';
 
 import { Author, DocumentMetadata, MetadataResponse } from '@/types/reference';
 
-export const config = {
-  runtime: 'edge'
-};
+export const runtime = "edge"
 
 const GROBID_HOST = process.env.GROBID_HOST || 'http://localhost:8070';
 
