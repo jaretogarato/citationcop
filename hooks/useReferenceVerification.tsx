@@ -15,7 +15,10 @@ interface VerificationState {
   currentReference: number;
   stats: VerificationResults;
   references: Reference[];
+  
 }
+
+
 
 export function useReferenceVerification(
   initialContent: string,

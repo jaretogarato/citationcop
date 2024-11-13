@@ -45,7 +45,6 @@ export default function VerifyController(): JSX.Element {
   }
 
   console.log("Current step:", currentStep);
-  console.log("Verified references for display:", verifiedReferences);
 
   return (
     <>
