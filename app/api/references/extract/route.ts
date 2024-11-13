@@ -12,7 +12,7 @@ const openAI = new OpenAI({
 
 export async function POST(request: Request) {
   try {
-    console.log('Extracting references request received:', request);
+    console.log('*** Extracting references request received. In edge Function *** ');
     const { text } = await request.json();
 
     if (!text) {
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     const prompt = `Extract the references from the following text and provide them in the following JSON format:
 
 {
+  "article_title": "title of the article",
   "references": [
     {
       "authors": ["author name 1", "author name 2"],
@@ -35,12 +36,13 @@ export async function POST(request: Request) {
       "pages": "page range if available",
       "conference": "conference name if applicable",
       "url": "URL if available. Do NOT create a URL if it does not exist.",
-      "date_of_access": "date of access if applicable"
+      "url": "URL if available. Do NOT create a URL if it does not exist.",
+      "date_of_access": "date of access if applicable, will come after url"
     }
   ]
 }
 
-Note: do not include the title and information about this particular text in the references. Note Date of Access generally will come just after the url.
+Do not include the the article itself as a reference. 
 
 Text:
 
@@ -84,7 +86,7 @@ References (in JSON format):`;
         { status: 500 }
       );
     }
-
+    console.log('*** Extracted content :', parsedContent);
     return NextResponse.json(parsedContent);
   } catch (error) {
     console.error('Error in reference extraction:', error);
