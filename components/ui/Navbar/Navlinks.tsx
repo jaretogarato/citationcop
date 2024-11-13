@@ -21,7 +21,7 @@ export default function Navlinks({ user }: NavlinksProps) {
         <Link href="/" className={s.logo} aria-label="Logo">
           {/* Import and scale the new logo */}
           <Image
-            src="/source-verify-logo-d.png" // Replace with your actual logo path
+            src="/source-verify-logo-d.png" 
             alt="SourceVerify Logo"
             width={70} // Adjust the width
             height={70} // Adjust the height to keep aspect ratio

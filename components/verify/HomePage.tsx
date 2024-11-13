@@ -1,6 +1,5 @@
 'use client';
 
-import Button from '@/components/ui/Button';
 import { useState } from 'react';
 import { ArrowRight, CheckCircle } from 'lucide-react';
 import { useCounter } from '@/hooks/useCounter';
@@ -44,19 +43,11 @@ export default function HomePage(): JSX.Element {
         </h1>
 
         <p className="text-xl text-indigo-300 mb-12 max-w-2xl mx-auto">
-          Fast, accurate reference validation for academic papers
+          Fast, accurate reference validation for academic writing
         </p>
 
         <div className="flex justify-center gap-6">
-          {/*<a
-            className="relative px-8 py-6 text-lg font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl shadow-lg shadow-indigo-500/20 transform hover:scale-105 transition-all duration-200 group"
-            href="/verify"
-          >
-            <span className="flex items-center gap-2">
-              Give it a go
-              <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-            </span>
-          </a> */}
+         
           <button
             className={`relative px-8 py-6 text-lg font-semibold rounded-xl shadow-lg shadow-indigo-500/20 transform transition-all duration-200 group ${
               isLoading
@@ -110,23 +101,23 @@ export default function HomePage(): JSX.Element {
             <div className="bg-indigo-500/10 p-3 rounded-full mb-4">
               <CheckCircle className="w-6 h-6 text-indigo-400" />
             </div>
-            <h3 className="text-white font-semibold mb-2">Fast Results</h3>
-            <p className="text-indigo-300">Check your references in seconds</p>
+            <h3 className="text-white font-semibold mb-2">Fast</h3>
+            <p className="text-indigo-300">Verifies references in seconds</p>
           </div>
           <div className="flex flex-col items-center">
             <div className="bg-purple-500/10 p-3 rounded-full mb-4">
               <CheckCircle className="w-6 h-6 text-purple-400" />
             </div>
-            <h3 className="text-white font-semibold mb-2">Comprehensive</h3>
-            <p className="text-indigo-300">Advanced verification system</p>
+            <h3 className="text-white font-semibold mb-2">Accurate</h3>
+            <p className="text-indigo-300">AI enabled with an explanation of its reasoning</p>
           </div>
           <div className="flex flex-col items-center">
             <div className="bg-pink-500/10 p-3 rounded-full mb-4">
               <CheckCircle className="w-6 h-6 text-pink-400" />
             </div>
-            <h3 className="text-white font-semibold mb-2">Detailed Reports</h3>
+            <h3 className="text-white font-semibold mb-2">Saves Time</h3>
             <p className="text-indigo-300">
-              Comprehensive analysis for each reference
+              It does the boring work so you can focus on the important stuff
             </p>
           </div>
         </div>
