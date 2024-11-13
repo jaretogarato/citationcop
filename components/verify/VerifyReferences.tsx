@@ -11,7 +11,7 @@ import { StatusIndicators } from './StatusIndicator';
 interface VerifyReferencesProps {
   data: {
     type: 'file' | 'text';
-    content: string; // JSON string containing Reference[]
+    content: Reference[];  // Changed from string to Reference[]
   };
   onComplete: (data: {
     stats: VerificationResults;
@@ -31,7 +31,8 @@ export default function VerifyReferences({
   onComplete
 }: VerifyReferencesProps): JSX.Element {
   const { state, processNextReference, completedRef } =
-    useReferenceVerification(data.content, onComplete);
+    useReferenceVerification(data.content, onComplete)
+
 
   useEffect(() => {
     console.log('Progress:', state.progress);

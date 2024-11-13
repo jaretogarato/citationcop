@@ -19,7 +19,7 @@ export interface FileData {
 }
 
 interface GetReferencesProps {
-  onComplete: (data: { type: 'file' | 'text'; content: File | string }) => void;
+  onComplete: (data: { type: 'file' | 'text'; content: string }) => void;
 }
 
 export default function GetReferences({ onComplete }: GetReferencesProps): JSX.Element {
@@ -36,7 +36,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
     setError(null);
 
     try {
-      let processedContent: string = '';
+      let references: Reference[] = [];
 
       // Process PDF file if present
       if (fileData.file) {
@@ -59,38 +59,39 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
             throw new Error(data.error);
           }
 
-          // Convert references array to string to match existing interface
-          processedContent = JSON.stringify(data.references);
-          console.log('Extracted references:', data.references);
+          references = data.references;
+          console.log('Extracted references:', references);
+          onComplete({
+            type: 'file', 
+            content: JSON.stringify(references)
+          });
 
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to process PDF');
-          throw err; // Re-throw to prevent onComplete from being called
+          throw err;
         }
       }
 
       // Process text input if present
       if (text.trim()) {
         try {
-          const textReferences = await extractReferences(text);
-          processedContent = fileData.file ?
-            `${processedContent}\n${textReferences}` :
-            textReferences
+          const textResponse = await extractReferences(text);
+          const textData = JSON.parse(textResponse);
+
+          onComplete({
+            type: 'text',  // Indicate this came from text input
+            content: textData
+          });
+
         } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to process text')
-          throw err
+          setError(err instanceof Error ? err.message : 'Failed to process text');
+          throw err;
         }
       }
 
-      // Call onComplete with processed content
-      onComplete({
-        type: 'text',
-        content: processedContent
-      })
-
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-      console.error('Processing error:', err)
+      setError(err instanceof Error ? err.message : 'An error occurred');
+      console.error('Processing error:', err);
     } finally {
       setIsProcessing(false)
     }

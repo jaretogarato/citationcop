@@ -15,13 +15,11 @@ interface VerificationState {
   currentReference: number;
   stats: VerificationResults;
   references: Reference[];
-  
+
 }
 
-
-
 export function useReferenceVerification(
-  initialContent: string,
+  initialContent: Reference[],  // Change type from string to Reference[]
   onComplete: (data: {
     stats: VerificationResults;
     references: Reference[];
@@ -30,10 +28,8 @@ export function useReferenceVerification(
   const completedRef = useRef(false);
   const [state, setState] = useState<VerificationState>(() => {
     try {
-      const parsedData = JSON.parse(initialContent);
-      const references = parsedData.references || [];
-
-      const initialReferences = references.map(
+      // No need to parse, initialContent is already Reference[]
+      const initialReferences = initialContent.map(
         (ref: Reference, index: number) => ({
           ...ref,
           id: ref.id || index + 1,
@@ -63,7 +59,7 @@ export function useReferenceVerification(
         references: []
       };
     }
-  });
+  })
 
   const processNextReference = useCallback(async () => {
     if (completedRef.current) return;
