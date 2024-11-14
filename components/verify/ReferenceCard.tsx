@@ -45,9 +45,9 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
     }
   };
 
-  const getTypeInfo = (reference: Reference): { label: string; detail: string | null } => {
-    console.log(reference);
-    console.log(reference.type);
+  /*const getTypeInfo = (reference: Reference): { label: string; detail: string | null } => {
+    //console.log(reference);
+    //console.log(reference.type);
     const baseLabel = {
       article: "Journal Article",
       book: "Book",
@@ -83,7 +83,7 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
     }
     console.log(detail);
     return { label: baseLabel, detail };
-  }
+  }*/
 
   const getTypeLabel = (type?: ReferenceType): string => ({
     article: "Journal Article",

@@ -11,8 +11,10 @@ export async function verifyReference(reference: Reference): Promise<{ isValid: 
     if (crossRefResult.isValid) return crossRefResult;
 
     // 2. Verify via URL accessibility
-    // const urlResult = await verifyURL(reference);
-    // if (urlResult.isValid) return urlResult;
+    const urlResult = await verifyURL(reference);
+    if (urlResult.isValid) {
+        return { ...urlResult, source: "URL" };
+    }
 
     // 3. Verify via OpenAlex
     const openAlexResult = await verifyOpenAlex(reference);
@@ -66,20 +68,69 @@ async function verifyCrossRef(reference: Reference): Promise<{ isValid: boolean,
     return { isValid: false, message: "CrossRef verification failed." };
 }
 
-// Verification using URL accessibility check
-async function verifyURL(reference: Reference): Promise<{ isValid: boolean, message: string }> {
+async function verifyURL(reference: Reference): Promise<{ isValid: boolean; message: string }> {
     if (!reference.url) return { isValid: false, message: "No URL provided." };
+
     try {
-        const response = await fetch(reference.url, { method: "HEAD" });
-        if (response.ok) {
-            return { isValid: true, message: "URL is accessible." };
-        } else {
+        // Fetch the full page content instead of just doing a HEAD request
+        const response = await fetch(reference.url);
+        if (!response.ok) {
             return { isValid: false, message: "URL is inaccessible or broken." };
         }
+
+        // Get the text content of the page and clean it
+        const htmlContent = await response.text();
+        const cleanContent = extractTextContent(htmlContent).toLowerCase();
+
+        // Perform verification checks on the cleaned content
+        const checks = {
+            title: reference.title ? cleanContent.includes(reference.title.toLowerCase()) : true,
+            authors: reference.authors ? reference.authors.some(author =>
+                cleanContent.includes(author.toLowerCase())
+            ) : true,
+            year: reference.year ? cleanContent.includes(reference.year.toString()) : true
+        };
+
+        // Calculate confidence score (0-1)
+        const totalChecks = Object.values(checks).length;
+        const passedChecks = Object.values(checks).filter(Boolean).length;
+        const confidence = passedChecks / totalChecks;
+
+        // Build detailed verification message
+        const details = [];
+        if (!checks.title) details.push("title not found");
+        if (!checks.authors) details.push("authors not found");
+        if (!checks.year) details.push("year not found");
+
+        if (confidence >= 0.7) {
+            return {
+                isValid: true,
+                message: `URL verified with ${(confidence * 100).toFixed(1)}% confidence`
+            };
+        } else {
+            return {
+                isValid: false,
+                message: `URL content verification failed: ${details.join(", ")}`
+            };
+        }
+
     } catch (error) {
         console.error("Error verifying URL:", error);
-        return { isValid: false, message: "Error accessing URL." };
+        return { isValid: false, message: `Error accessing URL: ${error instanceof Error ? error.message : 'Unknown error'}` };
     }
+}
+
+// Helper function to extract text content from HTML
+function extractTextContent(html: string): string {
+    // Remove script and style elements
+    html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+
+    // Remove HTML tags and decode entities
+    return html.replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 // Types for OpenAlex API response
@@ -150,7 +201,7 @@ async function verifyOpenAlex(reference: Reference): Promise<{ isValid: boolean;
 }
 
 // Verification using Semantic Scholar API
-async function verifySemanticScholar(reference: Reference): Promise<{ isValid: boolean, message: string }> {
+/*async function verifySemanticScholar(reference: Reference): Promise<{ isValid: boolean, message: string }> {
     if (!reference.title) {
         return { isValid: false, message: "No title provided for Semantic Scholar search." };
     }
@@ -179,7 +230,7 @@ async function verifySemanticScholar(reference: Reference): Promise<{ isValid: b
         console.error("Error verifying reference with Semantic Scholar:", error);
     }
     return { isValid: false, message: "Semantic Scholar verification failed." };
-}
+}*/
 
 
 // Verification using Open Library API
@@ -226,7 +277,7 @@ async function verifyGoogleSearch(reference: Reference): Promise<{ isValid: bool
 
             if (searchResults && searchResults.organic.length > 0) {
                 const filteredResults = searchResults.organic.map(({ attributes, ...rest }: any) => rest);
-                console.log("Filtered Results:", filteredResults);
+                //console.log("Filtered Results:", filteredResults);
                 return { success: true, results: filteredResults };
             }
             return { success: false, results: null };

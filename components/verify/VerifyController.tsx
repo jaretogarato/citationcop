@@ -34,7 +34,7 @@ export default function VerifyController(): JSX.Element {
           // data.content is already a string of references
           const references = JSON.parse(data.content);
 
-          console.log("**** Parsed reference data:", references);
+          //console.log("**** Parsed reference data:", references);
 
           setReferenceData({
             type: data.type,
