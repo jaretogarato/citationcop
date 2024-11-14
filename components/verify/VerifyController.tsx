@@ -27,8 +27,7 @@ export default function VerifyController(): JSX.Element {
   const [verifiedReferences, setVerifiedReferences] = useState<Reference[]>([])
 
   const handleStepComplete = (step: VerifyStep, data?: any) => {
-    //console.log(`Step ${step} completed with data:`, data);
-
+   
     switch (step) {
       case 'get':
         try {
