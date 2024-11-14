@@ -7,7 +7,7 @@ import { getURL } from '@/utils/helpers';
 import 'styles/main.css';
 
 const title = 'SourceVerify';
-const description = 'Brought to you by Vercel, Stripe, and Supabase.';
+const description = 'Fast, accurate reference validation for academic writing.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(getURL()),
