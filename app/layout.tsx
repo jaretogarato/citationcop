@@ -6,7 +6,7 @@ import { PropsWithChildren, Suspense } from 'react';
 import { getURL } from '@/utils/helpers';
 import 'styles/main.css';
 
-const title = 'Next.js Subscription Starter';
+const title = 'SourceVerify';
 const description = 'Brought to you by Vercel, Stripe, and Supabase.';
 
 export const metadata: Metadata = {

@@ -10,7 +10,7 @@ export const stripe = new Stripe(
     // Register this as an official Stripe plugin.
     // https://stripe.com/docs/building-plugins#setappinfo
     appInfo: {
-      name: 'Next.js Subscription Starter',
+      name: 'SourceVerify',
       version: '0.0.0',
       url: 'https://github.com/vercel/nextjs-subscription-payments'
     }
