@@ -94,7 +94,7 @@ export function FileUpload({ fileData, setFileData }: FileUploadProps) {
     return (
         <div className="space-y-4">
             {/* Size limit message */}
-            <p className="text-sm text-gray-400 text-center">Maximum file size: 5MB. Files over 3MB will be compressed.</p>
+            <p className="text-sm text-gray-400 text-center">Maximum file size: 5MB.</p>
 
             <div
                 className={`border-2 border-dashed rounded-[2rem] p-12 text-center transition-all duration-300
