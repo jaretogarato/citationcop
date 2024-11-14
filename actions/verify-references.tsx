@@ -2,7 +2,7 @@
 
 import { Reference } from "@/types/reference"
 import { fetchGoogleSearchResults } from "@/actions/serper-API"
-import { verifyGoogleSearchResultWithLLM } from "@/actions/openAI-verify"
+import { verifyGoogleSearchResultWithLLM, verifyURL } from "@/actions/openAI-verify"
 
 // Primary function to verify reference details
 export async function verifyReference(reference: Reference): Promise<{ isValid: boolean, message: string, source?: string }> {
@@ -10,13 +10,7 @@ export async function verifyReference(reference: Reference): Promise<{ isValid: 
     const crossRefResult = await verifyCrossRef(reference);
     if (crossRefResult.isValid) return crossRefResult;
 
-    // 2. Verify via URL accessibility
-    const urlResult = await verifyURL(reference);
-    if (urlResult.isValid) {
-        return { ...urlResult, source: "URL" };
-    }
-
-    // 3. Verify via OpenAlex
+    // 2. Verify via OpenAlex
     const openAlexResult = await verifyOpenAlex(reference);
     if (openAlexResult.isValid) return openAlexResult;
 
@@ -24,14 +18,21 @@ export async function verifyReference(reference: Reference): Promise<{ isValid: 
     //const semanticScholarResult = await verifySemanticScholar(reference);
     //if (semanticScholarResult.isValid) return semanticScholarResult;
 
-    // 5. Verify via Open Library
+    // 3. Verify via Open Library
     const openLibraryResult = await verifyOpenLibrary(reference);
     if (openLibraryResult.isValid) return openLibraryResult;
 
-    // 6. Fallback: Verify via Google Search
-    const googleSearchResult = await verifyGoogleSearch(reference)
+    // 4. Verify via URL accessibility
+    if (reference.url) {
+        const urlResult = await verifyURL(reference)
+        console.log("URL Result:", urlResult);
+         if (urlResult.isValid) {
+             return { ...urlResult, source: "URL" };
+         }
+     }
 
-    console.log("Google Search Result:", googleSearchResult);
+    // Fallback: Verify via Google Search
+    const googleSearchResult = await verifyGoogleSearch(reference)
 
     if (googleSearchResult.isValid) {
         // Call LLM-based analysis for deeper verification on Google search results
@@ -39,7 +40,7 @@ export async function verifyReference(reference: Reference): Promise<{ isValid: 
         //if (llmResult.isValid) return llmResult;
         return { ...llmResult, source: "Google" };
     } else {
-        console.log("Google Search Result faild somehow!?:", googleSearchResult);
+        //console.log("Google Search Result faild somehow!?:", googleSearchResult);
         //return { isValid: false, message: googleSearchResult.message };
         return { isValid: false, message: "Couldn't find anything on the web on this one." };
     }
@@ -66,71 +67,6 @@ async function verifyCrossRef(reference: Reference): Promise<{ isValid: boolean,
         console.error("Error verifying DOI with CrossRef:", error);
     }
     return { isValid: false, message: "CrossRef verification failed." };
-}
-
-async function verifyURL(reference: Reference): Promise<{ isValid: boolean; message: string }> {
-    if (!reference.url) return { isValid: false, message: "No URL provided." };
-
-    try {
-        // Fetch the full page content instead of just doing a HEAD request
-        const response = await fetch(reference.url);
-        if (!response.ok) {
-            return { isValid: false, message: "URL is inaccessible or broken." };
-        }
-
-        // Get the text content of the page and clean it
-        const htmlContent = await response.text();
-        const cleanContent = extractTextContent(htmlContent).toLowerCase();
-
-        // Perform verification checks on the cleaned content
-        const checks = {
-            title: reference.title ? cleanContent.includes(reference.title.toLowerCase()) : true,
-            authors: reference.authors ? reference.authors.some(author =>
-                cleanContent.includes(author.toLowerCase())
-            ) : true,
-            year: reference.year ? cleanContent.includes(reference.year.toString()) : true
-        };
-
-        // Calculate confidence score (0-1)
-        const totalChecks = Object.values(checks).length;
-        const passedChecks = Object.values(checks).filter(Boolean).length;
-        const confidence = passedChecks / totalChecks;
-
-        // Build detailed verification message
-        const details = [];
-        if (!checks.title) details.push("title not found");
-        if (!checks.authors) details.push("authors not found");
-        if (!checks.year) details.push("year not found");
-
-        if (confidence >= 0.7) {
-            return {
-                isValid: true,
-                message: `URL verified with ${(confidence * 100).toFixed(1)}% confidence`
-            };
-        } else {
-            return {
-                isValid: false,
-                message: `URL content verification failed: ${details.join(", ")}`
-            };
-        }
-
-    } catch (error) {
-        console.error("Error verifying URL:", error);
-        return { isValid: false, message: `Error accessing URL: ${error instanceof Error ? error.message : 'Unknown error'}` };
-    }
-}
-
-// Helper function to extract text content from HTML
-function extractTextContent(html: string): string {
-    // Remove script and style elements
-    html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
-
-    // Remove HTML tags and decode entities
-    return html.replace(/<[^>]+>/g, ' ')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
 }
 
 // Types for OpenAlex API response
@@ -272,7 +208,7 @@ async function verifyGoogleSearch(reference: Reference): Promise<{ isValid: bool
     // Perform search and handle results
     const performSearch = async (query: string) => {
         try {
-            console.log("Google Search Query:", query);
+            //console.log("Google Search Query:", query);
             const searchResults = await fetchGoogleSearchResults(query);
 
             if (searchResults && searchResults.organic.length > 0) {

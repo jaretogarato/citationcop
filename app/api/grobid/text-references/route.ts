@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
 
     const xml = await response.text();
     const references = parseReferences(xml);
-    console.log('Extracted references:', references);
+    //console.log('Extracted references:', references);
     return NextResponse.json({ references });
   } catch (error) {
     console.error('Error processing document:', error);

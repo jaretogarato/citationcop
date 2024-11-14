@@ -104,8 +104,9 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
   }[status] || status);
 
   const renderMessageWithLinks = (message: string) => {
-    // Match URLs and capture trailing punctuation
-    const urlRegex = /(https?:\/\/[^\s<>[\]{}|\\^]+)([.,)\]}>])?/g;
+    // Updated regex to better handle trailing punctuation
+    // Captures the URL and any trailing punctuation separately
+    const urlRegex = /(https?:\/\/[^\s<>[\]{}|\\^]+?)([.,)\]}>])?(?=\s|$)/g;
     const parts = [];
     let lastIndex = 0;
     let match;
@@ -118,15 +119,18 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
 
       const [_, url, punctuation] = match;
 
+      // Clean the URL by removing any trailing punctuation that might have been included
+      const cleanUrl = url.replace(/[.,)\]}>]+$/, '');
+
       // Add the URL as a link
       parts.push(
         <a
           key={`link-${match.index}`}
-          href={url}
+          href={cleanUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-400 hover:text-blue-300 underline"
-          title={url}
+          title={cleanUrl}
         >
           here
         </a>
@@ -136,9 +140,6 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
       if (punctuation) {
         parts.push(punctuation);
       }
-
-      // Add a space after the link
-      parts.push(' ');
 
       lastIndex = match.index + match[0].length;
     }
@@ -151,7 +152,7 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
     return parts;
   };
 
-  const renderIdentifiers = () => {
+  /*const renderIdentifiers = () => {
     const identifiers = [];
     if (reference.DOI) identifiers.push(['DOI', reference.DOI]);
     if (reference.arxivId) identifiers.push(['arXiv', reference.arxivId]);
@@ -206,6 +207,80 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
         ))}
       </div>
     ) : null;
+  };*/
+
+
+  
+  const getPrioritizedDetails = (reference: Reference) => {
+    const details = [];
+    
+    // Title is always first
+    if (reference.title) {
+      details.push({
+        label: 'Title',
+        value: reference.title
+      });
+    }
+    
+    // Authors are always second
+    if (Array.isArray(reference.authors) && reference.authors.length > 0) {
+      const authorText = reference.authors.length > 2
+        ? `${reference.authors[0]}, ${reference.authors[1]}... et al.`
+        : reference.authors.join(', ');
+      
+      details.push({
+        label: 'Authors',
+        value: authorText
+      });
+    }
+    
+    // Third slot depends on reference type
+    switch (reference.type) {
+      case 'article':
+        if (reference.journal) {
+          details.push({
+            label: 'Journal',
+            value: reference.journal
+          });
+        }
+        break;
+      case 'inproceedings':
+      case 'proceedings':
+        if (reference.conference) {
+          details.push({
+            label: 'Conference',
+            value: reference.conference
+          });
+        }
+        break;
+      case 'book':
+      case 'inbook':
+        if (reference.publisher) {
+          details.push({
+            label: 'Publisher',
+            value: reference.publisher
+          });
+        }
+        break;
+      case 'thesis':
+        if (reference.publisher) {
+          details.push({
+            label: 'Institution',
+            value: reference.publisher
+          });
+        }
+        break;
+      default:
+        if (reference.year) {
+          details.push({
+            label: 'Year',
+            value: reference.year.toString()
+          });
+        }
+    }
+    
+    // Only return the first 3 items
+    return details.slice(0, 3);
   };
 
   return (
@@ -231,49 +306,14 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
               </div>
             </div>
 
-            {/* Reference Details */}
+            {/* Top 3 Reference Details */}
             <div className="space-y-3 bg-black/20 rounded-xl p-4 group-hover:bg-black/30 transition-colors">
-              <div>
-                <h3 className="text-sm font-medium text-indigo-300">Title</h3>
-                <p className="text-white font-medium leading-tight">{reference.title}</p>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-medium text-indigo-300">Authors</h3>
-                <p className="text-white text-sm">
-                  {Array.isArray(reference.authors) && reference.authors.length > 0
-                    ? reference.authors.length > 2
-                      ? (
-                        <>
-                          {reference.authors.slice(0, 2).map((name, index) => (
-                            <span key={index}>
-                              {name}
-                              {index < 1 ? ', ' : ''}
-                            </span>
-                          ))}
-                          <span>... et al.</span>
-                        </>
-                      )
-                      : reference.authors.map((name, index) => (
-                        <span key={index}>
-                          {name}
-                          {index < reference.authors.length - 1 ? ', ' : ''}
-                        </span>
-                      ))
-                    : 'No authors listed'}
-                </p>
-              </div>
-
-              {renderPublicationDetails()}
-
-              {reference.year && (
-                <div>
-                  <h3 className="text-sm font-medium text-indigo-300">Year</h3>
-                  <p className="text-white">{reference.year}</p>
+              {getPrioritizedDetails(reference).map(({ label, value }) => (
+                <div key={label}>
+                  <h3 className="text-sm font-medium text-indigo-300">{label}</h3>
+                  <p className="text-white font-medium leading-tight">{value}</p>
                 </div>
-              )}
-
-              {renderIdentifiers()}
+              ))}
             </div>
 
             {/* Verification Notes */}
