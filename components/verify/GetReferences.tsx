@@ -5,12 +5,16 @@ import { TabSelector } from './TabSelector';
 import { FileUpload } from './FileUpload';
 import { TextInput } from './TextInput';
 import { SubmitButton } from './SubmitButton';
-//import { parsePDF } from '@/actions/parse-pdf';
 import type { Reference } from '@/types/reference';
 
 interface ExtractResponse {
   references: Reference[];
   error?: string;
+}
+
+interface TextExtractResponse {
+  article_title: string;
+  references: Reference[];
 }
 
 export interface FileData {
@@ -22,6 +26,74 @@ interface GetReferencesProps {
   onComplete: (data: { type: 'file' | 'text'; content: string }) => void;
 }
 
+interface ReferenceProcessor {
+  process: () => Promise<Reference[] | TextExtractResponse>;
+  validate: () => boolean;
+}
+
+class FileReferenceProcessor implements ReferenceProcessor {
+  constructor(private file: File) {}
+
+  async process(): Promise<Reference[]> {
+    const formData = new FormData();
+    formData.append('file', this.file);
+
+    const response = await fetch('/api/grobid/references', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data: ExtractResponse = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    return data.references;
+  }
+
+  validate(): boolean {
+    return this.file !== null;
+  }
+}
+
+class TextReferenceProcessor implements ReferenceProcessor {
+  constructor(private text: string) {}
+
+  async process(): Promise<TextExtractResponse> {
+    const response = await fetch('/api/references/extract', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text: this.text }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data: {
+      type: 'text';
+      content: TextExtractResponse;
+    } = await response.json();
+
+    if (!data.content || !Array.isArray(data.content.references)) {
+      throw new Error('Invalid response structure');
+    }
+
+    return data.content;
+  }
+
+  validate(): boolean {
+    return this.text.trim().length > 0;
+  }
+}
+
 export default function GetReferences({ onComplete }: GetReferencesProps): JSX.Element {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('paste');
@@ -29,78 +101,51 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
   const [text, setText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
+  const getProcessor = (): ReferenceProcessor | null => {
+    if (activeTab === 'upload' && fileData.file) {
+      return new FileReferenceProcessor(fileData.file);
+    }
+    if (activeTab === 'paste' && text) {
+      return new TextReferenceProcessor(text);
+    }
+    return null;
+  };
+
   const handleSubmit = async () => {
-    if (!hasContent) return;
+    const processor = getProcessor();
+    if (!processor) return;
 
     setIsProcessing(true);
     setError(null);
 
     try {
-      let references: Reference[] = [];
-
-      // Process PDF file if present
-      if (fileData.file) {
-        try {
-          const formData = new FormData();
-          formData.append('file', fileData.file);
-
-          const response = await fetch('/api/grobid/references', {
-            method: 'POST',
-            body: formData
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const data: ExtractResponse = await response.json();
-
-          if (data.error) {
-            throw new Error(data.error);
-          }
-
-          references = data.references;
-          console.log('Extracted references:', references);
-          onComplete({
-            type: 'file', 
-            content: JSON.stringify(references)
-          });
-
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to process PDF');
-          throw err;
-        }
+      const result = await processor.process();
+      
+      // For file uploads, stringify the array directly
+      if (activeTab === 'upload') {
+        onComplete({
+          type: 'file',
+          content: JSON.stringify(result)
+        });
       }
-
-      // Process text input if present
-      if (text.trim()) {
-        try {
-          const textResponse = await extractReferences(text);
-          const textData = JSON.parse(textResponse);
-
-          onComplete({
-            type: 'text',  // Indicate this came from text input
-            content: textData
-          });
-
-        } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to process text');
-          throw err;
-        }
+      // For text input, maintain the TextExtractResponse structure
+      else {
+        onComplete({
+          type: 'text',
+          content: JSON.stringify(result)
+        });
       }
-
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMessage);
       console.error('Processing error:', err);
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
 
-  // Enable submit if either input has content
   const hasContent = fileData.file !== null || text.trim().length > 0;
 
-  // Clear both inputs when switching tabs
   const handleTabChange = (newTab: 'upload' | 'paste') => {
     setActiveTab(newTab);
     setFileData({ file: null, name: null });
@@ -149,33 +194,4 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
       </div>
     </div>
   );
-}
-const extractReferences = async (text: string): Promise<string> => {
-  try {
-    const response = await fetch('/api/references/extract', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ text }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
-    }
-
-    const data = await response.json()
-
-    // Ensure the response has the correct structure
-    if (!data.references || !Array.isArray(data.references)) {
-      throw new Error('Invalid response structure')
-    }
-
-    // Return stringified data to match server action
-    return JSON.stringify(data)
-
-  } catch (error) {
-    console.error('Error extracting references:', error)
-    throw new Error('Failed to extract references')
-  }
 }
