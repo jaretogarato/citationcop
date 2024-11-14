@@ -28,16 +28,22 @@ export async function verifyReference(reference: Reference): Promise<{ isValid: 
 
     // 6. Fallback: Verify via Google Search
     const googleSearchResult = await verifyGoogleSearch(reference)
+
+    console.log("Google Search Result:", googleSearchResult);
+
     if (googleSearchResult.isValid) {
         // Call LLM-based analysis for deeper verification on Google search results
         const llmResult = await verifyGoogleSearchResultWithLLM(reference, googleSearchResult.message);
         //if (llmResult.isValid) return llmResult;
         return { ...llmResult, source: "Google" };
+    }  else {
+        console.log("Google Search Result faild somehow!?:", googleSearchResult);
+        return { isValid: false, message: googleSearchResult.message };
     }
 
 
     // If all checks fail
-    return { isValid: false, message: "No valid verification found." };
+    //return { isValid: false, message: "No valid verification found." };
 }
 
 // Verification using CrossRef API (DOI check with fuzzy title matching)

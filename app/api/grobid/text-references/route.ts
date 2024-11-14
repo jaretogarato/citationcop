@@ -1,8 +1,13 @@
 
-import { NextRequest, NextResponse } from 'next/server';
-import { parseReferences } from '@/utils/grobid/parse-grobid-response';
+import { NextRequest, NextResponse } from 'next/server'
+import { parseReferences } from '@/utils/grobid/parse-grobid-response'
 
-export const runtime = 'edge';
+
+/// this needs to be changed to do a list of references.
+// probably processCitationList
+// see: https://grobid.readthedocs.io/en/latest/Grobid-service/
+
+export const runtime = 'edge'
 
 // Configuration with environment variable
 const GROBID_HOST = process.env.GROBID_HOST;
