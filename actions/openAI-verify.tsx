@@ -14,6 +14,7 @@ export async function verifyGoogleSearchResultWithLLM(
   // create reference string
   const reference_string = [
     reference.authors?.join(' '),
+    //reference.type,
     reference.title,
     reference.journal,
     reference.year,
@@ -29,7 +30,7 @@ export async function verifyGoogleSearchResultWithLLM(
     .filter((field) => field !== null && field !== undefined) // Only include non-null and defined fields
     .join(' ');
 
-  const prompt = `Given the following search results, determine whether the provided reference is a valid academic reference. The search results must confirm the existance of the article, do not use properties of the refernece itself to verify the reference.
+  const prompt = `Given the following search results, determine whether the provided reference is a valid reference. The search results must confirm the existence of the article, conference paper, blog post, or other reference.
 
 Reference: ${reference_string}
 

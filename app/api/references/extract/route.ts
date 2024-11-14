@@ -24,6 +24,7 @@ export async function POST(request: Request) {
   "references": [
     {
       "authors": ["author name 1", "author name 2"],
+      "type": "type of reference (e.g., journal article, conference paper, etc.)",
       "title": "title of the reference",
       "journal": "journal name if applicable",
       "year": "year of publication",
