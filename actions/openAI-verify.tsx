@@ -30,7 +30,10 @@ export async function verifyGoogleSearchResultWithLLM(
     .filter((field) => field !== null && field !== undefined) // Only include non-null and defined fields
     .join(' ');
 
-  const prompt = `Given the following search results, determine whether the provided reference is a valid reference. The search results should confirm the existence of the article, conference paper, blog post, or other reference. Note that sometimes things don't match up perfectly, so use your best judgment. Do not use properties of the reference itself to verify the reference. 
+  const prompt = `Given the following search results, determine whether the provided reference is an actual article, conference paper, blog post, or other reference. Only use the information from the search results to determine the validity of the reference.
+  
+  Only one citation of the reference is not sufficient to determine validity. 
+
 
 Reference: ${reference_string}
 
@@ -40,7 +43,7 @@ ${JSON.stringify(searchResults, null, 2)}
 Answer in the following format:
 {
   "isValid": true or false,
-  "message": "Explain how the search results verify or not the given refernece. Include any links that support your conclusion.",
+  "message": "Explain how the search results verify or not the given refernece. Include links that support your conclusion.",
 }`;
 
   try {
