@@ -20,7 +20,7 @@ export async function verifyGoogleSearchResultWithLLM(
     reference.year,
     reference.volume,
     reference.pages,
-    reference.DOI,
+    //reference.DOI,
     reference.publisher,
     reference.conference,
     reference.url,
@@ -30,7 +30,7 @@ export async function verifyGoogleSearchResultWithLLM(
     .filter((field) => field !== null && field !== undefined) // Only include non-null and defined fields
     .join(' ');
 
-  const prompt = `Given the following search results, determine whether the provided reference is a valid reference. The search results must confirm the existence of the article, conference paper, blog post, or other reference.
+  const prompt = `Given the following search results, determine whether the provided reference is a valid reference. The search results should confirm the existence of the article, conference paper, blog post, or other reference. Note that sometimes things don't match up perfectly, so use your best judgment. Do not use properties of the reference itself to verify the reference.
 
 Reference: ${reference_string}
 
@@ -40,7 +40,7 @@ ${JSON.stringify(searchResults, null, 2)}
 Answer in the following format:
 {
   "isValid": true or false,
-  "message": "Explain how the search results verify or not the given refernece. The links must CONFIRM the existence of the result. Include the link in the message if there is one that confirms the reference.",
+  "message": "Explain how the search results verify or not the given refernece. Include any links that support your conclusion.",
 }`;
 
   try {

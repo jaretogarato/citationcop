@@ -1,8 +1,11 @@
 // app/api/references/verify/route.ts
+
+/// THIS ISN'T CALLED 
+
 import OpenAI from 'openai';
 import { NextResponse } from 'next/server';
 //import { Reference } from "@/types/types"
-import { Reference } from '@/types/reference';
+
 
 export const runtime = 'edge';
 
