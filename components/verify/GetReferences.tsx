@@ -12,11 +12,6 @@ interface ExtractResponse {
   error?: string;
 }
 
-interface TextExtractResponse {
-  article_title: string;
-  references: Reference[];
-}
-
 export interface FileData {
   file: File | null;
   name: string | null;
@@ -27,7 +22,7 @@ interface GetReferencesProps {
 }
 
 interface ReferenceProcessor {
-  process: () => Promise<Reference[] | TextExtractResponse>;
+  process: () => Promise<Reference[]>;
   validate: () => boolean;
 }
 
@@ -64,7 +59,7 @@ class FileReferenceProcessor implements ReferenceProcessor {
 class TextReferenceProcessor implements ReferenceProcessor {
   constructor(private text: string) {}
 
-  async process(): Promise<TextExtractResponse> {
+  async process(): Promise<Reference[]> {
     const response = await fetch('/api/references/extract', {
       method: 'POST',
       headers: {
@@ -77,16 +72,13 @@ class TextReferenceProcessor implements ReferenceProcessor {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const data: {
-      type: 'text';
-      content: TextExtractResponse;
-    } = await response.json();
+    const data: ExtractResponse = await response.json();
 
-    if (!data.content || !Array.isArray(data.content.references)) {
+    if (!data.references || !Array.isArray(data.references)) {
       throw new Error('Invalid response structure');
     }
 
-    return data.content;
+    return data.references;
   }
 
   validate(): boolean {
@@ -119,22 +111,12 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
     setError(null);
 
     try {
-      const result = await processor.process();
+      const references = await processor.process();
       
-      // For file uploads, stringify the array directly
-      if (activeTab === 'upload') {
-        onComplete({
-          type: 'file',
-          content: JSON.stringify(result)
-        });
-      }
-      // For text input, maintain the TextExtractResponse structure
-      else {
-        onComplete({
-          type: 'text',
-          content: JSON.stringify(result)
-        });
-      }
+      onComplete({
+        type: activeTab === 'upload' ? 'file' : 'text',
+        content: JSON.stringify(references)  // Just stringify the references array directly
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
       setError(errorMessage);
