@@ -38,7 +38,8 @@ export async function verifyReference(reference: Reference): Promise<{ isValid: 
         return { ...llmResult, source: "Google" };
     }  else {
         console.log("Google Search Result faild somehow!?:", googleSearchResult);
-        return { isValid: false, message: googleSearchResult.message };
+        //return { isValid: false, message: googleSearchResult.message };
+        return { isValid: false, message: "Couldn't find anything on the web on this one." };
     }
 
 
@@ -153,38 +154,60 @@ async function verifyOpenLibrary(reference: Reference): Promise<{ isValid: boole
 }
 
 async function verifyGoogleSearch(reference: Reference): Promise<{ isValid: boolean, message: string }> {
-    // Build a search query from available fields in the reference
-    const query = [
-        reference.authors?.join(" "), // Join author array into a single string if not null
-        reference.title,
-        reference.journal,
-        reference.year,
-        reference.volume,
-        reference.pages,
-        reference.DOI,
-        reference.publisher,
-        reference.conference,
-        reference.url,
-        reference.date_of_access,
-        reference.issue,
-    ]
-        .filter((field) => field !== null && field !== undefined) // Only include non-null and defined fields
-        .join(" ");
-
-    // Perform Google search using server-side action
-    try {
-        const searchResults = await fetchGoogleSearchResults(query);
-        // Check if results match (for now, simply returning that results were found)
-        //console.log("Google Search Results:", searchResults.organic);
+    // Function to build query string from reference
+    const buildQuery = (includeUrl: boolean) => {
+        const fields = [
+            reference.authors?.join(" "),
+            reference.title,
+            reference.journal,
+            reference.year,
+            reference.volume,
+            reference.pages,
+            reference.publisher,
+            reference.conference,
+            includeUrl ? reference.url : null, // Only include URL if includeUrl is true
+        ]
+            .filter((field) => field !== null && field !== undefined)
+            .join(" ");
         
-        if (searchResults && searchResults.organic.length > 0) {
+        return fields;
+    };
 
-            const filteredResults = searchResults.organic.map(({ attributes, ...rest }: any) => rest);
-            console.log("Filtered Results:", filteredResults);
-            return { isValid: true, message: filteredResults};
+    // Perform search and handle results
+    const performSearch = async (query: string) => {
+        try {
+            console.log("Google Search Query:", query);
+            const searchResults = await fetchGoogleSearchResults(query);
+            
+            if (searchResults && searchResults.organic.length > 0) {
+                const filteredResults = searchResults.organic.map(({ attributes, ...rest }: any) => rest);
+                console.log("Filtered Results:", filteredResults);
+                return { success: true, results: filteredResults };
+            }
+            return { success: false, results: null };
+        } catch (error) {
+            console.error("VerifyGoogleSearch: Error in Google search verification:", error);
+            return { success: false, results: null };
         }
-    } catch (error) {
-        console.error("VerifyGoogleSearch: Error in Google search verification:", error);
+    };
+
+    // First attempt: Search with URL if it exists
+    const initialQuery = buildQuery(true);
+    const initialSearchResult = await performSearch(initialQuery);
+    
+    if (initialSearchResult.success) {
+        return { isValid: true, message: initialSearchResult.results };
     }
+    
+    // Second attempt: If URL exists and first search failed, try without URL
+    if (reference.url) {
+        const queryWithoutUrl = buildQuery(false);
+        const secondSearchResult = await performSearch(queryWithoutUrl);
+        
+        if (secondSearchResult.success) {
+            return { isValid: true, message: secondSearchResult.results };
+        }
+    }
+
     return { isValid: false, message: "Google search verification failed." };
 }

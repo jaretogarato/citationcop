@@ -9,6 +9,8 @@ export async function fetchGoogleSearchResults(query: string) {
   });
 
   try {
+
+    console.log("Fetching search results for query:", query)
     const response = await fetch('https://google.serper.dev/search', {
       method: 'POST',
       headers: {
@@ -17,6 +19,8 @@ export async function fetchGoogleSearchResults(query: string) {
       },
       body: data,
     });
+
+    console.log("response", response)
 
     if (!response.ok) {
       throw new Error(`Failed to fetch search results: ${response.statusText}`)
