@@ -1,4 +1,3 @@
-// components/verify/ReferenceCard.tsx
 import { Reference, ReferenceStatus } from '@/types/reference';
 import Card from '@/components/ui/Card';
 import CardContent from "@/components/ui/Card";
@@ -95,13 +94,21 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
               <p className="text-white text-sm leading-relaxed group-hover:line-clamp-none line-clamp-4 whitespace-pre-wrap">
                 {reference.message?.split(' ').map((word, index) => {
                   const urlPattern = /https?:\/\/[^\s]+/;
-                  return urlPattern.test(word) ? (
-                    <a key={index} href={word} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">
-                      {word.length > 40 ? `${word.slice(0, 40)}...` : word}
-                    </a>
-                  ) : (
-                    <span key={index}>{word} </span>
-                  );
+                  if (urlPattern.test(word)) {
+                    // Remove trailing punctuation from the URL
+                    const cleanUrl = word.replace(/[.,]$/, '');
+                    const displayUrl = cleanUrl.length > 40 ? `${cleanUrl.slice(0, 40)}...` : cleanUrl;
+                    
+                    return (
+                      <span key={index}>
+                        <a href={cleanUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">
+                          {displayUrl}
+                        </a>
+                        {word.match(/[.,]$/)?.[0] || ''} {/* Add back any trailing punctuation after the link */}
+                      </span>
+                    );
+                  }
+                  return <span key={index}>{word} </span>;
                 })}
               </p>
             </div>
