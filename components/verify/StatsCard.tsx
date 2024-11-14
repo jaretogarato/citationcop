@@ -1,5 +1,4 @@
-// components/StatsCards.tsx
-import { CheckCircle, XCircle, AlertTriangle } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, Library } from "lucide-react";
 
 interface StatsData {
   totalCount: number;
@@ -16,7 +15,10 @@ export function StatsCards({ data }: StatsCardsProps) {
   return (
     <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
       {/* Total References */}
-      <div className="bg-black/20 rounded-2xl p-4 backdrop-blur-sm">
+      <div className="bg-gradient-to-br from-indigo-900/50 to-indigo-800/50 rounded-2xl p-4">
+        <div className="flex items-center justify-center mb-2">
+          <Library className="h-5 w-5 text-indigo-400" />
+        </div>
         <p className="text-3xl font-bold text-white">{data.totalCount}</p>
         <p className="text-indigo-300 text-sm">Total References</p>
       </div>
