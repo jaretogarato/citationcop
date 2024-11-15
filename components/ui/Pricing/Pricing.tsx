@@ -173,11 +173,11 @@ export default function Pricing({ user, products, subscription }: Props) {
                         'border border-pink-500': subscription
                           ? product.name ===
                             subscription?.prices?.products?.name
-                          : product.name === 'Freelancer'
+                          : product.name === 'Insight'
                       },
-                      'flex-1', // This makes the flex item grow to fill the space
-                      'basis-1/3', // Assuming you want each card to take up roughly a third of the container's width
-                      'max-w-xs' // Sets a maximum width to the cards to prevent them from getting too large
+                      'flex-1',
+                      'basis-1/3',
+                      'max-w-xs'
                     )}
                   >
                     <div className="p-6">
@@ -204,6 +204,13 @@ export default function Pricing({ user, products, subscription }: Props) {
                       >
                         {subscription ? 'Manage' : 'Subscribe'}
                       </Button>
+                      {(subscription
+                        ? product.name === subscription?.prices?.products?.name
+                        : product.name === 'Insight') && (
+                        <p className="mt-2 text-base font-medium text-pink-500 text-center">
+                          Most Popular
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
