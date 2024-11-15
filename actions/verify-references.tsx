@@ -13,7 +13,7 @@ export async function verifyReference(reference: Reference): Promise<{ isValid: 
     // 2. Verify via URL accessibility
     if (reference.url) {
         const urlResult = await verifyURL(reference)
-        console.log("URL Result:", urlResult);
+        //console.log("URL Result:", urlResult);
         if (urlResult.isValid) {
             return { ...urlResult, source: "URL" };
         }

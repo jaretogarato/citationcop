@@ -12,16 +12,12 @@ interface GrobidExtractResponse {
   references: Reference[];
 }
 
-// Helper functions for cleaner code
-function extractIdentifier(idArray: any[], type: string): string | null {
-  return idArray.find((id) => id['@_type'] === type)?.['#text'] || null;
-}
-
 export function parseReferences(xml: string): Reference[] {
   const parser = new XMLParser(parserOptions);
   const result = parser.parse(xml);
 
-  //console.log('Parsed XML structure:', JSON.stringify(result, null, 2));
+  // Log the complete parsed XML structure for debugging purposes
+  console.log('Parsed XML structure:', JSON.stringify(result, null, 2));
 
   const biblStructs = result?.TEI?.text?.back?.div?.listBibl?.biblStruct || [];
   const references = Array.isArray(biblStructs) ? biblStructs : [biblStructs];
@@ -31,30 +27,33 @@ export function parseReferences(xml: string): Reference[] {
     const monogr = ref.monogr || {};
     const imprint = monogr.imprint || {};
 
-    // Extract raw citation if available
-    // GROBID includes it in a note element with type="raw_reference"
-    const rawNote = Array.isArray(ref.note) 
-      ? ref.note.find((note: any) => note['@_type'] === 'raw_reference')
-      : ref.note?.['@_type'] === 'raw_reference' 
-        ? ref.note 
-        : null;
+    // Extract identifiers only from <analytic>
+    const identifiers = analytic.idno ? (Array.isArray(analytic.idno) ? analytic.idno : [analytic.idno]) : [];
     
+    console.log('Reference identifiers:', JSON.stringify(identifiers, null, 2));
+
+    // Extract DOI using the already processed idArray
+    const doi = extractIdentifier(identifiers, 'DOI');
+
+    // Rest of the parsing process...
+    // Extract raw citation
+    const rawNote = Array.isArray(ref.note)
+      ? ref.note.find((note: any) => note['@_type'] === 'raw_reference')
+      : ref.note?.['@_type'] === 'raw_reference'
+        ? ref.note
+        : null;
+
     const raw = rawNote?.['#text'] || null;
 
     // Determine the reference type based on titles and levels
     let type: ReferenceType = 'article';
     if (monogr.title?.['@_level'] === 'm' && !analytic.title) {
-      // If only monograph title exists with level 'm', it's likely a book or report
-      type = 'book'; // or could be 'report' based on other indicators
+      type = 'book';
     } else if (monogr.title?.['@_level'] === 'j') {
       type = 'article';
     } else if (ref['@_type']) {
       type = ref['@_type'] as ReferenceType;
     }
-
-    // Get all identifiers
-    const identifiers = ref.idno || [];
-    const idArray = Array.isArray(identifiers) ? identifiers : [identifiers];
 
     // Handle authors correctly
     const analyticAuthors = analytic.author
@@ -62,15 +61,10 @@ export function parseReferences(xml: string): Reference[] {
         ? analytic.author
         : [analytic.author]
       : [];
-    const monogrAuthors = monogr.author
-      ? Array.isArray(monogr.author)
-        ? monogr.author
-        : [monogr.author]
-      : [];
 
-    const authorList = [...analyticAuthors, ...monogrAuthors]
-      .filter((author): author is NonNullable<typeof author> => author != null)
-      .map((author) => {
+    const authorList = analyticAuthors
+      .filter((author: any): author is NonNullable<typeof author> => author != null)
+      .map((author: any) => {
         try {
           if (!author?.persName) return null;
           // Handle both single and multiple forenames
@@ -94,10 +88,10 @@ export function parseReferences(xml: string): Reference[] {
           return null;
         }
       })
-      .filter((author): author is string => author !== null);
+      .filter((author: any): author is string => author !== null);
 
-    // Handle URL/ptr from both analytic and monogr
-    const url = analytic.ptr?.['@_target'] || monogr.ptr?.['@_target'] || null;
+    // Handle URL/ptr from <analytic>
+    const url = analytic.ptr?.['@_target'] || null;
 
     // Better handling of page ranges
     let pages = null;
@@ -121,8 +115,8 @@ export function parseReferences(xml: string): Reference[] {
     // Get volume from biblScope
     const volume = Array.isArray(imprint.biblScope)
       ? imprint.biblScope.find((scope: any) => scope['@_unit'] === 'volume')?.[
-          '#text'
-        ]
+      '#text'
+      ]
       : imprint.biblScope?.['@_unit'] === 'volume'
         ? imprint.biblScope['#text']
         : null;
@@ -147,13 +141,16 @@ export function parseReferences(xml: string): Reference[] {
       type = 'report';
     }
 
+    // Get reference status based on DOI verification
+    const { status, message } = determineReferenceStatus(doi, raw);
+
     return {
       id: Date.now() + index,
       authors: authorList,
       type,
       title,
       year,
-      DOI: extractIdentifier(idArray, 'DOI'),
+      DOI: doi,
       url,
       journal,
       volume,
@@ -163,14 +160,84 @@ export function parseReferences(xml: string): Reference[] {
           : null,
       pages,
       publisher: imprint.publisher?.['#text'] || null,
-      arxivId: extractIdentifier(idArray, 'arXiv'),
-      PMID: extractIdentifier(idArray, 'PMID'),
-      ISBN: extractIdentifier(idArray, 'ISBN'),
+      arxivId: extractIdentifier(identifiers, 'arXiv'),
+      PMID: extractIdentifier(identifiers, 'PMID'),
+      ISBN: extractIdentifier(identifiers, 'ISBN'),
       conference:
         ref['@_type'] === 'inproceedings' ? monogr.title?.['#text'] : null,
-      status: 'pending',
+      status,
+      message,
+      verification_source: 'CrossRef', 
       date_of_access: null,
       raw  // Add the raw citation string to the reference object
     };
   });
+}
+
+
+
+
+
+// Function to verify DOI absence in raw string
+function verifyDOIInRawString(doi: string | null, rawString: string | null): boolean {
+  // Return false if DOI is null or empty since we only want to check when there is a DOI
+  if (!doi || doi.trim() === "") {
+    return false;
+  }
+
+  // Return false if rawString is null or empty, as we cannot verify absence
+  if (!rawString) {
+    return false;
+  }
+
+  // Clean up DOI for comparison
+  const cleanDoi = doi.toLowerCase().trim();
+  const rawLower = rawString.toLowerCase();
+
+  // Check if DOI is NOT present in the raw string
+  const doiFound = rawLower.includes(cleanDoi);
+
+  // Return true if the DOI is NOT found, meaning it is absent
+  return !doiFound;
+}
+
+// Function to check if a DOI exists in raw text and determine status
+export function determineReferenceStatus(doi: string | null, rawText: string | null): {
+  status: 'verified' | 'pending',
+  message?: string
+} {
+  const isVerified = verifyDOIInRawString(doi, rawText)
+
+  console.log('DOI:', doi, 'Raw:', rawText, 'Verified:', isVerified);
+  return {
+    status: isVerified ? 'verified' : 'pending',
+    message: isVerified ? 'DOI verified in CrossRef' : undefined
+  };
+}
+
+// Helper functions for cleaner code
+//function extractIdentifier(idArray: any[], type: string): string | null {
+//  return idArray.find((id) => id['@_type'] === type)?.['#text'] || null;
+//}
+
+// Helper functions for cleaner code
+/*function extractIdentifier(idArray: any[], type: string): string | null {
+  const identifier = idArray.find((id) => id['@_type'] === type)?.['#text'] || null;
+  if (type === 'DOI') {
+    console.log('Extracting DOI from:', idArray);
+    console.log('Found DOI:', identifier);
+  }
+  return identifier;
+}*/
+
+function extractIdentifier(idArray: any[], type: string): string | null {
+  console.log('Extracting identifier:', type, 'from:', JSON.stringify(idArray, null, 2));
+  for (const id of idArray) {
+    if (id['@_type'] === type) {
+      console.log(`Found ${type}:`, id['#text']);
+      return id['#text'];
+    }
+  }
+  console.log(`No identifier of type ${type} found.`);
+  return null;
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { parseReferences } from '@/utils/grobid/parse-grobid-response';
+import { parseReferences, determineReferenceStatus } from '@/utils/grobid/parse-grobid-response';
+import { Reference } from '@/types/reference';
 
 export const runtime = 'edge';
 
@@ -68,9 +69,7 @@ export async function POST(req: NextRequest) {
     }
 
     const xml = await response.text();
-    const references = parseReferences(xml);
-    
-    
+    const references: Reference[] = parseReferences(xml);
     
     console.log('Extracted references:', references)
     return NextResponse.json({ references });
