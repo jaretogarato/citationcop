@@ -12,10 +12,10 @@ const GROBID_ENDPOINTS = {
   references: `${GROBID_HOST}/api/processReferences`
 } as const;
 
-console.log(
+/*console.log(
   '*** Extracting references request received. In edge Function ***. GROBID_ENDPOINTS:',
   GROBID_ENDPOINTS
-);
+);*/
 
 // Error handling utility
 class GrobidError extends Error {
@@ -44,10 +44,10 @@ export async function POST(req: NextRequest) {
       new Blob([await file.arrayBuffer()], { type: 'application/pdf' })
     );
 
-    console.log(
+    /*console.log(
       'Attempting to connect to GROBID at:',
       GROBID_ENDPOINTS.references
-    );
+    );*/
 
     const response = await fetch(GROBID_ENDPOINTS.references, {
       method: 'POST',
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     const xml = await response.text();
     const references = parseReferences(xml);
-    console.log('Extracted references:', references);
+    //console.log('Extracted references:', references);
     return NextResponse.json({ references });
   } catch (error) {
     console.error('Error processing document:', error);

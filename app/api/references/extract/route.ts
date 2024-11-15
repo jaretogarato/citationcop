@@ -11,7 +11,7 @@ const openAI = new OpenAI({
 
 export async function POST(request: Request) {
   try {
-    console.log('*** Extracting references request received. In edge Function *** ');
+    //console.log('*** Extracting references request received. In edge Function *** ');
     const { text } = await request.json();
 
     if (!text) {
@@ -24,6 +24,7 @@ export async function POST(request: Request) {
   "references": [
     {
       "authors": ["author name 1", "author name 2"],
+      "type": "type of reference (e.g., journal article, conference paper, etc.)",
       "title": "title of the reference",
       "journal": "journal name if applicable",
       "year": "year of publication",
@@ -84,7 +85,7 @@ References (in JSON format):`;
         { status: 500 }
       );
     }
-    console.log('*** Extracted content :', parsedContent);
+    //console.log('*** Extracted content :', parsedContent);
     return NextResponse.json(parsedContent);
   } catch (error) {
     console.error('Error in reference extraction:', error);
