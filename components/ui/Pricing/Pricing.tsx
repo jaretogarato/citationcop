@@ -99,7 +99,7 @@ export default function Pricing({ user, products, subscription }: Props) {
             .
           </p>
         </div>
-       {/* <LogoCloud />*/}
+        {/* <LogoCloud />*/}
       </section>
     );
   } else {
@@ -217,6 +217,11 @@ export default function Pricing({ user, products, subscription }: Props) {
               })}
           </div>
           {/*<LogoCloud />*/}
+          <br />
+          <br />
+          <br />
+          <br />
+          <br />
         </div>
       </section>
     );
