@@ -34,7 +34,7 @@ export default function VerifyController(): JSX.Element {
           // data.content is already a string of references
           const references = JSON.parse(data.content);
 
-          console.log("**** Parsed reference data:", references);
+          //console.log("**** Parsed reference data:", references);
 
           setReferenceData({
             type: data.type,
@@ -48,19 +48,19 @@ export default function VerifyController(): JSX.Element {
         break;
       case 'verify':
         const verificationData = data as VerificationData;
-        console.log("Verification completed with data:", verificationData);
-        console.log("Verified references:", verificationData.references);
+        //console.log("Verification completed with data:", verificationData);
+        //console.log("Verified references:", verificationData.references);
         setVerifiedReferences(verificationData.references);
         setCurrentStep('display')
         break
       case 'display':
-        console.log("Display completed, resetting to start");
+        //console.log("Display completed, resetting to start");
         setCurrentStep('get')
         break
     }
   }
 
-  console.log("Current step:", currentStep);
+  //console.log("Current step:", currentStep);
 
   return (
     <>
@@ -68,7 +68,7 @@ export default function VerifyController(): JSX.Element {
         <GetReferences onComplete={(data) => handleStepComplete('get', data)} />
       )}
       {currentStep === 'verify' && referenceData && (
-        console.log("Reference data going into VERIFY", referenceData),
+        //console.log("Reference data going into VERIFY", referenceData),
         <VerifyReferences
           data={referenceData}
           onComplete={(data) => handleStepComplete('verify', data)}

@@ -38,10 +38,10 @@ export default function VerifyReferences({
 
 
   useEffect(() => {
-    console.log('Progress:', state.progress);
+    //console.log('Progress:', state.progress);
 
     if (state.progress >= 100 && !completedRef.current) {
-      console.log('Calling onComplete from useEffect');
+      //console.log('Calling onComplete from useEffect');
       onComplete({
         stats: state.stats,
         references: state.references,

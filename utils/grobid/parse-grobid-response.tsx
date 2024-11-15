@@ -21,7 +21,7 @@ const parserOptions = {
     const parser = new XMLParser(parserOptions);
     const result = parser.parse(xml);
   
-    console.log('Parsed XML structure:', JSON.stringify(result, null, 2));
+    //console.log('Parsed XML structure:', JSON.stringify(result, null, 2));
   
     const biblStructs = result?.TEI?.text?.back?.div?.listBibl?.biblStruct || [];
     const references = Array.isArray(biblStructs) ? biblStructs : [biblStructs];
