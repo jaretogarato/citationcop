@@ -35,6 +35,15 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
     return `${authors[0]}, ${authors[1]} et al.`;
   };
 
+  const isValidUrl = (url: string): boolean => {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
   const renderMessageWithLinks = (message: string) => {
     const urlRegex = /(https?:\/\/[^\s<>[\]{}|\\^]+?)([.,)\]}>])?(?=\s|$)/g;
     const parts = [];
@@ -49,18 +58,23 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
       const [_, url, punctuation] = match;
       const cleanUrl = url.replace(/[.,)\]}>]+$/, '');
 
-      parts.push(
-        <a
-          key={`link-${match.index}`}
-          href={cleanUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-400 hover:text-blue-300 underline"
-          title={cleanUrl}
-        >
-          here
-        </a>
-      );
+      if (isValidUrl(cleanUrl)) {
+        parts.push(
+          <a
+            key={`link-${match.index}`}
+            href={cleanUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-300 underline"
+            title={cleanUrl}
+          >
+            here
+          </a>
+        );
+      } else {
+        // If URL is invalid, just render it as text
+        parts.push(cleanUrl);
+      }
 
       if (punctuation) {
         parts.push(punctuation);
