@@ -19,8 +19,8 @@ export async function verifyReference(reference: Reference): Promise<{ isValid: 
     //if (semanticScholarResult.isValid) return semanticScholarResult;
 
     // 3. Verify via Open Library
-    const openLibraryResult = await verifyOpenLibrary(reference);
-    if (openLibraryResult.isValid) return openLibraryResult;
+    /*const openLibraryResult = await verifyOpenLibrary(reference);
+    if (openLibraryResult.isValid) return openLibraryResult;*/
 
     // 4. Verify via URL accessibility
     if (reference.url) {
@@ -154,7 +154,7 @@ async function verifyOpenAlex(reference: Reference): Promise<{ isValid: boolean;
 
 
 // Verification using Open Library API
-async function verifyOpenLibrary(reference: Reference): Promise<{ isValid: boolean, message: string }> {
+/*async function verifyOpenLibrary(reference: Reference): Promise<{ isValid: boolean, message: string }> {
     if (!reference.title) return { isValid: false, message: "No title provided for Open Library search." };
     try {
         const titleQuery = encodeURIComponent(reference.title);
@@ -167,7 +167,7 @@ async function verifyOpenLibrary(reference: Reference): Promise<{ isValid: boole
         console.error("Error verifying reference with Open Library:", error);
     }
     return { isValid: false, message: "Open Library verification failed." };
-}
+}*/
 
 async function verifyGoogleSearch(reference: Reference): Promise<{ isValid: boolean, message: string }> {
     // Function to build query string from reference
