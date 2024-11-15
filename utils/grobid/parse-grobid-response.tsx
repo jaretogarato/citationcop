@@ -33,7 +33,9 @@ export function parseReferences(xml: string): Reference[] {
     console.log('Reference identifiers:', JSON.stringify(identifiers, null, 2));
 
     // Extract DOI using the already processed idArray
-    const doi = extractIdentifier(identifiers, 'DOI');
+    const DOI = extractIdentifier(identifiers, 'DOI');
+    const ISBN = extractIdentifier(identifiers, 'ISBN');
+    const arxivId = extractIdentifier(identifiers, 'arXiv');
 
     // Rest of the parsing process...
     // Extract raw citation
@@ -142,7 +144,7 @@ export function parseReferences(xml: string): Reference[] {
     }
 
     // Get reference status based on DOI verification
-    const { status, message } = determineReferenceStatus(doi, raw);
+    const { status, message } = determineStatusForReference(DOI, ISBN, arxivId, raw);
 
     return {
       id: Date.now() + index,
@@ -150,7 +152,7 @@ export function parseReferences(xml: string): Reference[] {
       type,
       title,
       year,
-      DOI: doi,
+      DOI,
       url,
       journal,
       volume,
@@ -160,9 +162,9 @@ export function parseReferences(xml: string): Reference[] {
           : null,
       pages,
       publisher: imprint.publisher?.['#text'] || null,
-      arxivId: extractIdentifier(identifiers, 'arXiv'),
+      arxivId,
       PMID: extractIdentifier(identifiers, 'PMID'),
-      ISBN: extractIdentifier(identifiers, 'ISBN'),
+      ISBN,
       conference:
         ref['@_type'] === 'inproceedings' ? monogr.title?.['#text'] : null,
       status,
@@ -178,10 +180,10 @@ export function parseReferences(xml: string): Reference[] {
 
 
 
-// Function to verify DOI absence in raw string
-function verifyDOIInRawString(doi: string | null, rawString: string | null): boolean {
-  // Return false if DOI is null or empty since we only want to check when there is a DOI
-  if (!doi || doi.trim() === "") {
+// Function to verify identifier (DOI, ISBN, etc.) absence in raw string
+function verifyIdentifierInRawString(identifier: string | null, rawString: string | null): boolean {
+  // Return false if identifier is null or empty since we only want to check when there is an identifier
+  if (!identifier || identifier.trim() === "") {
     return false;
   }
 
@@ -190,45 +192,54 @@ function verifyDOIInRawString(doi: string | null, rawString: string | null): boo
     return false;
   }
 
-  // Clean up DOI for comparison
-  const cleanDoi = doi.toLowerCase().trim();
+  // Clean up identifier for comparison
+  const cleanIdentifier = identifier.toLowerCase().trim();
   const rawLower = rawString.toLowerCase();
 
-  // Check if DOI is NOT present in the raw string
-  const doiFound = rawLower.includes(cleanDoi);
+  // Check if identifier is NOT present in the raw string
+  const identifierFound = rawLower.includes(cleanIdentifier);
 
-  // Return true if the DOI is NOT found, meaning it is absent
-  return !doiFound;
+  // Return true if the identifier is NOT found, meaning it is absent
+  return !identifierFound;
 }
 
-// Function to check if a DOI exists in raw text and determine status
-export function determineReferenceStatus(doi: string | null, rawText: string | null): {
+// Generalized function to check if an identifier exists in raw text and determine status
+export function determineReferenceStatus(identifier: string | null, rawText: string | null, type: 'DOI' | 'ISBN' | 'arxivId'): {
   status: 'verified' | 'pending',
   message?: string
 } {
-  const isVerified = verifyDOIInRawString(doi, rawText)
+  const isVerified = verifyIdentifierInRawString(identifier, rawText);
 
-  console.log('DOI:', doi, 'Raw:', rawText, 'Verified:', isVerified);
+  console.log(`${type}:`, identifier, 'Raw:', rawText, 'Verified:', isVerified);
+
   return {
     status: isVerified ? 'verified' : 'pending',
-    message: isVerified ? 'DOI verified in CrossRef' : undefined
-  };
+    message: isVerified ? `${type} verified in CrossRef` : undefined
+  }
 }
 
-// Helper functions for cleaner code
-//function extractIdentifier(idArray: any[], type: string): string | null {
-//  return idArray.find((id) => id['@_type'] === type)?.['#text'] || null;
-//}
+// Example usage with DOI followed by ISBN only if DOI is not verified
+function determineStatusForReference(doi: string | null, isbn: string | null, arxivId: string | null, rawText: string | null) {
+  // Get reference status based on DOI verification
+  let { status, message } = determineReferenceStatus(doi, rawText, 'DOI');
 
-// Helper functions for cleaner code
-/*function extractIdentifier(idArray: any[], type: string): string | null {
-  const identifier = idArray.find((id) => id['@_type'] === type)?.['#text'] || null;
-  if (type === 'DOI') {
-    console.log('Extracting DOI from:', idArray);
-    console.log('Found DOI:', identifier);
+  // If DOI is not verified, proceed to check ISBN
+  if (status === 'pending') {
+    console.log('DOI verification failed or pending, proceeding to ISBN verification...');
+    const isbnStatus = determineReferenceStatus(isbn, rawText, 'ISBN');
+    status = isbnStatus.status;
+    message = isbnStatus.message;
+  } else {
+    const arxivIDStatus = determineReferenceStatus(isbn, rawText, 'arxivId');
+    status = arxivIDStatus.status;
+    message = arxivIDStatus.message;
+
   }
-  return identifier;
-}*/
+
+  // Return the final status and message
+  return { status, message };
+}
+
 
 function extractIdentifier(idArray: any[], type: string): string | null {
   console.log('Extracting identifier:', type, 'from:', JSON.stringify(idArray, null, 2));
