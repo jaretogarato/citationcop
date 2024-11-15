@@ -11,8 +11,8 @@ export async function verifyReference(reference: Reference): Promise<{ isValid: 
     if (crossRefResult.isValid) return crossRefResult;
 
     // 2. Verify via URL accessibility
-   // const urlResult = await verifyURL(reference);
-   // if (urlResult.isValid) return urlResult;
+    // const urlResult = await verifyURL(reference);
+    // if (urlResult.isValid) return urlResult;
 
     // 3. Verify via OpenAlex
     const openAlexResult = await verifyOpenAlex(reference);
@@ -28,16 +28,23 @@ export async function verifyReference(reference: Reference): Promise<{ isValid: 
 
     // 6. Fallback: Verify via Google Search
     const googleSearchResult = await verifyGoogleSearch(reference)
+
+    console.log("Google Search Result:", googleSearchResult);
+
     if (googleSearchResult.isValid) {
         // Call LLM-based analysis for deeper verification on Google search results
         const llmResult = await verifyGoogleSearchResultWithLLM(reference, googleSearchResult.message);
         //if (llmResult.isValid) return llmResult;
         return { ...llmResult, source: "Google" };
+    } else {
+        console.log("Google Search Result faild somehow!?:", googleSearchResult);
+        //return { isValid: false, message: googleSearchResult.message };
+        return { isValid: false, message: "Couldn't find anything on the web on this one." };
     }
 
 
     // If all checks fail
-    return { isValid: false, message: "No valid verification found." };
+    //return { isValid: false, message: "No valid verification found." };
 }
 
 // Verification using CrossRef API (DOI check with fuzzy title matching)
@@ -75,25 +82,70 @@ async function verifyURL(reference: Reference): Promise<{ isValid: boolean, mess
     }
 }
 
-// ** NEED TO ADD MATCH CHECK FOR THE TITLE JUST BECAUSE IT RECEIVES THE RESULTS ISN"T SUFFICIENT
-// Verification using OpenAlex API
-async function verifyOpenAlex(reference: Reference): Promise<{ isValid: boolean, message: string }> {
-    if (!reference.title) return { isValid: false, message: "No title provided for OpenAlex search." };
+// Types for OpenAlex API response
+interface OpenAlexWork {
+    id: string;
+    title: string;
+    publication_year?: number;
+    doi?: string;
+    type?: string;
+    authorships?: Array<{
+        author: {
+            id: string;
+            display_name: string;
+        };
+        institutions?: Array<{
+            id: string;
+            display_name: string;
+        }>;
+    }>;
+}
+
+interface OpenAlexResponse {
+    meta: {
+        count: number;
+        db_response_time_ms: number;
+        page: number;
+        per_page: number;
+    };
+    results: OpenAlexWork[];
+}
+
+async function verifyOpenAlex(reference: Reference): Promise<{ isValid: boolean; message: string }> {
+    if (!reference.title) {
+        return { isValid: false, message: "No title provided for OpenAlex search." };
+    }
+
     try {
         const titleQuery = encodeURIComponent(reference.title);
         const openAlexResponse = await fetch(`https://api.openalex.org/works?filter=title.search:${titleQuery}`);
-        const openAlexData = await openAlexResponse.json();
-        
-        // check that there is a match of the titles
-        //TODO: check if the title is in the results
-        
-        
+        const openAlexData = await openAlexResponse.json() as OpenAlexResponse;
+
         if (openAlexData.results && openAlexData.results.length > 0) {
-            return { isValid: true, message: "Verified via OpenAlex." };
+            // Normalize the reference title for comparison
+            const normalizedReferenceTitle = reference.title.toLowerCase().trim();
+
+            // Look for an exact title match (case-insensitive)
+            const matchedWork = openAlexData.results.find(work =>
+                work.title?.toLowerCase().trim() === normalizedReferenceTitle
+            );
+
+            if (matchedWork) {
+                return {
+                    isValid: true,
+                    message: `Verified via OpenAlex with exact title match.`
+                };
+            } else {
+                return {
+                    isValid: false,
+                    message: "No exact title match found in OpenAlex results."
+                };
+            }
         }
     } catch (error) {
         console.error("Error verifying reference with OpenAlex:", error);
     }
+
     return { isValid: false, message: "OpenAlex verification failed." };
 }
 
@@ -147,38 +199,60 @@ async function verifyOpenLibrary(reference: Reference): Promise<{ isValid: boole
 }
 
 async function verifyGoogleSearch(reference: Reference): Promise<{ isValid: boolean, message: string }> {
-    // Build a search query from available fields in the reference
-    const query = [
-        reference.authors?.join(" "), // Join author array into a single string if not null
-        reference.title,
-        reference.journal,
-        reference.year,
-        reference.volume,
-        reference.pages,
-        reference.DOI,
-        reference.publisher,
-        reference.conference,
-        reference.url,
-        reference.date_of_access,
-        reference.issue,
-    ]
-        .filter((field) => field !== null && field !== undefined) // Only include non-null and defined fields
-        .join(" ");
+    // Function to build query string from reference
+    const buildQuery = (includeUrl: boolean) => {
+        const fields = [
+            reference.authors?.join(" "),
+            reference.title,
+            reference.journal,
+            reference.year,
+            reference.volume,
+            reference.pages,
+            reference.publisher,
+            reference.conference,
+            includeUrl ? reference.url : null, // Only include URL if includeUrl is true
+        ]
+            .filter((field) => field !== null && field !== undefined)
+            .join(" ");
 
-    // Perform Google search using server-side action
-    try {
-        const searchResults = await fetchGoogleSearchResults(query);
-        // Check if results match (for now, simply returning that results were found)
-        //console.log("Google Search Results:", searchResults.organic);
-        
-        if (searchResults && searchResults.organic.length > 0) {
+        return fields;
+    };
 
-            const filteredResults = searchResults.organic.map(({ attributes, ...rest }: any) => rest);
-            console.log("Filtered Results:", filteredResults);
-            return { isValid: true, message: filteredResults};
+    // Perform search and handle results
+    const performSearch = async (query: string) => {
+        try {
+            console.log("Google Search Query:", query);
+            const searchResults = await fetchGoogleSearchResults(query);
+
+            if (searchResults && searchResults.organic.length > 0) {
+                const filteredResults = searchResults.organic.map(({ attributes, ...rest }: any) => rest);
+                console.log("Filtered Results:", filteredResults);
+                return { success: true, results: filteredResults };
+            }
+            return { success: false, results: null };
+        } catch (error) {
+            console.error("VerifyGoogleSearch: Error in Google search verification:", error);
+            return { success: false, results: null };
         }
-    } catch (error) {
-        console.error("VerifyGoogleSearch: Error in Google search verification:", error);
+    };
+
+    // First attempt: Search with URL if it exists
+    const initialQuery = buildQuery(true);
+    const initialSearchResult = await performSearch(initialQuery);
+
+    if (initialSearchResult.success) {
+        return { isValid: true, message: initialSearchResult.results };
     }
+
+    // Second attempt: If URL exists and first search failed, try without URL
+    if (reference.url) {
+        const queryWithoutUrl = buildQuery(false);
+        const secondSearchResult = await performSearch(queryWithoutUrl);
+
+        if (secondSearchResult.success) {
+            return { isValid: true, message: secondSearchResult.results };
+        }
+    }
+
     return { isValid: false, message: "Google search verification failed." };
 }

@@ -1,4 +1,3 @@
-// components/verify/ReferenceCard.tsx
 import { Reference, ReferenceStatus } from '@/types/reference';
 import Card from '@/components/ui/Card';
 import CardContent from "@/components/ui/Card";
@@ -29,6 +28,32 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
     pending: "Pending",
     unverified: "Could not be verified"
   }[status] || status);
+
+  const renderMessageWithLinks = (message: string) => {
+    // Updated regex to better match URLs
+    const urlRegex = /(https?:\/\/[^\s<>[\]{}|\\^]+)/g;
+    const parts = message.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (urlRegex.test(part)) {
+        return (
+          <span key={index}>
+            <a
+              href={part}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300 underline"
+              title={part} // Shows full URL on hover
+            >
+              here
+            </a>
+            {' '}
+          </span>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
 
   return (
     <Card
@@ -93,16 +118,7 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
             <div className="bg-black/20 rounded-xl p-4 group-hover:bg-black/30 transition-colors">
               <h3 className="text-sm font-medium text-indigo-300 mb-1">Verification Notes</h3>
               <p className="text-white text-sm leading-relaxed group-hover:line-clamp-none line-clamp-4 whitespace-pre-wrap">
-                {reference.message?.split(' ').map((word, index) => {
-                  const urlPattern = /https?:\/\/[^\s]+/;
-                  return urlPattern.test(word) ? (
-                    <a key={index} href={word} target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">
-                      {word.length > 40 ? `${word.slice(0, 40)}...` : word}
-                    </a>
-                  ) : (
-                    <span key={index}>{word} </span>
-                  );
-                })}
+                {reference.message && renderMessageWithLinks(reference.message)}
               </p>
             </div>
           </div>

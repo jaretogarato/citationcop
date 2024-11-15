@@ -27,18 +27,20 @@ export default function VerifyController(): JSX.Element {
   const [verifiedReferences, setVerifiedReferences] = useState<Reference[]>([])
 
   const handleStepComplete = (step: VerifyStep, data?: any) => {
-    console.log(`Step ${step} completed with data:`, data);
-
+   
     switch (step) {
       case 'get':
         try {
           // data.content is already a string of references
           const references = JSON.parse(data.content);
+
+          console.log("**** Parsed reference data:", references);
+
           setReferenceData({
             type: data.type,
             content: references as Reference[]
           });
-          console.log("Initial reference data:", references);
+          //console.log("Initial reference data:", references);
           setCurrentStep('verify');
         } catch (error) {
           console.error("Error parsing reference data:", error);

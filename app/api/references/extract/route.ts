@@ -2,7 +2,6 @@
 import OpenAI from 'openai';
 import { NextResponse } from 'next/server';
 
-//export const runtime = 'edge'
 
 export const runtime = 'edge';
 
@@ -22,7 +21,6 @@ export async function POST(request: Request) {
     const prompt = `Extract the references from the following text and provide them in the following JSON format:
 
 {
-  "article_title": "title of the article",
   "references": [
     {
       "authors": ["author name 1", "author name 2"],
