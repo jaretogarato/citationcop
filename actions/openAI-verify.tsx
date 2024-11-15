@@ -222,7 +222,7 @@ Webpage Content (truncated): ${cleanContent.slice(0, 2000)}...
 Answer in the following format:
 {
   "isValid": true or false,
-  "message": "(If true start with: Confirmed URL) Explain whether the given url content matches the reference. Include specific details that support your conclusion.",
+  "message": "(If true start with: <b>Confirmed URL</b> and provide url) Explain whether the given url content matches the reference. Include specific details that support your conclusion.",
 }`
 
     // Get OpenAI response
