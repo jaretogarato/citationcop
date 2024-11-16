@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { parseReferences, determineReferenceStatus } from '@/utils/grobid/parse-grobid-response';
+import { parseReferences } from '@/utils/grobid/parse-grobid-response';
 import { Reference } from '@/types/reference';
 
 export const runtime = 'edge';
@@ -11,11 +11,6 @@ const GROBID_HOST = process.env.GROBID_HOST;
 const GROBID_ENDPOINTS = {
   references: `${GROBID_HOST}/api/processReferences`
 } as const;
-
-/*console.log(
-  '*** Extracting references request received. In edge Function ***. GROBID_ENDPOINTS:',
-  GROBID_ENDPOINTS
-);*/
 
 // Error handling utility
 class GrobidError extends Error {

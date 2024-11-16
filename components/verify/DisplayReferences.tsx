@@ -62,7 +62,7 @@ export default function DisplayReferences({ data, onComplete }: DisplayReference
             onClick={onComplete}
             className="px-8 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 rounded-full text-white font-medium hover:opacity-90 transition-opacity shadow-lg"
           >
-            Verify More Results
+            Verify More Results what?
           </button>
         </div>
       </div>

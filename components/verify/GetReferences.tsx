@@ -27,7 +27,7 @@ interface ReferenceProcessor {
 }
 
 class FileReferenceProcessor implements ReferenceProcessor {
-  constructor(private file: File) {}
+  constructor(private file: File) { }
 
   async process(): Promise<Reference[]> {
     const formData = new FormData();
@@ -36,7 +36,7 @@ class FileReferenceProcessor implements ReferenceProcessor {
     const response = await fetch('/api/grobid/references', {
       method: 'POST',
       body: formData
-    });
+    })
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -56,8 +56,10 @@ class FileReferenceProcessor implements ReferenceProcessor {
   }
 }
 
+
+
 class TextReferenceProcessor implements ReferenceProcessor {
-  constructor(private text: string) {}
+  constructor(private text: string) { }
 
   async process(): Promise<Reference[]> {
     const response = await fetch('/api/references/extract', {
@@ -112,7 +114,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
 
     try {
       const references = await processor.process();
-      
+
       onComplete({
         type: activeTab === 'upload' ? 'file' : 'text',
         content: JSON.stringify(references)  // Just stringify the references array directly

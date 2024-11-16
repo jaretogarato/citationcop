@@ -55,7 +55,7 @@ export default function VerifyController(): JSX.Element {
         break
       case 'display':
         //console.log("Display completed, resetting to start");
-        //setCurrentStep('get')
+        setCurrentStep('get')
         break
     }
   }
