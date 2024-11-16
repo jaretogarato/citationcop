@@ -248,8 +248,6 @@ function determineStatusForReference(
   return { status, message };
 }
 
-
-
 function extractIdentifier(idArray: any[], type: string): string | null {
   //console.log('Extracting identifier:', type, 'from:', JSON.stringify(idArray, null, 2));
   for (const id of idArray) {

@@ -8,7 +8,7 @@ export async function doubleCheckReference(
     maxRetries: number = 1
 ): Promise<{ ok: true }[] | Reference[]> {
     const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
+    const model: string = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
     //console.log('Double-checking reference:', reference);
 
     const prompt = `You are a machine that validates parsed academic references by comparing them to their original raw text. You need to verify if the parsing was accurate and suggest corrections if needed.
@@ -54,7 +54,7 @@ If the reference needs correction or contains multiple references, respond with 
             console.log(`Attempt ${attempt + 1}/${maxRetries + 1} to validate reference`);
 
             const response = await openAI.chat.completions.create({
-                model: 'gpt-4',
+                model: model,
                 messages: [{ role: 'system', content: prompt }],
                 temperature: 0.0,
             });
@@ -74,7 +74,7 @@ If the reference needs correction or contains multiple references, respond with 
                 }
 
                 const result = JSON.parse(jsonMatch[0]);
-                console.log('Result:', result);
+                //console.log('Result:', result);
 
                 // Validate the result structure
                 if (!Array.isArray(result) || result.length === 0) {
