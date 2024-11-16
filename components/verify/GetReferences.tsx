@@ -125,9 +125,6 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
       const references = await processor.process();
       console.log("Initial references from processor:", references);
 
-      // Update progress total
-      setProgress({ current: 0, total: references.length });
-
       // Double check phase
       if (!highAccuracy) {
         // Skip double-checking if high accuracy mode is off
@@ -138,8 +135,10 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         return;
       }
 
-      setProcessingStage('checking');
-      let finalReferences: Reference[] = [];
+      // Update progress total
+      setProgress({ current: 0, total: references.length })
+      setProcessingStage('checking')
+      let finalReferences: Reference[] = []
 
       for (let i = 0; i < references.length; i++) {
         const reference = references[i];

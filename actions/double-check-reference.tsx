@@ -51,7 +51,7 @@ If the reference needs correction or contains multiple references, respond with 
     // Retry loop
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-            console.log(`Attempt ${attempt + 1}/${maxRetries + 1} to validate reference`);
+            //console.log(`Attempt ${attempt + 1}/${maxRetries + 1} to validate reference`);
 
             const response = await openAI.chat.completions.create({
                 model: 'gpt-4',
@@ -74,7 +74,7 @@ If the reference needs correction or contains multiple references, respond with 
                 }
 
                 const result = JSON.parse(jsonMatch[0]);
-                console.log('Result:', result);
+                //console.log('Result:', result);
 
                 // Validate the result structure
                 if (!Array.isArray(result) || result.length === 0) {

@@ -1,11 +1,14 @@
-// API Route (save as route.ts) NOT IN USE
+// CURRENTLY NOT USED IN THE CODE
+
 import { NextRequest, NextResponse } from 'next/server';
 import { parseReferences } from '@/utils/grobid/parse-grobid-response';
 import { Reference } from '@/types/reference';
 
 export const runtime = 'edge';
 
+// Consider adding timeout and retry configuration
 const GROBID_HOST = process.env.GROBID_HOST;
+const GROBID_TIMEOUT = 30000; // 30 seconds
 
 const GROBID_ENDPOINTS = {
   references: `${GROBID_HOST}/api/processCitationList`
@@ -23,22 +26,36 @@ class GrobidError extends Error {
 
 export async function POST(req: NextRequest) {
   try {
-    const { citations } = await req.json();
-    
-    if (!citations) {
-      throw new GrobidError('No citations provided', 400);
+    const { references } = await req.json() as { references: Reference[] }
+
+    if (!references?.length) {
+      throw new GrobidError('No raw text references provided', 400);
     }
 
-    const grobidFormData = new FormData();
-    grobidFormData.append('citations', citations);
+    const grobidFormData = new FormData()
+    const raw = references.map(ref => ref.raw?.trim()).filter(Boolean);
+    
+    if (!raw.length) {
+      throw new GrobidError('No valid references after processing', 400);
+    }
+
+    grobidFormData.append('citations', raw.join('\n'));
+    grobidFormData.append('consolidateCitations', '1');
 
     const response = await fetch(GROBID_ENDPOINTS.references, {
       method: 'POST',
       body: grobidFormData,
       headers: {
         'Accept': 'application/xml'
-      }
+      },
+      // Add timeout and retry logic for 503 errors
+      signal: AbortSignal.timeout(GROBID_TIMEOUT)
     });
+
+    if (response.status === 503) {
+      // Implement retry logic here for when GROBID is busy
+      throw new GrobidError('GROBID service temporarily unavailable', 503);
+    }
 
     if (!response.ok) {
       throw new GrobidError(
@@ -48,17 +65,25 @@ export async function POST(req: NextRequest) {
     }
 
     const xml = await response.text();
-    const references: Reference[] = parseReferences(xml);
+    const extractedReferences: Reference[] = parseReferences(xml);
     
-    return NextResponse.json({ references });
+    return NextResponse.json({ references: extractedReferences });
   } catch (error) {
-    console.error('Error processing string:', error);
+    console.error('Error processing references:', error);
+    
+    if (error instanceof GrobidError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
+    const status = error instanceof Error && 'status' in error ? 
+      (error as any).status : 500;
+      
     return NextResponse.json(
-      {
-        error: error instanceof GrobidError ? error.message : 'Failed to process string',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: error instanceof GrobidError ? error.status : 500 }
+      { error: 'Failed to process references', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status }
     );
   }
 }
