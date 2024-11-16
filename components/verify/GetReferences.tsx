@@ -216,16 +216,8 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         <h2 className="text-3xl font-bold text-white mb-8 text-center">
           Validate References
         </h2>
-        <div className="flex items-center justify-center space-x-2 mt-4">
-          <Switch
-            id="high-accuracy"
-            checked={highAccuracy}
-            onCheckedChange={setHighAccuracy}
-          />
-          <Label htmlFor="high-accuracy" className="text-sm text-gray-400">
-            High Accuracy Mode
-          </Label>
-        </div>
+
+
         <div className="w-full">
           <TabSelector
             activeTab={activeTab}
@@ -248,6 +240,20 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
               {error}
             </div>
           )}
+
+
+          <div className="flex items-center justify-center space-x-2 mt-4">
+            <Switch
+              id="high-accuracy"
+              checked={highAccuracy}
+              onCheckedChange={setHighAccuracy}
+            />
+            <Label htmlFor="high-accuracy" className="text-sm text-gray-400">
+              {highAccuracy
+                ? "High Accuracy Mode ON (takes more time)"
+                : "High Accuracy Mode OFF (faster processing)"}
+            </Label>
+          </div>
 
           <div className="mt-8 flex flex-col items-center gap-4">
             <SubmitButton
