@@ -38,7 +38,7 @@ export async function verifyGoogleSearchResultWithLLM(
   Answer in the following JSON format:
   {
     "isValid": true or false,
-    "message": "Explain how the search results verify or not the given refernece. Include links that support your conclusion.",
+    "message": "Explain how the search results verify or not the given reference. Include links that support your conclusion.",
   }`;
 
   let lastError: Error | null = null;

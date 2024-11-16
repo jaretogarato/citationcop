@@ -26,6 +26,13 @@ interface ReferenceProcessor {
   validate: () => boolean
 }
 
+// Simulated double-check function
+const doubleCheckReference = async (reference: Reference): Promise<{ ok: boolean; reference?: Reference }> => {
+  // Simulate processing time
+  await new Promise(resolve => setTimeout(resolve, 500));
+  return { ok: true };
+}
+
 class FileReferenceProcessor implements ReferenceProcessor {
   constructor(private file: File) { }
 
@@ -55,8 +62,6 @@ class FileReferenceProcessor implements ReferenceProcessor {
     return this.file !== null;
   }
 }
-
-
 
 class TextReferenceProcessor implements ReferenceProcessor {
   constructor(private text: string) { }
@@ -90,6 +95,7 @@ class TextReferenceProcessor implements ReferenceProcessor {
 
 export default function GetReferences({ onComplete }: GetReferencesProps): JSX.Element {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [processingStage, setProcessingStage] = useState<'idle' | 'getting' | 'checking'>('idle');
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('paste');
   const [fileData, setFileData] = useState<FileData>({ file: null, name: null });
   const [text, setText] = useState<string>('');
@@ -111,13 +117,24 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
 
     setIsProcessing(true);
     setError(null);
+    setProcessingStage('getting');
 
     try {
+      // Get initial references
       const references = await processor.process();
+
+      // Double check phase
+      setProcessingStage('checking');
+      const checkedReferences: Reference[] = [];
+
+      for (const reference of references) {
+        const result = await doubleCheckReference(reference);
+        checkedReferences.push(result.reference || reference);
+      }
 
       onComplete({
         type: activeTab === 'upload' ? 'file' : 'text',
-        content: JSON.stringify(references)  // Just stringify the references array directly
+        content: JSON.stringify(checkedReferences)
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
@@ -125,6 +142,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
       console.error('Processing error:', err);
     } finally {
       setIsProcessing(false);
+      setProcessingStage('idle');
     }
   };
 
@@ -166,13 +184,19 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
               {error}
             </div>
           )}
-
-          <div className="mt-8 flex justify-end">
+          {processingStage !== 'idle' && (
+            <div className="text-sm text-gray-400">
+              {processingStage === 'getting' ? 'Getting references...' : 'Double checking references...'}
+            </div>
+          )}
+          <div className="mt-8 flex flex-col items-center gap-4">
             <SubmitButton
               isProcessing={isProcessing}
               disabled={!hasContent}
               onClick={handleSubmit}
             />
+
+
           </div>
         </div>
       </div>
