@@ -1,6 +1,6 @@
-
 import { NextRequest, NextResponse } from 'next/server';
-import { parseReferences } from '@/utils/grobid/parse-grobid-response';
+import { parseReferences, determineReferenceStatus } from '@/utils/grobid/parse-grobid-response';
+import { Reference } from '@/types/reference';
 
 export const runtime = 'edge';
 
@@ -31,8 +31,8 @@ class GrobidError extends Error {
 // In your POST handler:
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData()
-    const file = formData.get('file')
+    const formData = await req.formData();
+    const file = formData.get('file');
 
     if (!file || !(file instanceof Blob)) {
       throw new GrobidError('No PDF file provided', 400);
@@ -49,13 +49,17 @@ export async function POST(req: NextRequest) {
       GROBID_ENDPOINTS.references
     );*/
 
+    // Add optional parameters
+    grobidFormData.append('consolidateCitations', '1');
+    grobidFormData.append('includeRawCitations', '1');
+
     const response = await fetch(GROBID_ENDPOINTS.references, {
       method: 'POST',
       body: grobidFormData,
       headers: {
         Accept: 'application/xml'
       }
-    });
+    })
 
     if (!response.ok) {
       throw new GrobidError(
@@ -65,8 +69,9 @@ export async function POST(req: NextRequest) {
     }
 
     const xml = await response.text();
-    const references = parseReferences(xml);
-    //console.log('Extracted references:', references);
+    const references: Reference[] = parseReferences(xml);
+    
+    //console.log('Extracted references:', references)
     return NextResponse.json({ references });
   } catch (error) {
     console.error('Error processing document:', error);

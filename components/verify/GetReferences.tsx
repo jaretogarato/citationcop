@@ -22,8 +22,8 @@ interface GetReferencesProps {
 }
 
 interface ReferenceProcessor {
-  process: () => Promise<Reference[]>;
-  validate: () => boolean;
+  process: () => Promise<Reference[]>
+  validate: () => boolean
 }
 
 class FileReferenceProcessor implements ReferenceProcessor {

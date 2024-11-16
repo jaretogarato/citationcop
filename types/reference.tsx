@@ -61,6 +61,9 @@ export interface Reference {
   pages?: string | null
   conference?: string | null
 
+  // raw reference string
+  raw?: string
+
   // Your app's fields
   status: ReferenceStatus
   verification_source?: string
