@@ -9,7 +9,7 @@ export async function doubleCheckReference(
 ): Promise<{ ok: true }[] | Reference[]> {
     const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-    console.log('Double-checking reference:', reference);
+    //console.log('Double-checking reference:', reference);
 
     const prompt = `You are a machine that validates parsed academic references by comparing them to their original raw text. You need to verify if the parsing was accurate and suggest corrections if needed.
 
@@ -93,7 +93,7 @@ If the reference needs correction or contains multiple references, respond with 
                     ...ref, // Override with corrections
                     id: index === 0 ? reference.id : Date.now() + index,
                     status: 'pending' // Always set status to pending for corrected references
-                }));
+                })) as Reference[];
 
             } catch (parseError) {
                 console.warn(

@@ -46,7 +46,7 @@ export async function verifyGoogleSearchResultWithLLM(
   // Retry loop
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`Attempt ${attempt + 1}/${maxRetries + 1}... JSON!!`);
+      //console.log(`Attempt ${attempt + 1}/${maxRetries + 1}... JSON!!`);
       const response = await openAI.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [{ role: 'system', content: prompt }],
@@ -148,7 +148,7 @@ Webpage Content (truncated): ${cleanContent.slice(0, 2000)}...
 Answer in the following format:
 {
   "isValid": true or false,
-  "message": "(If true start with: <b>Confirmed URL</b> and provide url) Explain whether the given url content matches the reference. Include specific details that support your conclusion.",
+  "message": "(If true start with: Confirmed UR and provide the url. Explain whether the given url content matches the reference. Include specific details that support your conclusion.",
 }`
 
     // Get OpenAI response
@@ -177,7 +177,7 @@ Answer in the following format:
     };
 
   } catch (error) {
-    console.error('Error verifying URL with LLM:', error);
+    //console.error('Error verifying URL with LLM:', error);
     return { isValid: false, message: 'URL verification failed due to an error.' };
   }
 }

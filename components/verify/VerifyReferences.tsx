@@ -45,7 +45,7 @@ export default function VerifyReferences({
   const { state, processNextReference, completedRef } = useReferenceVerification(
     unverifiedReferences,
     (verificationResults) => {
-      console.log('**** Verification results callback **** ', verificationResults);
+      //console.log('**** Verification results callback **** ', verificationResults);
 
       // Merge back verified references and adjust stats accordingly
       const allReferences = [

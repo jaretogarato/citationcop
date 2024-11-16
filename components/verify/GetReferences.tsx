@@ -131,11 +131,11 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
       for (let i = 0; i < references.length; i++) {
         const reference = references[i];
         try {
-          console.log(`Checking reference ${i + 1}:`, reference);
+          //console.log(`Checking reference ${i + 1}:`, reference);
 
           const result = await doubleCheckReference(reference);
 
-          console.log(`Double check result for reference ${i + 1}:`, result);
+          //console.log(`Double check result for reference ${i + 1}:`, result);
 
           if ('ok' in result[0]) {
             // If the reference is valid, keep the original
@@ -144,7 +144,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
             // If we got back corrected/multiple references, add them all
             const correctedRefs = result as Reference[];
 
-            console.log(`Corrected references:`, correctedRefs);
+            //console.log(`Corrected references:`, correctedRefs);
 
 
             // Map through to ensure each reference has the right status
@@ -156,7 +156,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
             );
           }
 
-          console.log(`Final references array after processing ${i + 1}:`, finalReferences);
+          //console.log(`Final references array after processing ${i + 1}:`, finalReferences);
 
           setProgress(prev => ({ ...prev, current: i + 1 }))
 
@@ -168,8 +168,8 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         }
       }
 
-      console.log("All references processed. Final array:", finalReferences);
-      console.log("Stringified content being sent:", JSON.stringify(finalReferences));
+      //console.log("All references processed. Final array:", finalReferences);
+      //console.log("Stringified content being sent:", JSON.stringify(finalReferences));
 
 
       onComplete({
@@ -233,7 +233,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
               disabled={!hasContent}
               onClick={handleSubmit}
             />
-  WHATTEH OITHA EOIHAE OIEH REOIHROEIHREA OIEHROEAIRH 
+ 
             {processingStage !== 'idle' && (
               <div className="text-sm text-gray-400 flex flex-col items-center gap-2">
                 <div>
