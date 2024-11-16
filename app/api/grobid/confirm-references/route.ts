@@ -1,12 +1,9 @@
-// CURRENTLY NOT USED IN THE CODE
-
 import { NextRequest, NextResponse } from 'next/server';
 import { parseReferences } from '@/utils/grobid/parse-grobid-response';
 import { Reference } from '@/types/reference';
 
 export const runtime = 'edge';
 
-// Consider adding timeout and retry configuration
 const GROBID_HOST = process.env.GROBID_HOST;
 const GROBID_TIMEOUT = 30000; // 30 seconds
 
@@ -29,18 +26,19 @@ export async function POST(req: NextRequest) {
     const { references } = await req.json() as { references: Reference[] }
 
     if (!references?.length) {
-      throw new GrobidError('No raw text references provided', 400);
+      throw new GrobidError('No references provided for consolidation', 400);
     }
 
     const grobidFormData = new FormData()
     const raw = references.map(ref => ref.raw?.trim()).filter(Boolean);
     
     if (!raw.length) {
-      throw new GrobidError('No valid references after processing', 400);
+      throw new GrobidError('No valid raw citations found in references', 400);
     }
 
     grobidFormData.append('citations', raw.join('\n'));
     grobidFormData.append('consolidateCitations', '1');
+    grobidFormData.append('includeRawCitations', '1');
 
     const response = await fetch(GROBID_ENDPOINTS.references, {
       method: 'POST',
@@ -48,28 +46,43 @@ export async function POST(req: NextRequest) {
       headers: {
         'Accept': 'application/xml'
       },
-      // Add timeout and retry logic for 503 errors
       signal: AbortSignal.timeout(GROBID_TIMEOUT)
     });
 
     if (response.status === 503) {
-      // Implement retry logic here for when GROBID is busy
       throw new GrobidError('GROBID service temporarily unavailable', 503);
     }
 
     if (!response.ok) {
       throw new GrobidError(
-        `GROBID processing failed: ${response.status} ${response.statusText}`,
+        `GROBID consolidation failed: ${response.status} ${response.statusText}`,
         response.status
       );
     }
 
     const xml = await response.text();
-    const extractedReferences: Reference[] = parseReferences(xml);
+    const consolidatedReferences = parseReferences(xml);
     
-    return NextResponse.json({ references: extractedReferences });
+    // Merge consolidated data with original references
+    const mergedReferences = references.map((originalRef, index) => {
+      const consolidatedRef = consolidatedReferences[index];
+      if (!consolidatedRef) {
+        return originalRef;
+      }
+
+      return {
+        ...originalRef,
+        ...consolidatedRef,
+        consolidated: true,
+        consolidatedDoi: consolidatedRef.DOI || originalRef.DOI,
+        raw: originalRef.raw
+      };
+    });
+
+    return NextResponse.json(mergedReferences);
+
   } catch (error) {
-    console.error('Error processing references:', error);
+    console.error('Error consolidating references:', error);
     
     if (error instanceof GrobidError) {
       return NextResponse.json(
@@ -82,7 +95,10 @@ export async function POST(req: NextRequest) {
       (error as any).status : 500;
       
     return NextResponse.json(
-      { error: 'Failed to process references', details: error instanceof Error ? error.message : 'Unknown error' },
+      { 
+        error: 'Failed to consolidate references', 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      },
       { status }
     );
   }

@@ -135,13 +135,37 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         return;
       }
 
+      setProcessingStage('checking')
+
+      // Consolidate references before double-checking
+      console.log("Consolidating references...");
+      let consolidatedReferences = references;
+      try {
+        const consolidateResponse = await fetch('/api/grobid/consolidate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ references }),
+        });
+
+        if (consolidateResponse.ok) {
+          consolidatedReferences = await consolidateResponse.json();
+          console.log("References consolidated successfully");
+        } else {
+          console.warn("Failed to consolidate references, proceeding with originals");
+        }
+      } catch (err) {
+        console.warn("Error during consolidation:", err);
+      }
+
       // Update progress total
       setProgress({ current: 0, total: references.length })
-      setProcessingStage('checking')
+
       let finalReferences: Reference[] = []
 
-      for (let i = 0; i < references.length; i++) {
-        const reference = references[i];
+      for (let i = 0; i < consolidatedReferences.length; i++) {
+        const reference = consolidatedReferences[i];
         try {
           //console.log(`Checking reference ${i + 1}:`, reference);
 
@@ -255,10 +279,10 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
             >
               <span className="font-semibold">High Accuracy Mode {highAccuracy ? 'ON' : 'OFF'}</span>
               <span className={`text-sm ${isProcessing
-                  ? 'text-gray-500'
-                  : highAccuracy
-                    ? 'text-red-400'
-                    : 'text-red-400'
+                ? 'text-gray-500'
+                : highAccuracy
+                  ? 'text-red-400'
+                  : 'text-red-400'
                 }`}>
                 ({highAccuracy ? 'slower, but if you want to be sure' : 'faster, and still pretty accurate'})
               </span>
