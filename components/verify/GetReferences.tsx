@@ -7,6 +7,8 @@ import { TextInput } from './TextInput'
 import { SubmitButton } from './SubmitButton'
 import { doubleCheckReference } from '@/actions/double-check-reference'
 import type { Reference } from '@/types/reference'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 
 interface ExtractResponse {
   references: Reference[]
@@ -95,6 +97,9 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
   const [text, setText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [highAccuracy, setHighAccuracy] = useState<boolean>(false);
+
+
 
   const getProcessor = (): ReferenceProcessor | null => {
     if (activeTab === 'upload' && fileData.file) {
@@ -124,7 +129,15 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
       setProgress({ current: 0, total: references.length });
 
       // Double check phase
-      // Double check phase
+      if (!highAccuracy) {
+        // Skip double-checking if high accuracy mode is off
+        onComplete({
+          type: activeTab === 'upload' ? 'file' : 'text',
+          content: JSON.stringify(references)
+        });
+        return;
+      }
+
       setProcessingStage('checking');
       let finalReferences: Reference[] = [];
 
@@ -203,7 +216,16 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         <h2 className="text-3xl font-bold text-white mb-8 text-center">
           Validate References
         </h2>
-
+        <div className="flex items-center justify-center space-x-2 mt-4">
+          <Switch
+            id="high-accuracy"
+            checked={highAccuracy}
+            onCheckedChange={setHighAccuracy}
+          />
+          <Label htmlFor="high-accuracy" className="text-sm text-gray-400">
+            High Accuracy Mode
+          </Label>
+        </div>
         <div className="w-full">
           <TabSelector
             activeTab={activeTab}
@@ -233,7 +255,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
               disabled={!hasContent}
               onClick={handleSubmit}
             />
- 
+
             {processingStage !== 'idle' && (
               <div className="text-sm text-gray-400 flex flex-col items-center gap-2">
                 <div>
