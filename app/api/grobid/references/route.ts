@@ -45,7 +45,6 @@ export async function POST(req: NextRequest) {
     );*/
 
     // Add optional parameters
-    grobidFormData.append('consolidateCitations', '1');
     grobidFormData.append('includeRawCitations', '1');
 
     const response = await fetch(GROBID_ENDPOINTS.references, {

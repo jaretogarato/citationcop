@@ -5,7 +5,7 @@ import { Reference } from '@/types/reference';
 export const runtime = 'edge';
 
 const GROBID_HOST = process.env.GROBID_HOST;
-const GROBID_TIMEOUT = 30000; // 30 seconds
+const GROBID_TIMEOUT = 30000;
 
 const GROBID_ENDPOINTS = {
   references: `${GROBID_HOST}/api/processCitationList`
@@ -29,20 +29,27 @@ export async function POST(req: NextRequest) {
       throw new GrobidError('No references provided for consolidation', 400);
     }
 
-    const grobidFormData = new FormData()
-    const raw = references.map(ref => ref.raw?.trim()).filter(Boolean);
+    // Ensure each raw citation is trimmed and on its own line
+    const rawCitations = references
+      .map(ref => ref.raw?.trim())
+      .filter(Boolean)
+      .join('\n');
     
-    if (!raw.length) {
+    if (!rawCitations) {
       throw new GrobidError('No valid raw citations found in references', 400);
     }
 
-    grobidFormData.append('citations', raw.join('\n'));
-    grobidFormData.append('consolidateCitations', '1');
-    grobidFormData.append('includeRawCitations', '1');
+    // For debugging
+    console.log('Raw citations being sent:', rawCitations);
+
+    const formData = new FormData();
+    formData.append('citations', rawCitations);
+    formData.append('consolidateCitations', '1');
+    formData.append('includeRawCitations', '1');
 
     const response = await fetch(GROBID_ENDPOINTS.references, {
       method: 'POST',
-      body: grobidFormData,
+      body: formData,
       headers: {
         'Accept': 'application/xml'
       },

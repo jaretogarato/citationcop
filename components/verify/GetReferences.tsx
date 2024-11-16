@@ -138,7 +138,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
       setProcessingStage('checking')
 
       // Consolidate references before double-checking
-      console.log("Consolidating references...");
+      /*console.log("Consolidating references...");
       let consolidatedReferences = references;
       try {
         const consolidateResponse = await fetch('/api/grobid/consolidate', {
@@ -157,15 +157,15 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         }
       } catch (err) {
         console.warn("Error during consolidation:", err);
-      }
+      }*/
 
       // Update progress total
       setProgress({ current: 0, total: references.length })
 
       let finalReferences: Reference[] = []
 
-      for (let i = 0; i < consolidatedReferences.length; i++) {
-        const reference = consolidatedReferences[i];
+      for (let i = 0; i < references.length; i++) {
+        const reference = references[i];
         try {
           //console.log(`Checking reference ${i + 1}:`, reference);
 

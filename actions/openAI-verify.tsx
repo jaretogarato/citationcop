@@ -9,7 +9,8 @@ export async function verifyGoogleSearchResultWithLLM(
   searchResults: any,
   maxRetries: number = 1
 ): Promise<{ isValid: boolean; message: string }> {
-  const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
 
   const reference_string = [
     reference.authors?.join(' '),
