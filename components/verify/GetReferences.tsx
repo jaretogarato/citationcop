@@ -7,6 +7,8 @@ import { TextInput } from './TextInput'
 import { SubmitButton } from './SubmitButton'
 import { doubleCheckReference } from '@/actions/double-check-reference'
 import type { Reference } from '@/types/reference'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 
 interface ExtractResponse {
   references: Reference[]
@@ -94,7 +96,10 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
   const [fileData, setFileData] = useState<FileData>({ file: null, name: null });
   const [text, setText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [progress, setProgress] =
+    useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [highAccuracy, setHighAccuracy] = useState<boolean>(false);
+
 
   const getProcessor = (): ReferenceProcessor | null => {
     if (activeTab === 'upload' && fileData.file) {
@@ -124,7 +129,15 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
       setProgress({ current: 0, total: references.length });
 
       // Double check phase
-      // Double check phase
+      if (!highAccuracy) {
+        // Skip double-checking if high accuracy mode is off
+        onComplete({
+          type: activeTab === 'upload' ? 'file' : 'text',
+          content: JSON.stringify(references)
+        });
+        return;
+      }
+
       setProcessingStage('checking');
       let finalReferences: Reference[] = [];
 
@@ -204,6 +217,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
           Validate References
         </h2>
 
+
         <div className="w-full">
           <TabSelector
             activeTab={activeTab}
@@ -227,13 +241,38 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
             </div>
           )}
 
+
+          <div className="flex items-center justify-center space-x-2 mt-4">
+            <Switch
+              id="high-accuracy-mode"
+              checked={highAccuracy}
+              onCheckedChange={setHighAccuracy}
+              disabled={isProcessing}
+            />
+            <Label
+              htmlFor="high-accuracy-mode"
+              className={`text-base flex items-center gap-2 ${isProcessing ? 'text-gray-500' : 'text-gray-200'
+                }`}
+            >
+              <span className="font-semibold">High Accuracy Mode {highAccuracy ? 'ON' : 'OFF'}</span>
+              <span className={`text-sm ${isProcessing
+                  ? 'text-gray-500'
+                  : highAccuracy
+                    ? 'text-red-400'
+                    : 'text-red-400'
+                }`}>
+                ({highAccuracy ? 'slower, but if you want to be sure' : 'faster, and still pretty accurate'})
+              </span>
+            </Label>
+          </div>
+
           <div className="mt-8 flex flex-col items-center gap-4">
             <SubmitButton
               isProcessing={isProcessing}
               disabled={!hasContent}
               onClick={handleSubmit}
             />
- 
+
             {processingStage !== 'idle' && (
               <div className="text-sm text-gray-400 flex flex-col items-center gap-2">
                 <div>
