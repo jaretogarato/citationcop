@@ -96,9 +96,9 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
   const [fileData, setFileData] = useState<FileData>({ file: null, name: null });
   const [text, setText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [progress, setProgress] =
+    useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [highAccuracy, setHighAccuracy] = useState<boolean>(false);
-
 
 
   const getProcessor = (): ReferenceProcessor | null => {
@@ -244,14 +244,25 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
 
           <div className="flex items-center justify-center space-x-2 mt-4">
             <Switch
-              id="high-accuracy"
+              id="high-accuracy-mode"
               checked={highAccuracy}
               onCheckedChange={setHighAccuracy}
+              disabled={isProcessing}
             />
-            <Label htmlFor="high-accuracy" className="text-sm text-gray-400">
-              {highAccuracy
-                ? "High Accuracy Mode ON (takes more time)"
-                : "High Accuracy Mode OFF (faster processing)"}
+            <Label
+              htmlFor="high-accuracy-mode"
+              className={`text-base flex items-center gap-2 ${isProcessing ? 'text-gray-500' : 'text-gray-200'
+                }`}
+            >
+              <span className="font-semibold">High Accuracy Mode {highAccuracy ? 'ON' : 'OFF'}</span>
+              <span className={`text-sm ${isProcessing
+                  ? 'text-gray-500'
+                  : highAccuracy
+                    ? 'text-red-400'
+                    : 'text-red-400'
+                }`}>
+                ({highAccuracy ? 'slower, but if you want to be sure' : 'faster, and still pretty accurate'})
+              </span>
             </Label>
           </div>
 
