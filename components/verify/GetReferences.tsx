@@ -89,6 +89,7 @@ class TextReferenceProcessor implements ReferenceProcessor {
   }
 }
 
+
 export default function GetReferences({ onComplete }: GetReferencesProps): JSX.Element {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [processingStage, setProcessingStage] = useState<'idle' | 'getting' | 'checking'>('idle');
@@ -96,8 +97,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
   const [fileData, setFileData] = useState<FileData>({ file: null, name: null });
   const [text, setText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] =
-    useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [highAccuracy, setHighAccuracy] = useState<boolean>(false);
 
 
@@ -240,7 +240,6 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
           Validate References
         </h2>
 
-
         <div className="w-full">
           <TabSelector
             activeTab={activeTab}
@@ -264,55 +263,58 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
             </div>
           )}
 
-
-          <div className="flex items-center justify-center space-x-2 mt-4">
+          <div className="flex justify-between items-start mt-4">
+            <div className="flex items-start space-x-2">
             <Switch
-              id="high-accuracy-mode"
-              checked={highAccuracy}
-              onCheckedChange={setHighAccuracy}
-              disabled={isProcessing}
-            />
-            <Label
-              htmlFor="high-accuracy-mode"
-              className={`text-base flex items-center gap-2 ${isProcessing ? 'text-gray-500' : 'text-gray-200'
-                }`}
-            >
-              <span className="font-semibold">High Accuracy Mode {highAccuracy ? 'ON' : 'OFF'}</span>
-              <span className={`text-sm ${isProcessing
-                ? 'text-gray-500'
-                : highAccuracy
-                  ? 'text-red-400'
-                  : 'text-red-400'
-                }`}>
-                ({highAccuracy ? 'slower, but if you want to be sure' : 'faster, and still pretty accurate'})
-              </span>
-            </Label>
-          </div>
-
-          <div className="mt-8 flex flex-col items-center gap-4">
-            <SubmitButton
-              isProcessing={isProcessing}
-              disabled={!hasContent}
-              onClick={handleSubmit}
-            />
+                id="high-accuracy-mode"
+                checked={highAccuracy}
+                onCheckedChange={setHighAccuracy}
+                disabled={isProcessing}
+                className=" data-[state=checked]:bg-orange-500 data-[state=unchecked]:bg-blue-500"
+              />
+              <Label
+                htmlFor="high-accuracy-mode"
+                className={`flex flex-col ${isProcessing ? 'text-gray-500' : 'text-gray-200'}`}
+              >
+                <span className="font-semibold">High Accuracy Mode {highAccuracy ? 'ON' : 'OFF'}</span>
+                <span className={`text-sm ${isProcessing
+                  ? 'text-gray-500'
+                  : highAccuracy
+                    ? 'text-orange-400'
+                    : 'text-blue-400'
+                  }`}>
+                  {highAccuracy ? 'Slower, catch those edge cases' : 'Faster, works for most cases'}
+                </span>
+              </Label>
+            </div>
 
             {processingStage !== 'idle' && (
-              <div className="text-sm text-gray-400 flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2 text-sm text-gray-400 pr-8">
+
                 <div>
                   {processingStage === 'getting'
                     ? 'Getting references...'
                     : 'Double checking references...'}
                 </div>
+                <div className="w-4 h-4 rounded-full bg-blue-500 animate-pulse" />
                 {processingStage === 'checking' && progress.total > 0 && (
-                  <div className="text-xs">
-                    Progress: {progress.current + 1} / {progress.total}
+                  <div className="text-xs ml-2">
+                    ({progress.current + 1} / {progress.total})
                   </div>
                 )}
               </div>
             )}
           </div>
+
+          <div className="mt-4 flex justify-center">
+            <SubmitButton
+              isProcessing={isProcessing}
+              disabled={!hasContent}
+              onClick={handleSubmit}
+            />
+          </div>
         </div>
       </div>
     </div>
-  )
+  );
 }
