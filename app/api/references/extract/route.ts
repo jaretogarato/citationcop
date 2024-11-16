@@ -35,7 +35,6 @@ export async function POST(request: Request) {
       "pages": "page range if available",
       "conference": "conference name if applicable",
       "url": "URL if available. Do NOT create a URL if it does not exist.",
-      "url": "URL if available. Do NOT create a URL if it does not exist.",
       "date_of_access": "date of access if applicable, will come after url"
     }
   ]

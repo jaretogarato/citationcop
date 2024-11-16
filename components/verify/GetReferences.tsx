@@ -1,24 +1,25 @@
 'use client'
 
-import { useState } from 'react';
-import { TabSelector } from './TabSelector';
-import { FileUpload } from './FileUpload';
-import { TextInput } from './TextInput';
-import { SubmitButton } from './SubmitButton';
-import type { Reference } from '@/types/reference';
+import { useState } from 'react'
+import { TabSelector } from './TabSelector'
+import { FileUpload } from './FileUpload'
+import { TextInput } from './TextInput'
+import { SubmitButton } from './SubmitButton'
+import { doubleCheckReference } from '@/actions/double-check-reference'
+import type { Reference } from '@/types/reference'
 
 interface ExtractResponse {
-  references: Reference[];
-  error?: string;
+  references: Reference[]
+  error?: string
 }
 
 export interface FileData {
-  file: File | null;
-  name: string | null;
+  file: File | null
+  name: string | null
 }
 
 interface GetReferencesProps {
-  onComplete: (data: { type: 'file' | 'text'; content: string }) => void;
+  onComplete: (data: { type: 'file' | 'text'; content: string }) => void
 }
 
 interface ReferenceProcessor {
@@ -26,19 +27,12 @@ interface ReferenceProcessor {
   validate: () => boolean
 }
 
-// Simulated double-check function
-const doubleCheckReference = async (reference: Reference): Promise<{ ok: boolean; reference?: Reference }> => {
-  // Simulate processing time
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return { ok: true };
-}
-
 class FileReferenceProcessor implements ReferenceProcessor {
   constructor(private file: File) { }
 
   async process(): Promise<Reference[]> {
-    const formData = new FormData();
-    formData.append('file', this.file);
+    const formData = new FormData()
+    formData.append('file', this.file)
 
     const response = await fetch('/api/grobid/references', {
       method: 'POST',
@@ -46,20 +40,20 @@ class FileReferenceProcessor implements ReferenceProcessor {
     })
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    const data: ExtractResponse = await response.json();
+    const data: ExtractResponse = await response.json()
 
     if (data.error) {
-      throw new Error(data.error);
+      throw new Error(data.error)
     }
 
-    return data.references;
+    return data.references
   }
 
   validate(): boolean {
-    return this.file !== null;
+    return this.file !== null
   }
 }
 
@@ -100,6 +94,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
   const [fileData, setFileData] = useState<FileData>({ file: null, name: null });
   const [text, setText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
 
   const getProcessor = (): ReferenceProcessor | null => {
     if (activeTab === 'upload' && fileData.file) {
@@ -118,24 +113,70 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
     setIsProcessing(true);
     setError(null);
     setProcessingStage('getting');
+    setProgress({ current: 0, total: 0 });
 
     try {
       // Get initial references
       const references = await processor.process();
+      console.log("Initial references from processor:", references);
+
+      // Update progress total
+      setProgress({ current: 0, total: references.length });
 
       // Double check phase
+      // Double check phase
       setProcessingStage('checking');
-      const checkedReferences: Reference[] = [];
+      let finalReferences: Reference[] = [];
 
-      for (const reference of references) {
-        const result = await doubleCheckReference(reference);
-        checkedReferences.push(result.reference || reference);
+      for (let i = 0; i < references.length; i++) {
+        const reference = references[i];
+        try {
+          console.log(`Checking reference ${i + 1}:`, reference);
+
+          const result = await doubleCheckReference(reference);
+
+          console.log(`Double check result for reference ${i + 1}:`, result);
+
+          if ('ok' in result[0]) {
+            // If the reference is valid, keep the original
+            finalReferences.push(reference);
+          } else {
+            // If we got back corrected/multiple references, add them all
+            const correctedRefs = result as Reference[];
+
+            console.log(`Corrected references:`, correctedRefs);
+
+
+            // Map through to ensure each reference has the right status
+            finalReferences = finalReferences.concat(
+              correctedRefs.map(ref => ({
+                ...ref,
+                status: 'pending' // Always set status to pending for corrected references
+              }))
+            );
+          }
+
+          console.log(`Final references array after processing ${i + 1}:`, finalReferences);
+
+          setProgress(prev => ({ ...prev, current: i + 1 }))
+
+
+        } catch (err) {
+          console.warn(`Error checking reference ${i + 1}:`, err)
+          finalReferences.push(reference); // Keep original if check fails
+          setProgress(prev => ({ ...prev, current: i + 1 }))
+        }
       }
+
+      console.log("All references processed. Final array:", finalReferences);
+      console.log("Stringified content being sent:", JSON.stringify(finalReferences));
+
 
       onComplete({
         type: activeTab === 'upload' ? 'file' : 'text',
-        content: JSON.stringify(checkedReferences)
+        content: JSON.stringify(finalReferences)
       });
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An error occurred';
       setError(errorMessage);
@@ -143,6 +184,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
     } finally {
       setIsProcessing(false);
       setProcessingStage('idle');
+      setProgress({ current: 0, total: 0 });
     }
   };
 
@@ -184,22 +226,31 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
               {error}
             </div>
           )}
-          {processingStage !== 'idle' && (
-            <div className="text-sm text-gray-400">
-              {processingStage === 'getting' ? 'Getting references...' : 'Double checking references...'}
-            </div>
-          )}
+
           <div className="mt-8 flex flex-col items-center gap-4">
             <SubmitButton
               isProcessing={isProcessing}
               disabled={!hasContent}
               onClick={handleSubmit}
             />
-
-
+  WHATTEH OITHA EOIHAE OIEH REOIHROEIHREA OIEHROEAIRH 
+            {processingStage !== 'idle' && (
+              <div className="text-sm text-gray-400 flex flex-col items-center gap-2">
+                <div>
+                  {processingStage === 'getting'
+                    ? 'Getting references...'
+                    : 'Double checking references...'}
+                </div>
+                {processingStage === 'checking' && progress.total > 0 && (
+                  <div className="text-xs">
+                    Progress: {progress.current + 1} / {progress.total}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }
