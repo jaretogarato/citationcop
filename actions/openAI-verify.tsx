@@ -49,7 +49,7 @@ export async function verifyGoogleSearchResultWithLLM(
     try {
       //console.log(`Attempt ${attempt + 1}/${maxRetries + 1}... JSON!!`);
       const response = await openAI.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: model,
         messages: [{ role: 'system', content: prompt }],
         temperature: 0.0,
         response_format: { type: "json_object" },
@@ -123,7 +123,8 @@ export async function verifyURL(reference: Reference): Promise<{ isValid: boolea
 
     // Initialize OpenAI
     const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
+    const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
+    
     // Create reference string
     const reference_string = [
       reference.authors?.join(' '),
@@ -154,7 +155,7 @@ Answer in the following format:
 
     // Get OpenAI response
     const response = await openAI.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: model,
       messages: [{ role: 'system', content: prompt }],
       temperature: 0.0
     });
