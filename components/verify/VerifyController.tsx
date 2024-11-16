@@ -60,7 +60,7 @@ export default function VerifyController(): JSX.Element {
     }
   }
 
-  //console.log("Current step:", currentStep);
+  console.log("Current step:", currentStep);
 
   return (
     <>
@@ -68,7 +68,7 @@ export default function VerifyController(): JSX.Element {
         <GetReferences onComplete={(data) => handleStepComplete('get', data)} />
       )}
       {currentStep === 'verify' && referenceData && (
-        //console.log("Reference data going into VERIFY", referenceData),
+        console.log("Reference data going into VERIFY", referenceData),
         <VerifyReferences
           data={referenceData}
           onComplete={(data) => handleStepComplete('verify', data)}
