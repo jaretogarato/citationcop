@@ -17,7 +17,7 @@ export function parseReferences(xml: string): Reference[] {
   const result = parser.parse(xml);
 
   // Log the complete parsed XML structure for debugging purposes
-  console.log('Parsed XML structure:', JSON.stringify(result, null, 2));
+  //console.log('Parsed XML structure:', JSON.stringify(result, null, 2));
 
   const biblStructs = result?.TEI?.text?.back?.div?.listBibl?.biblStruct || [];
   const references = Array.isArray(biblStructs) ? biblStructs : [biblStructs];
@@ -30,7 +30,7 @@ export function parseReferences(xml: string): Reference[] {
     // Extract identifiers only from <analytic>
     const identifiers = analytic.idno ? (Array.isArray(analytic.idno) ? analytic.idno : [analytic.idno]) : [];
     
-    console.log('Reference identifiers:', JSON.stringify(identifiers, null, 2));
+    //console.log('Reference identifiers:', JSON.stringify(identifiers, null, 2));
 
     // Extract DOI using the already processed idArray
     const DOI = extractIdentifier(identifiers, 'DOI');
@@ -210,7 +210,7 @@ export function determineReferenceStatus(identifier: string | null, rawText: str
 } {
   const isVerified = verifyIdentifierInRawString(identifier, rawText);
 
-  console.log(`${type}:`, identifier, 'Raw:', rawText, 'Verified:', isVerified);
+  //console.log(`${type}:`, identifier, 'Raw:', rawText, 'Verified:', isVerified);
 
   return {
     status: isVerified ? 'verified' : 'pending',
@@ -219,21 +219,29 @@ export function determineReferenceStatus(identifier: string | null, rawText: str
 }
 
 // Example usage with DOI followed by ISBN only if DOI is not verified
-function determineStatusForReference(doi: string | null, isbn: string | null, arxivId: string | null, rawText: string | null) {
-  // Get reference status based on DOI verification
+function determineStatusForReference(
+  doi: string | null,
+  isbn: string | null,
+  arxivId: string | null,
+  rawText: string | null
+) {
+  // Step 1: Try DOI verification
   let { status, message } = determineReferenceStatus(doi, rawText, 'DOI');
 
-  // If DOI is not verified, proceed to check ISBN
+  // Step 2: If DOI is not verified, proceed to check ISBN
   if (status === 'pending') {
-    console.log('DOI verification failed or pending, proceeding to ISBN verification...');
+    //console.log('DOI verification failed or pending, proceeding to ISBN verification...');
     const isbnStatus = determineReferenceStatus(isbn, rawText, 'ISBN');
     status = isbnStatus.status;
     message = isbnStatus.message;
-  } else {
-    const arxivIDStatus = determineReferenceStatus(isbn, rawText, 'arxivId');
-    status = arxivIDStatus.status;
-    message = arxivIDStatus.message;
 
+    // Step 3: If ISBN is also pending, proceed to check arxivId
+    if (status === 'pending') {
+      //console.log('ISBN verification failed or pending, proceeding to arXiv ID verification...');
+      const arxivIDStatus = determineReferenceStatus(arxivId, rawText, 'arxivId');
+      status = arxivIDStatus.status;
+      message = arxivIDStatus.message;
+    }
   }
 
   // Return the final status and message
@@ -241,14 +249,15 @@ function determineStatusForReference(doi: string | null, isbn: string | null, ar
 }
 
 
+
 function extractIdentifier(idArray: any[], type: string): string | null {
-  console.log('Extracting identifier:', type, 'from:', JSON.stringify(idArray, null, 2));
+  //console.log('Extracting identifier:', type, 'from:', JSON.stringify(idArray, null, 2));
   for (const id of idArray) {
     if (id['@_type'] === type) {
-      console.log(`Found ${type}:`, id['#text']);
+      //console.log(`Found ${type}:`, id['#text']);
       return id['#text'];
     }
   }
-  console.log(`No identifier of type ${type} found.`);
+  //console.log(`No identifier of type ${type} found.`);
   return null;
 }
