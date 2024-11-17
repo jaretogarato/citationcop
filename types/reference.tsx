@@ -37,6 +37,24 @@ export type ReferenceType =
   | 'report'     // Technical report, white paper
   | 'webpage'    // Web content
 
+// New types for search results
+export interface SearchResultItem {
+  title: string;
+  link: string;
+  snippet: string;
+}
+
+export interface GoogleSearchResult {
+  organic?: SearchResultItem[];
+  knowledgeGraph?: any;
+  searchParameters?: {
+    q: string;
+    gl: string;
+    hl: string;
+  };
+}
+
+// Update Reference interface to include search results
 export interface Reference {
   date_of_access: any;
   // Core fields
@@ -68,7 +86,11 @@ export interface Reference {
   status: ReferenceStatus
   verification_source?: string
   message?: string
+  
+  // New field for search results
+  searchResults?: GoogleSearchResult
 }
+
 
 
 // Type definitions for helper functions

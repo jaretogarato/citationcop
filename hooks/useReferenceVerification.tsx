@@ -1,4 +1,4 @@
-// hooks/useReferenceVerification.ts
+// hooks/useReferenceVerification.tsx
 import { useState, useCallback, useRef } from 'react';
 import type { Reference, ReferenceStatus, VerificationResults } from '@/types/reference';
 import { verifyReferenceAndUpdateStatus } from '@/utils/verify-helpers/reference-utils';
@@ -10,12 +10,14 @@ interface VerificationState {
   currentReference: number;
 }
 
+// Make sure to export the hook as a named export
 export function useReferenceVerification(
   initialContent: Reference[],
   onComplete: (data: {
     stats: VerificationResults;
     references: Reference[];
-  }) => void
+  }) => void,
+  onProgress?: (stage: 'google' | 'openai', count: number) => void
 ) {
   const processingRef = useRef(false);
   const completedRef = useRef(false);
@@ -57,18 +59,9 @@ export function useReferenceVerification(
         return;
       }
 
-      // Process all pending references - let verifyReferenceAndUpdateStatus handle batching
       const verifiedRefs = await verifyReferenceAndUpdateStatus(
         pendingRefs,
-        (stage, count) => {
-          // Update progress based on verification stage
-          setState(prev => ({
-            ...prev,
-            progress: stage === 'google' 
-              ? (count / pendingRefs.length) * 50  // First 50%
-              : 50 + (count / pendingRefs.length) * 50  // Second 50%
-          }));
-        }
+        onProgress
       );
 
       setState(prevState => {
@@ -108,30 +101,13 @@ export function useReferenceVerification(
 
     } catch (error) {
       console.error('Error processing references:', error);
-      // Update references that failed with error status
-      setState(prevState => {
-        const newReferences = prevState.references.map(ref => 
-          ref.status === 'pending' ? {
-            ...ref,
-            status: 'error' as ReferenceStatus,
-            message: 'Verification failed unexpectedly'
-          } : ref
-        );
-
-        return {
-          ...prevState,
-          references: newReferences,
-          stats: {
-            ...prevState.stats,
-            issues: newReferences.filter(ref => ref.status === 'error').length,
-            pending: 0
-          }
-        };
-      });
     } finally {
       processingRef.current = false;
     }
-  }, [state.references, onComplete]);
+  }, [state.references, onComplete, onProgress]);
 
   return { state, processNextReferences };
 }
+
+// Re-export types if needed
+export type { VerificationState };
