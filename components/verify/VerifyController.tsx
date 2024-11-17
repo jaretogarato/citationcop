@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import GetReferences from './get-references/GetReferences'
-import VerifyReferences from './verify/VerifyReferences'
+import VerifyReferencesComponent from './verify/VerifyReferencesComponent'
 import DisplayReferences from './display/DisplayReferences'
 import type { VerifyStep, Reference } from '@/types/reference'
 
@@ -69,7 +69,7 @@ export default function VerifyController(): JSX.Element {
       )}
       {currentStep === 'verify' && referenceData && (
         //console.log("Reference data going into VERIFY", referenceData),
-        <VerifyReferences
+        <VerifyReferencesComponent
           data={referenceData}
           onComplete={(data) => handleStepComplete('verify', data)}
         />

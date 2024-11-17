@@ -86,3 +86,10 @@ interface ArticleMetadata {
   authors: string[]
   year?: string | null
 }
+
+export interface VerificationResults {
+  verified: number;
+  issues: number;
+  pending: number;
+  totalReferences: number;
+}
