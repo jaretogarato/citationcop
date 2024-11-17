@@ -9,6 +9,7 @@ export function useBatchProcessingSearch() {
   const [processedRefs, setProcessedRefs] = useState<Reference[]>([]);
   const [progress, setProgress] = useState(0);
   const processingRef = useRef(false);
+  const accumulatedRefs = useRef<Reference[]>([]);
 
   const processReference = async (reference: Reference): Promise<Reference> => {
     const query = `${reference.title} ${reference.authors.join(' ')}`;
@@ -78,13 +79,12 @@ export function useBatchProcessingSearch() {
         currentBatch.map(ref => processReference(ref))
       );
 
-      // Update processed refs atomically
-      setProcessedRefs(prev => {
-        const newRefs = [...prev, ...results];
-        const newProgress = (newRefs.length / references.length) * 100;
-        setProgress(newProgress);
-        return newRefs;
-      });
+      // Update accumulated refs
+      accumulatedRefs.current = [...accumulatedRefs.current, ...results];
+      
+      // Update processed refs for UI
+      setProcessedRefs(accumulatedRefs.current);
+      setProgress((accumulatedRefs.current.length / references.length) * 100);
 
       // If there are more references to process, continue with next batch
       if (endIndex < references.length) {
@@ -93,16 +93,18 @@ export function useBatchProcessingSearch() {
           processBatch(references, endIndex, onBatchComplete);
         }, 100);
       } else {
-        // Final batch complete - pass the FULL accumulated refs
-        console.log('Search phase complete, passing refs:', processedRefs.length + results.length);
-        onBatchComplete([...processedRefs, ...results]); // Include all processed refs
+        // Final batch complete
+        console.log('Search phase complete, passing refs:', accumulatedRefs.current.length);
+        onBatchComplete(accumulatedRefs.current);
+        // Reset accumulated refs for next run
+        accumulatedRefs.current = [];
       }
     } catch (error) {
       console.error('Batch processing error:', error);
     } finally {
       processingRef.current = false;
     }
-  }, [processedRefs]); // Add processedRefs to dependencies
+  }, []); // Remove processedRefs dependency
 
   return {
     processBatch,

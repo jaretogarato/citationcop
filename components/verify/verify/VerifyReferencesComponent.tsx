@@ -1,99 +1,91 @@
-'use client';
-
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Reference } from '@/types/reference';
 import { ProgressBar } from './ProgressBar';
 import { ProgressHeader } from './ProgressHeader';
 import { StatusIndicators } from './StatusIndicator';
-import { useBatchProcessingSearch } from '@/hooks/useBatchProcessingSearch';
 import { useBatchProcessingVerify } from '@/hooks/useBatchProcessingVerify';
 
 interface VerifyReferencesProps {
-  data: {
-    content: Reference[];
-  };
-  onComplete: (references: Reference[]) => void;
+  references: Reference[];
+  onComplete: (data: { 
+    stats: { 
+      verified: number;
+      issues: number;
+      pending: number;
+      totalReferences: number;
+    };
+    references: Reference[];
+  }) => void;
 }
 
 export default function VerifyReferencesComponent({
-  data,
+  references,
   onComplete
 }: VerifyReferencesProps): JSX.Element {
-  const { processBatch: processSearchBatch, progress: searchProgress, processedRefs: searchedRefs } = useBatchProcessingSearch();
-  const { processBatch: processVerifyBatch, progress: verifyProgress, processedRefs: verifiedRefs } = useBatchProcessingVerify();
-  const [phase, setPhase] = useState<'searching' | 'verifying'>('searching');
+  const { processBatch, progress, processedRefs } = useBatchProcessingVerify();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [searchResults, setSearchResults] = useState<Reference[]>([]);
 
-  // Handle completion of search phase and start verification
-  const handleSearchComplete = useCallback((refs: Reference[]) => {
-    console.log('Search phase complete with refs:', refs.length);
-    setSearchResults(refs);
-    setPhase('verifying');
-    
-    // Start verification phase with the completed search results
-    processVerifyBatch(refs, 0, (verifiedRefs) => {
-      console.log('Verification phase complete with refs:', verifiedRefs.length);
-      onComplete(verifiedRefs);
-    });
-  }, [processVerifyBatch, onComplete]);
+  // Effect to check if verification is complete
+  useEffect(() => {
+    if (processedRefs.length === references.length && processedRefs.length > 0) {
+      const stats = {
+        verified: processedRefs.filter(ref => ref.status === 'verified').length,
+        issues: processedRefs.filter(ref => ref.status === 'error').length,
+        pending: 0,
+        totalReferences: references.length
+      };
+      onComplete({ stats, references: processedRefs });
+    }
+  }, [processedRefs, references.length, onComplete]);
 
-  // Start the initial search phase
   useEffect(() => {
     const startProcess = async () => {
-      if (isProcessing || data.content.length === 0) return;
+      if (isProcessing || references.length === 0) return;
       setIsProcessing(true);
 
       try {
-        await processSearchBatch(data.content, 0, handleSearchComplete);
+        await processBatch(references, 0, () => {
+          // Processing is handled by the other useEffect
+          setIsProcessing(false);
+        });
       } catch (error) {
-        console.error('Error in search process:', error);
+        console.error('Error in verification process:', error);
         setIsProcessing(false);
       }
     };
 
     startProcess();
-  }, [data.content, processSearchBatch, handleSearchComplete]);
+  }, [references, processBatch]);
 
-  // Calculate stats and progress based on current phase
-  const currentProgress = phase === 'searching' ? searchProgress : verifyProgress;
-  const currentRefs = phase === 'searching' ? searchedRefs : verifiedRefs;
-  
   const stats = {
-    verified: currentRefs.filter(ref => ref.status === 'verified').length,
-    issues: currentRefs.filter(ref => ref.status === 'error').length,
-    pending: data.content.length - currentRefs.length
+    verified: processedRefs.filter(ref => ref.status === 'verified').length,
+    issues: processedRefs.filter(ref => ref.status === 'error').length,
+    pending: references.length - processedRefs.length
   };
 
   return (
     <div className="p-16">
       <div className="space-y-12">
         <ProgressHeader
-          currentReference={currentRefs.length}
-          totalReferences={data.content.length}
+          currentReference={processedRefs.length}
+          totalReferences={references.length}
         />
 
-        <ProgressBar onProgress={currentProgress} />
+        <ProgressBar onProgress={progress} />
 
         <StatusIndicators stats={stats} />
 
         <div className="max-w-xl mx-auto">
           <div className="text-center text-sm text-indigo-300/80 animate-pulse">
-            {phase === 'searching'
-              ? `Looking up references: ${searchedRefs.length} of ${data.content.length}`
-              : `Verifying references: ${verifiedRefs.length} of ${searchResults.length}`
-            }
+            Verifying references: {processedRefs.length} of {references.length}
           </div>
         </div>
 
-        {/* Debug information */}
         <div className="text-xs text-gray-500">
-          <div>Phase: {phase}</div>
-          <div>Total References: {data.content.length}</div>
-          <div>Searched: {searchedRefs.length}</div>
-          <div>Search Results: {searchResults.length}</div>
-          <div>Verified: {verifiedRefs.length}</div>
-          <div>Progress: {currentProgress.toFixed(1)}%</div>
+          <div>Total References: {references.length}</div>
+          <div>Verified: {stats.verified}</div>
+          <div>Issues: {stats.issues}</div>
+          <div>Progress: {progress.toFixed(1)}%</div>
           <div>Processing: {isProcessing ? 'Yes' : 'No'}</div>
         </div>
       </div>
