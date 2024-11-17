@@ -1,4 +1,5 @@
-// hooks/useBatchProcessingSearch.ts
+'use client';
+
 import { useState, useCallback, useRef } from 'react';
 import type { Reference, ReferenceStatus } from '@/types/reference';
 
@@ -18,7 +19,6 @@ export function useBatchProcessingSearch() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          // Add cache control headers
           'Cache-Control': 'no-cache',
           'Pragma': 'no-cache'
         },
@@ -60,12 +60,18 @@ export function useBatchProcessingSearch() {
       return;
     }
 
+    if (!references || references.length === 0) {
+      console.warn('No references to process');
+      onBatchComplete([]);
+      return;
+    }
+
     try {
       processingRef.current = true;
       const endIndex = Math.min(startIndex + BATCH_SIZE, references.length);
       const currentBatch = references.slice(startIndex, endIndex);
       
-      console.log(`Processing batch ${startIndex}-${endIndex} of ${references.length}`);
+      console.log(`Processing search batch ${startIndex}-${endIndex} of ${references.length}`);
       
       // Process the current batch of references in parallel
       const results = await Promise.all(
@@ -87,15 +93,16 @@ export function useBatchProcessingSearch() {
           processBatch(references, endIndex, onBatchComplete);
         }, 100);
       } else {
-        // Final batch complete
-        onBatchComplete(processedRefs);
+        // Final batch complete - pass the FULL accumulated refs
+        console.log('Search phase complete, passing refs:', processedRefs.length + results.length);
+        onBatchComplete([...processedRefs, ...results]); // Include all processed refs
       }
     } catch (error) {
       console.error('Batch processing error:', error);
     } finally {
       processingRef.current = false;
     }
-  }, []);
+  }, [processedRefs]); // Add processedRefs to dependencies
 
   return {
     processBatch,
