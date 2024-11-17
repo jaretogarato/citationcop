@@ -5,7 +5,7 @@ export interface FileData {
 
 export type TabType = "upload" | "paste"
 
-export type VerifyStep = "get" | "verify" | "display"
+
 
 // uploaded paper metadata info
 export interface Author {
