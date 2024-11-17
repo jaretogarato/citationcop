@@ -1,6 +1,5 @@
-// app/api/references/openAI-verify/route.ts
-import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import { NextResponse } from 'next/server';
+import OpenAI from 'openai';
 
 const API_KEYS = [
   process.env.OPENAI_API_KEY_1,
@@ -19,7 +18,12 @@ const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini';
 
 export async function POST(request: Request) {
   try {
-    const { reference, searchResults, keyIndex, maxRetries = 1 } = await request.json();
+    const {
+      reference,
+      searchResults,
+      keyIndex,
+      maxRetries = 1
+    } = await request.json();
 
     if (!reference || !searchResults) {
       return NextResponse.json(
@@ -29,10 +33,7 @@ export async function POST(request: Request) {
     }
 
     if (keyIndex >= openAIInstances.length) {
-      return NextResponse.json(
-        { error: 'Invalid key index' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid key index' }, { status: 400 });
     }
 
     const openAI = openAIInstances[keyIndex];
@@ -55,7 +56,10 @@ export async function POST(request: Request) {
 
     const prompt = `You are a machine that checks references/citations and uncovers false references in writing. Given the following search results, determine whether the provided reference refers to an actual article, conference paper, blog post, or other. Only use the information from the search results to determine the validity of the reference.
     
-    IMPORTANT: Only one citation of the reference is not sufficient to determine validity. You MUST CONSIDER EVIDENCE FROM MULTIPLE SEARCH RESULTS to make a decision.
+    A reference status is:
+    - verified if multiple search results confirms its validity
+    - unverified if there is no evidence of its existance
+    - error if there is some evidence but it is not conclusive
 
     Reference: ${reference_string}
 
@@ -64,7 +68,7 @@ export async function POST(request: Request) {
 
     Answer in the following JSON format:
     {
-      "isValid": true or false,
+      "status": "verified | unverified | error", 
       "message": "Explain how the search results verify or not the given reference. Include links that support your conclusion.",
     }`;
 
@@ -77,59 +81,81 @@ export async function POST(request: Request) {
           model: model,
           messages: [{ role: 'system', content: prompt }],
           temperature: 0.0,
-          response_format: { type: "json_object" },
-        });
+          response_format: { type: 'json_object' }
+        })
 
         const content = response.choices[0]?.message?.content;
+
         if (!content) {
           console.warn(`Attempt ${attempt + 1}: No content received from LLM`);
           continue;
         }
-
+        console.log(`content: ${content}`);
         try {
           const result = JSON.parse(content);
 
-          // Validate the result structure
-          if (typeof result.isValid !== 'boolean' || typeof result.message !== 'string') {
+          // Updated validation to match the expected response format
+          if (
+            !['verified', 'unverified', 'error'].includes(result.status) ||
+            typeof result.message !== 'string'
+          ) {
             console.warn(`Attempt ${attempt + 1}: Invalid response structure`);
             continue;
           }
 
-          console.log(`Reference verified in ${Date.now() - startTime}ms with key ${keyIndex}`);
+          console.log(
+            `Reference verified in ${Date.now() - startTime}ms with key ${keyIndex}`
+          );
           return NextResponse.json(result);
-
         } catch (parseError) {
-          console.warn(`Attempt ${attempt + 1}: JSON parsing failed:`,
-            parseError instanceof Error ? parseError.message : 'Unknown parsing error');
-          lastError = parseError instanceof Error ? parseError : new Error('Unknown parsing error');
+          console.warn(
+            `Attempt ${attempt + 1}: JSON parsing failed:`,
+            parseError instanceof Error
+              ? parseError.message
+              : 'Unknown parsing error'
+          );
+          lastError =
+            parseError instanceof Error
+              ? parseError
+              : new Error('Unknown parsing error');
           if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise((resolve) => setTimeout(resolve, 1000));
             continue;
           }
         }
       } catch (error) {
-        console.warn(`Attempt ${attempt + 1}: Request failed:`,
-          error instanceof Error ? error.message : 'Unknown error');
+        console.warn(
+          `Attempt ${attempt + 1}: Request failed:`,
+          error instanceof Error ? error.message : 'Unknown error'
+        );
         lastError = error instanceof Error ? error : new Error('Unknown error');
 
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
           continue;
         }
       }
     }
 
     // If we've exhausted all retries, return an error result
-    console.error('All verification attempts failed. Last error:', lastError?.message);
-    return NextResponse.json({
-      isValid: false,
-      message: `Verification failed after ${maxRetries + 1} attempts. Last error: ${lastError?.message}`
-    }, { status: 500 });
-
+    console.error(
+      'All verification attempts failed. Last error:',
+      lastError?.message
+    );
+    return NextResponse.json(
+      {
+        status: 'error',
+        message: `Verification failed after ${maxRetries + 1} attempts. Last error: ${lastError?.message}`
+      },
+      { status: 500 }
+    );
   } catch (error) {
     console.error('Error:', error);
     return NextResponse.json(
-      { error: 'Processing failed', details: error instanceof Error ? error.message : 'Unknown error' },
+      {
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
