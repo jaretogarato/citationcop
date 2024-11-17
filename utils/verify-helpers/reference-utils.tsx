@@ -1,6 +1,6 @@
 // utils/reference-utils.ts
 import { Reference, ReferenceStatus } from '@/types/reference';
-import { verifyReference } from '@/actions/verify-references';
+import { verifyReference } from '@/utils/verify-helpers/verify-references';
 
 export async function verifyReferenceAndUpdateStatus(reference: Reference): Promise<Reference> {
   try {
