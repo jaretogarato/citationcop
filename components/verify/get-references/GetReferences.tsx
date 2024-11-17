@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { TabSelector } from './TabSelector'
 import { FileUpload } from './FileUpload'
 import { TextInput } from './TextInput'
 import { SubmitButton } from './SubmitButton'
 import type { Reference, ReferenceStatus } from '@/types/reference'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
+import { ModeSelector } from './ModeSelector'
+import { ProcessingIndicator } from './ProcessingIndicator'
 
 interface ExtractResponse {
   references: Reference[]
@@ -88,7 +88,6 @@ class TextReferenceProcessor implements ReferenceProcessor {
   }
 }
 
-
 export default function GetReferences({ onComplete }: GetReferencesProps): JSX.Element {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [processingStage, setProcessingStage] = useState<'idle' | 'getting' | 'checking'>('idle');
@@ -98,7 +97,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [highAccuracy, setHighAccuracy] = useState<boolean>(false);
-
+  const [fastProgress, setFastProgress] = useState<number>(0);
 
   const getProcessor = (): ReferenceProcessor | null => {
     if (activeTab === 'upload' && fileData.file) {
@@ -117,6 +116,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
     setIsProcessing(true);
     setError(null);
     setProcessingStage('getting');
+    setFastProgress(0);
 
     try {
       // Get initial references
@@ -144,10 +144,9 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
 
         const batch = references.slice(i, i + BATCH_SIZE);
 
-        // Create array of promises for the batch - now calling API directly
         const batchPromises = batch.map((reference, index) => {
           const startTime = Date.now();
-          const keyIndex = index % 3; // Round-robin through 3 API keys
+          const keyIndex = index % 3;
 
           return fetch('/api/double-check', {
             method: 'POST',
@@ -182,7 +181,6 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
             });
         });
 
-        // Wait for all promises in this batch to resolve
         const batchResults = await Promise.all(batchPromises);
         const batchEndTime = Date.now();
         console.log(`Batch ${i / BATCH_SIZE + 1} completed in ${batchEndTime - batchStartTime}ms`);
@@ -203,6 +201,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
       setIsProcessing(false);
       setProcessingStage('idle');
       setProgress({ current: 0, total: 0 });
+      setFastProgress(0);
     }
   }
 
@@ -246,46 +245,17 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
           )}
 
           <div className="flex justify-between items-start mt-4">
-            <div className="flex items-start space-x-2">
-              <Switch
-                id="high-accuracy-mode"
-                checked={highAccuracy}
-                onCheckedChange={setHighAccuracy}
-                disabled={isProcessing}
-                className=" data-[state=checked]:bg-orange-500 data-[state=unchecked]:bg-blue-500"
-              />
-              <Label
-                htmlFor="high-accuracy-mode"
-                className={`flex flex-col ${isProcessing ? 'text-gray-500' : 'text-gray-200'}`}
-              >
-                <span className="font-semibold">High Accuracy Mode {highAccuracy ? 'ON' : 'OFF'}</span>
-                <span className={`text-sm ${isProcessing
-                  ? 'text-gray-500'
-                  : highAccuracy
-                    ? 'text-orange-400'
-                    : 'text-blue-400'
-                  }`}>
-                  {highAccuracy ? 'Slower, catch those edge cases' : 'Faster, works for most cases'}
-                </span>
-              </Label>
-            </div>
+            <ModeSelector 
+              isHighAccuracy={highAccuracy}
+              onToggle={setHighAccuracy}
+              disabled={isProcessing}
+            />
 
-            {processingStage !== 'idle' && (
-              <div className="flex items-center gap-2 text-sm text-gray-400 pr-8">
-
-                <div>
-                  {processingStage === 'getting'
-                    ? 'Getting references...'
-                    : 'Double checking references...'}
-                </div>
-                <div className="w-4 h-4 rounded-full bg-blue-500 animate-pulse" />
-                {processingStage === 'checking' && progress.total > 0 && (
-                  <div className="text-xs ml-2">
-                    ({progress.current} / {progress.total})
-                  </div>
-                )}
-              </div>
-            )}
+            <ProcessingIndicator
+              stage={processingStage}
+              isHighAccuracy={highAccuracy}
+              progress={progress}
+            />
           </div>
 
           <div className="mt-4 flex justify-center">
