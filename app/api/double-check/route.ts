@@ -1,7 +1,6 @@
 // app/api/double-check/route.ts
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { Reference, ReferenceStatus } from '@/types/reference';
 
 const API_KEYS = [
   process.env.OPENAI_API_KEY_1,
