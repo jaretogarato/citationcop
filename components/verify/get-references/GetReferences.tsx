@@ -6,10 +6,8 @@ import { FileUpload } from './FileUpload'
 import { TextInput } from './TextInput'
 import { SubmitButton } from './SubmitButton'
 import type { Reference, ReferenceStatus } from '@/types/reference'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Zap, SearchCheck } from 'lucide-react';
-
+import { ModeSelector } from './ModeSelector'
+import { ProcessingIndicator } from './ProcessingIndicator'
 
 interface ExtractResponse {
   references: Reference[]
@@ -99,55 +97,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
   const [highAccuracy, setHighAccuracy] = useState<boolean>(false);
-  const [fastProgress, setFastProgress] = useState(0);
-  const [accuracyChecks, setAccuracyChecks] = useState<string[]>([]);
-
-  // Accuracy mode messages that cycle
-  const accuracyStages = [
-    "Analyzing gathered reference data...",
-    "Checking raw text in paper...",
-    "Fixing errors..."
-  ]
-
-  // Fast mode progress simulation
-  useEffect(() => {
-    if (processingStage === 'getting' && !highAccuracy) {
-      const interval = setInterval(() => {
-        setFastProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            return 100;
-          }
-          return prev + 5;
-        });
-      }, 50);
-      return () => clearInterval(interval);
-    } else {
-      setFastProgress(0);
-    }
-  }, [processingStage, highAccuracy]);
-
-  // Accuracy mode checks simulation
-  useEffect(() => {
-    if (processingStage === 'getting' && highAccuracy) {
-      let currentIndex = 0;
-      const interval = setInterval(() => {
-        if (currentIndex < accuracyStages.length) {
-          setAccuracyChecks(prev => [...prev, accuracyStages[currentIndex]]);
-          currentIndex++;
-        } else {
-          clearInterval(interval);
-        }
-      }, 800); // Slower, methodical pace
-
-      return () => {
-        clearInterval(interval);
-        setAccuracyChecks([]);
-      };
-    } else {
-      setAccuracyChecks([]);
-    }
-  }, [processingStage, highAccuracy]);
+  const [fastProgress, setFastProgress] = useState<number>(0);
 
   const getProcessor = (): ReferenceProcessor | null => {
     if (activeTab === 'upload' && fileData.file) {
@@ -295,65 +245,17 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
           )}
 
           <div className="flex justify-between items-start mt-4">
-            <div className="flex items-start space-x-2">
-              <Switch
-                id="high-accuracy-mode"
-                checked={highAccuracy}
-                onCheckedChange={setHighAccuracy}
-                disabled={isProcessing}
-                className="data-[state=checked]:bg-red-500 data-[state=unchecked]:bg-blue-500"
-              />
-              <Label
-                htmlFor="high-accuracy-mode"
-                className={`flex flex-col ${isProcessing ? 'text-gray-500' : 'text-gray-200'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold">
-                    {highAccuracy ? 'ACCURACY Mode' : 'TURBO Mode'}
-                  </span>
-                  {!highAccuracy ? (
-                    <Zap className="w-4 h-4 text-blue-400 animate-pulse" />
-                  ) : (
-                    <SearchCheck className="w-4 h-4 text-red-400" />
-                  )}
-                </div>
-                <span className={`text-sm ${isProcessing
-                  ? 'text-gray-500'
-                  : highAccuracy
-                    ? 'text-red-400'
-                    : 'text-blue-400'
-                  }`}>
-                  {highAccuracy ? 'Slower, catch those edge cases' : 'Lightning fast validation'}
-                </span>
-              </Label>
-            </div>
+            <ModeSelector 
+              isHighAccuracy={highAccuracy}
+              onToggle={setHighAccuracy}
+              disabled={isProcessing}
+            />
 
-            {processingStage !== 'idle' && (
-              <div className="flex flex-col items-end gap-2 pr-8">
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <div>
-                    {processingStage === 'getting'
-                      ? (highAccuracy ? 'Getting references...' : 'Turbo-charging references...')
-                      : 'Double checking references...'}
-                  </div>
-                  <div className="w-4 h-4 rounded-full bg-blue-500 animate-pulse" />
-                  {processingStage === 'checking' && progress.total > 0 && (
-                    <div className="text-xs ml-2">
-                      ({progress.current} / {progress.total})
-                    </div>
-                  )}
-                </div>
-
-                {!highAccuracy && processingStage === 'getting' && (
-                  <div className="w-64 h-1 bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500 transition-all duration-200"
-                      style={{ width: `${fastProgress}%` }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+            <ProcessingIndicator
+              stage={processingStage}
+              isHighAccuracy={highAccuracy}
+              progress={progress}
+            />
           </div>
 
           <div className="mt-4 flex justify-center">
