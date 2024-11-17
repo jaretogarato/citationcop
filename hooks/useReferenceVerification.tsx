@@ -1,7 +1,7 @@
 // hooks/useReferenceVerification.ts
-import { useState, useCallback, useRef } from 'react';
-import type { Reference, ReferenceStatus } from '@/types/reference';
-import { verifyReferenceAndUpdateStatus } from '@/utils/reference-utils';
+import { useState, useCallback, useRef } from 'react'
+import type { Reference, ReferenceStatus } from '@/types/reference'
+import { verifyReferenceAndUpdateStatus } from '@/utils/verify-helpers/reference-utils'
 
 interface VerificationResults {
   verified: number;

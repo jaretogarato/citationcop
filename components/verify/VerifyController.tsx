@@ -1,9 +1,9 @@
 'use client'
 
 import React, { useState } from 'react'
-import GetReferences from './GetReferences'
-import VerifyReferences from './VerifyReferences'
-import DisplayReferences from './DisplayReferences'
+import GetReferences from './get-references/GetReferences'
+import VerifyReferences from './verify/VerifyReferences'
+import DisplayReferences from './display/DisplayReferences'
 import type { VerifyStep, Reference } from '@/types/reference'
 
 interface VerificationData {

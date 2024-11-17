@@ -4,13 +4,15 @@ import OpenAI from 'openai'
 import { Reference } from '@/types/reference'
 
 
+const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
+  
 export async function verifyGoogleSearchResultWithLLM(
   reference: Reference,
   searchResults: any,
   maxRetries: number = 1
 ): Promise<{ isValid: boolean; message: string }> {
-  const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
+  
 
   const reference_string = [
     reference.authors?.join(' '),

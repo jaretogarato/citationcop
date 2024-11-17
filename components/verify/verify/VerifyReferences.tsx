@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 
 import type { Reference } from '@/types/reference';
 import { ProgressHeader } from './ProgressHeader';
@@ -14,8 +14,8 @@ interface VerifyReferencesProps {
     content: Reference[];
   };
   onComplete: (data: {
-    stats: VerificationResults;
-    references: Reference[];
+    stats: VerificationResults
+    references: Reference[]
   }) => void;
 }
 
