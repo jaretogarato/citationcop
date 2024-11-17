@@ -4,12 +4,15 @@ import OpenAI from 'openai'
 import { Reference } from '@/types/reference'
 
 
+const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
+
 export async function verifyGoogleSearchResultWithLLM(
   reference: Reference,
   searchResults: any,
   maxRetries: number = 1
 ): Promise<{ isValid: boolean; message: string }> {
-  const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
 
   const reference_string = [
     reference.authors?.join(' '),
@@ -48,7 +51,7 @@ export async function verifyGoogleSearchResultWithLLM(
     try {
       //console.log(`Attempt ${attempt + 1}/${maxRetries + 1}... JSON!!`);
       const response = await openAI.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: model,
         messages: [{ role: 'system', content: prompt }],
         temperature: 0.0,
         response_format: { type: "json_object" },
@@ -122,6 +125,7 @@ export async function verifyURL(reference: Reference): Promise<{ isValid: boolea
 
     // Initialize OpenAI
     const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
 
     // Create reference string
     const reference_string = [
@@ -153,7 +157,7 @@ Answer in the following format:
 
     // Get OpenAI response
     const response = await openAI.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: model,
       messages: [{ role: 'system', content: prompt }],
       temperature: 0.0
     });

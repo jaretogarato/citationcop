@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { StatsCards } from '@/components/verify/StatsCard'
-import { ReferenceCard } from '@/components/verify/ReferenceCard'
+import { StatsCards } from '@/components/verify/display/StatsCard'
+import { ReferenceCard } from '@/components/verify/display/ReferenceCard'
 import type { Reference } from '@/types/reference';
 
 interface DisplayReferencesProps {

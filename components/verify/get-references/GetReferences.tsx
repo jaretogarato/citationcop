@@ -5,8 +5,9 @@ import { TabSelector } from './TabSelector'
 import { FileUpload } from './FileUpload'
 import { TextInput } from './TextInput'
 import { SubmitButton } from './SubmitButton'
-import { doubleCheckReference } from '@/actions/double-check-reference'
-import type { Reference } from '@/types/reference'
+import type { Reference, ReferenceStatus } from '@/types/reference'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 
 interface ExtractResponse {
   references: Reference[]
@@ -87,6 +88,7 @@ class TextReferenceProcessor implements ReferenceProcessor {
   }
 }
 
+
 export default function GetReferences({ onComplete }: GetReferencesProps): JSX.Element {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [processingStage, setProcessingStage] = useState<'idle' | 'getting' | 'checking'>('idle');
@@ -95,6 +97,8 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
   const [text, setText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const [highAccuracy, setHighAccuracy] = useState<boolean>(false);
+
 
   const getProcessor = (): ReferenceProcessor | null => {
     if (activeTab === 'upload' && fileData.file) {
@@ -113,64 +117,78 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
     setIsProcessing(true);
     setError(null);
     setProcessingStage('getting');
-    setProgress({ current: 0, total: 0 });
 
     try {
       // Get initial references
       const references = await processor.process();
       console.log("Initial references from processor:", references);
 
-      // Update progress total
-      setProgress({ current: 0, total: references.length });
-
-      // Double check phase
-      // Double check phase
-      setProcessingStage('checking');
-      let finalReferences: Reference[] = [];
-
-      for (let i = 0; i < references.length; i++) {
-        const reference = references[i];
-        try {
-          //console.log(`Checking reference ${i + 1}:`, reference);
-
-          const result = await doubleCheckReference(reference);
-
-          //console.log(`Double check result for reference ${i + 1}:`, result);
-
-          if ('ok' in result[0]) {
-            // If the reference is valid, keep the original
-            finalReferences.push(reference);
-          } else {
-            // If we got back corrected/multiple references, add them all
-            const correctedRefs = result as Reference[];
-
-            //console.log(`Corrected references:`, correctedRefs);
-
-
-            // Map through to ensure each reference has the right status
-            finalReferences = finalReferences.concat(
-              correctedRefs.map(ref => ({
-                ...ref,
-                status: 'pending' // Always set status to pending for corrected references
-              }))
-            );
-          }
-
-          //console.log(`Final references array after processing ${i + 1}:`, finalReferences);
-
-          setProgress(prev => ({ ...prev, current: i + 1 }))
-
-
-        } catch (err) {
-          console.warn(`Error checking reference ${i + 1}:`, err)
-          finalReferences.push(reference); // Keep original if check fails
-          setProgress(prev => ({ ...prev, current: i + 1 }))
-        }
+      if (!highAccuracy) {
+        onComplete({
+          type: activeTab === 'upload' ? 'file' : 'text',
+          content: JSON.stringify(references)
+        });
+        return;
       }
 
-      //console.log("All references processed. Final array:", finalReferences);
-      //console.log("Stringified content being sent:", JSON.stringify(finalReferences));
+      setProcessingStage('checking')
+      setProgress({ current: 0, total: references.length })
 
+      const BATCH_SIZE = 3;
+      const finalReferences: Reference[] = [];
+
+      // Process references in batches
+      for (let i = 0; i < references.length; i += BATCH_SIZE) {
+        const batchStartTime = Date.now();
+        console.log(`Starting batch ${i / BATCH_SIZE + 1}`);
+
+        const batch = references.slice(i, i + BATCH_SIZE);
+
+        // Create array of promises for the batch - now calling API directly
+        const batchPromises = batch.map((reference, index) => {
+          const startTime = Date.now();
+          const keyIndex = index % 3; // Round-robin through 3 API keys
+
+          return fetch('/api/double-check', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ reference, keyIndex }),
+          })
+            .then(async response => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              const result = await response.json();
+
+              const endTime = Date.now();
+              console.log(`Reference ${i + index + 1} took ${endTime - startTime}ms`);
+
+              setProgress(prev => ({ ...prev, current: prev.current + 1 }));
+
+              if ('ok' in result[0]) {
+                return reference;
+              } else {
+                return (result as Reference[]).map(ref => ({
+                  ...ref,
+                  status: 'pending' as ReferenceStatus
+                }));
+              }
+            })
+            .catch(err => {
+              console.warn('Error checking reference:', err);
+              return reference;
+            });
+        });
+
+        // Wait for all promises in this batch to resolve
+        const batchResults = await Promise.all(batchPromises);
+        const batchEndTime = Date.now();
+        console.log(`Batch ${i / BATCH_SIZE + 1} completed in ${batchEndTime - batchStartTime}ms`);
+
+        finalReferences.push(...batchResults.flat());
+      }
 
       onComplete({
         type: activeTab === 'upload' ? 'file' : 'text',
@@ -186,7 +204,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
       setProcessingStage('idle');
       setProgress({ current: 0, total: 0 });
     }
-  };
+  }
 
   const hasContent = fileData.file !== null || text.trim().length > 0;
 
@@ -227,30 +245,58 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
             </div>
           )}
 
-          <div className="mt-8 flex flex-col items-center gap-4">
-            <SubmitButton
-              isProcessing={isProcessing}
-              disabled={!hasContent}
-              onClick={handleSubmit}
-            />
- 
+          <div className="flex justify-between items-start mt-4">
+            <div className="flex items-start space-x-2">
+              <Switch
+                id="high-accuracy-mode"
+                checked={highAccuracy}
+                onCheckedChange={setHighAccuracy}
+                disabled={isProcessing}
+                className=" data-[state=checked]:bg-orange-500 data-[state=unchecked]:bg-blue-500"
+              />
+              <Label
+                htmlFor="high-accuracy-mode"
+                className={`flex flex-col ${isProcessing ? 'text-gray-500' : 'text-gray-200'}`}
+              >
+                <span className="font-semibold">High Accuracy Mode {highAccuracy ? 'ON' : 'OFF'}</span>
+                <span className={`text-sm ${isProcessing
+                  ? 'text-gray-500'
+                  : highAccuracy
+                    ? 'text-orange-400'
+                    : 'text-blue-400'
+                  }`}>
+                  {highAccuracy ? 'Slower, catch those edge cases' : 'Faster, works for most cases'}
+                </span>
+              </Label>
+            </div>
+
             {processingStage !== 'idle' && (
-              <div className="text-sm text-gray-400 flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2 text-sm text-gray-400 pr-8">
+
                 <div>
                   {processingStage === 'getting'
                     ? 'Getting references...'
                     : 'Double checking references...'}
                 </div>
+                <div className="w-4 h-4 rounded-full bg-blue-500 animate-pulse" />
                 {processingStage === 'checking' && progress.total > 0 && (
-                  <div className="text-xs">
-                    Progress: {progress.current + 1} / {progress.total}
+                  <div className="text-xs ml-2">
+                    ({progress.current} / {progress.total})
                   </div>
                 )}
               </div>
             )}
           </div>
+
+          <div className="mt-4 flex justify-center">
+            <SubmitButton
+              isProcessing={isProcessing}
+              disabled={!hasContent}
+              onClick={handleSubmit}
+            />
+          </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

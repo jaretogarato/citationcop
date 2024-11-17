@@ -9,6 +9,8 @@ const openAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
+
 export async function POST(request: Request) {
   try {
     //console.log('*** Extracting references request received. In edge Function *** ');
@@ -49,10 +51,10 @@ ${text}
 References (in JSON format):`;
 
     const response = await openAI.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: model,
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.1
-    });
+      temperature: 0.0
+    })
 
     let content = response.choices[0]?.message?.content;
 
