@@ -89,11 +89,17 @@ export function useBatchProcessingVerify() {
       // Each reference uses a different API key
       const results = await Promise.all(
         currentBatch.map((ref, index) => processReference(ref, index))
-      );
+      )
 
       // Update accumulated refs
       accumulatedRefs.current = [...accumulatedRefs.current, ...results];
       
+      console.log('Batch verification complete:', results.length);
+      console.log('Accumulated refs:', accumulatedRefs
+        .current
+        .map(ref => ({ id: ref.title, status: ref.status }))
+      );
+
       // Update processed refs for UI
       setProcessedRefs(accumulatedRefs.current);
       setProgress((accumulatedRefs.current.length / references.length) * 100);
@@ -105,7 +111,7 @@ export function useBatchProcessingVerify() {
         }, 1000); // Longer delay between verification batches
       } else {
         // Final batch complete
-        console.log('Verification phase complete, passing refs:', accumulatedRefs.current.length);
+        console.log('Verification phase complete, passing refs:', accumulatedRefs.current.length)
         
         // Calculate final stats
         const verificationData: VerificationData = {

@@ -1,3 +1,5 @@
+import React from 'react';
+
 import { Reference, ReferenceStatus } from '@/types/reference';
 import Card from '@/components/ui/Card';
 import CardContent from "@/components/ui/Card";
@@ -46,22 +48,24 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
 
   const renderMessageWithLinks = (message: string) => {
     const urlRegex = /(https?:\/\/[^\s<>[\]{}|\\^]+?)([.,)\]}>])?(?=\s|$)/g;
-    const parts = [];
+    const parts: (string | JSX.Element)[] = [];
     let lastIndex = 0;
     let match;
+    let linkCounter = 0;
 
     while ((match = urlRegex.exec(message)) !== null) {
       if (match.index > lastIndex) {
         parts.push(message.slice(lastIndex, match.index));
       }
 
-      const [_, url, punctuation] = match;
+      const [fullMatch, url, punctuation = ''] = match;
       const cleanUrl = url.replace(/[.,)\]}>]+$/, '');
 
       if (isValidUrl(cleanUrl)) {
+        linkCounter++;
         parts.push(
           <a
-            key={`link-${match.index}`}
+            key={`link-${linkCounter}`}
             href={cleanUrl}
             target="_blank"
             rel="noopener noreferrer"
@@ -71,23 +75,27 @@ export function ReferenceCard({ reference }: ReferenceCardProps) {
             here
           </a>
         );
+        if (punctuation) parts.push(punctuation);
       } else {
-        // If URL is invalid, just render it as text
-        parts.push(cleanUrl);
+        parts.push(cleanUrl + punctuation);
       }
 
-      if (punctuation) {
-        parts.push(punctuation);
-      }
-
-      lastIndex = match.index + match[0].length;
+      lastIndex = match.index + fullMatch.length;
     }
 
     if (lastIndex < message.length) {
       parts.push(message.slice(lastIndex));
     }
 
-    return parts;
+    return (
+      <React.Fragment>
+        {parts.map((part, index) => 
+          typeof part === 'string' ? (
+            <span key={`text-${index}`}>{part}</span>
+          ) : part
+        )}
+      </React.Fragment>
+    );
   };
 
   return (
