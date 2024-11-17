@@ -1,15 +1,37 @@
 'use server';
 
+// DOESN'T ALLOW PARALLEL?
+
 import OpenAI from 'openai';
 import { Reference } from '@/types/reference';
+
+const API_KEYS = [
+    process.env.OPENAI_API_KEY_1,
+    process.env.OPENAI_API_KEY_2,
+    process.env.OPENAI_API_KEY_3,
+].filter(Boolean) as string[];
+
+const openAIInstances = API_KEYS.map(apiKey => new OpenAI({ apiKey }));
+let currentInstance = 0;
+
+const getNextOpenAI = () => {
+    const instance = openAIInstances[currentInstance];
+    currentInstance = (currentInstance + 1) % openAIInstances.length;
+    return instance;
+};
+
+const model: string = process.env.LLM_MODEL_ID || 'gpt-4o-mini';
 
 export async function doubleCheckReference(
     reference: Reference,
     maxRetries: number = 1
 ): Promise<{ ok: true }[] | Reference[]> {
-    const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const model: string = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
-    //console.log('Double-checking reference:', reference);
+    const startTime = Date.now();
+    const instanceIndex = currentInstance;
+    const openAI = getNextOpenAI();
+
+    console.log(`[Key ${instanceIndex}] Starting request at ${startTime}`);
+
 
     const prompt = `You are a machine that validates parsed academic references by comparing them to their original raw text. You need to verify if the parsing was accurate and suggest corrections if needed.
 
@@ -48,10 +70,9 @@ If the reference needs correction or contains multiple references, respond with 
 
     let lastError: Error | null = null;
 
-    // Retry loop
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-            console.log(`Attempt ${attempt + 1}/${maxRetries + 1} to validate reference`);
+            console.log(`[Key ${instanceIndex}] Sending API request at ${Date.now() - startTime}ms`);
 
             const response = await openAI.chat.completions.create({
                 model: model,
@@ -59,45 +80,46 @@ If the reference needs correction or contains multiple references, respond with 
                 temperature: 0.0,
             });
 
+            console.log(`[Key ${instanceIndex}] Received API response at ${Date.now() - startTime}ms`);
+
             const content = response.choices[0]?.message?.content;
             if (!content) {
-                console.warn(`Attempt ${attempt + 1}: No content received from LLM`);
+                console.warn(`[Key ${instanceIndex}] No content received at ${Date.now() - startTime}ms`);
                 continue;
             }
 
             try {
-                // Try to extract JSON from the content
+                console.log(`[Key ${instanceIndex}] Processing response at ${Date.now() - startTime}ms`);
+
                 const jsonMatch = content.match(/\[[\s\S]*\]/);
                 if (!jsonMatch) {
-                    console.warn(`Attempt ${attempt + 1}: No JSON array found in response`);
+                    console.warn(`[Key ${instanceIndex}] No JSON found at ${Date.now() - startTime}ms`);
                     continue;
                 }
 
                 const result = JSON.parse(jsonMatch[0]);
-                //console.log('Result:', result);
 
-                // Validate the result structure
                 if (!Array.isArray(result) || result.length === 0) {
-                    console.warn(`Attempt ${attempt + 1}: Invalid response structure - not an array or empty`);
+                    console.warn(`[Key ${instanceIndex}] Invalid structure at ${Date.now() - startTime}ms`);
                     continue;
                 }
 
-                // Check if the response indicates the reference is correct
+                console.log(`[Key ${instanceIndex}] Completed successfully at ${Date.now() - startTime}ms`);
+
                 if (result[0].ok === true) {
                     return [{ ok: true }];
                 }
 
-                // Process references to ensure they have all required fields
                 return result.map((ref: Partial<Reference>, index: number) => ({
-                    ...reference, // Keep original fields as defaults
-                    ...ref, // Override with corrections
+                    ...reference,
+                    ...ref,
                     id: index === 0 ? reference.id : Date.now() + index,
-                    status: 'pending' // Always set status to pending for corrected references
+                    status: 'pending'
                 })) as Reference[];
 
             } catch (parseError) {
                 console.warn(
-                    `Attempt ${attempt + 1}: JSON parsing failed:`,
+                    `[Key ${instanceIndex}] JSON parsing failed at ${Date.now() - startTime}ms:`,
                     parseError instanceof Error ? parseError.message : 'Unknown parsing error'
                 );
                 lastError = parseError instanceof Error ? parseError : new Error('Unknown parsing error');
@@ -108,9 +130,10 @@ If the reference needs correction or contains multiple references, respond with 
                 }
             }
         } catch (error) {
+            // Log the full error object to see what's happening
             console.warn(
-                `Attempt ${attempt + 1}: Request failed:`,
-                error instanceof Error ? error.message : 'Unknown error'
+                `[Key ${instanceIndex}] Request failed at ${Date.now() - startTime}ms:`,
+                error
             );
             lastError = error instanceof Error ? error : new Error('Unknown error');
 
@@ -121,7 +144,6 @@ If the reference needs correction or contains multiple references, respond with 
         }
     }
 
-    // If we've exhausted all retries, return original reference
-    console.error('All verification attempts failed. Last error:', lastError?.message);
+    console.error(`[Key ${instanceIndex}] All attempts failed at ${Date.now() - startTime}ms. Last error:`, lastError?.message);
     return [{ ok: true }];
 }
