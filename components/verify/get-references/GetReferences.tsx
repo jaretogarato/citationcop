@@ -155,7 +155,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         return
       }
 
-      if (!highAccuracy) {
+      if (!highAccuracy || activeTab === 'paste') {
         onComplete({
           type: activeTab === 'upload' ? 'file' : 'text',
           content: JSON.stringify(references)

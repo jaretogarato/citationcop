@@ -20,14 +20,6 @@ export default function HomePage(): JSX.Element {
     return new Intl.NumberFormat('en-US').format(num);
   };
 
-  const handleSignUp = () => {
-    router.push('/signup');
-  };
-
-  const handleLogin = () => {
-    router.push('/verify');
-  };
-
   const handleLoading = (url: string) => {
     setIsLoading(true);
     router.push(url);
