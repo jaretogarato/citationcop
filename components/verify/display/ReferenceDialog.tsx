@@ -98,10 +98,10 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
         const colors = tabColors[activeTab as keyof typeof tabColors];
         return (
             <div className={`flex items-start gap-2 p-3 ${colors.accent} rounded-lg`}>
-                {React.cloneElement(icon, { className: `h-5 w-5 ${colors.text} mt-0.5` })}
-                <div>
+                {React.cloneElement(icon, { className: `h-5 w-5 ${colors.text} mt-0.5 flex-shrink-0` })}
+                <div className="min-w-0 flex-1">
                     <h4 className={`text-sm font-medium ${colors.text}`}>{label}</h4>
-                    <p className="text-white">{value}</p>
+                    <p className="text-white whitespace-pre-wrap break-words">{value}</p>
                 </div>
             </div>
         );
@@ -116,10 +116,10 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
                     rel="noopener noreferrer"
                     className={`${tabColors.search.text} hover:opacity-80 font-medium flex items-center gap-2`}
                 >
-                    {result.title}
-                    <ExternalLink className="h-4 w-4" />
+                    <span className="break-words">{result.title}</span>
+                    <ExternalLink className="h-4 w-4 flex-shrink-0" />
                 </a>
-                <p className="text-sm text-gray-300">{result.snippet}</p>
+                <p className="text-sm text-gray-300 whitespace-pre-wrap break-words">{result.snippet}</p>
             </div>
         ));
     };
@@ -170,7 +170,7 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
                     p-4
                     ${tabColors[activeTab as keyof typeof tabColors].gradient}
                 `}>
-                    <TabsContent value="details" className="space-y-4">
+                    <TabsContent value="details" className="space-y-4 pr-4">
                         {renderField("Title", reference.title, <Book />)}
                         {renderField("Authors", formatAuthors(reference.authors), <Info />)}
                         {renderField("Journal", reference.journal, <Book />)}
@@ -188,19 +188,19 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
                         {renderField("Type", reference.type, <Info />)}
                     </TabsContent>
 
-                    <TabsContent value="verification" className="space-y-4">
+                    <TabsContent value="verification" className="space-y-4 pr-4">
                         <div className="flex items-center gap-2 p-3 bg-black/10 rounded-lg">
                             {getStatusIcon(reference.status)}
-                            <div>
+                            <div className="min-w-0 flex-1">
                                 <h4 className={`text-sm font-medium ${getStatusTextColor(reference.status)}`}>Status</h4>
-                                <p className="text-white">{getStatusText(reference.status)}</p>
+                                <p className="text-white whitespace-pre-wrap break-words">{getStatusText(reference.status)}</p>
                             </div>
                         </div>
-                        {renderField("Verification Method", reference.verification_source, <Info />)}
+                        {renderField("Verification Source", reference.verification_source, <Info />)}
                         {renderField("Verification Notes", reference.message, <Info />)}
                     </TabsContent>
 
-                    <TabsContent value="search" className="space-y-4">
+                    <TabsContent value="search" className="space-y-4 pr-4">
                         {reference.searchResults?.organic ? (
                             <div className="space-y-4">
                                 {renderSearchResults(reference.searchResults.organic)}
