@@ -53,9 +53,7 @@ export default async function RootLayout({ children }: PropsWithChildren) {
           {children}
         </main>
         <Footer />
-        <Suspense>
-          <Toaster />
-        </Suspense>
+        <Toaster />
       </body>
     </html>
   );
