@@ -1,29 +1,29 @@
-import React, { useEffect, useState } from 'react';
-import type { Reference } from '@/types/reference';
-import { ProgressBar } from './ProgressBar';
-import { ProgressHeader } from './ProgressHeader';
-import { StatusIndicators } from './StatusIndicator';
-import { useBatchProcessingVerify } from '@/hooks/useBatchProcessingVerify';
+import React, { useEffect, useState } from 'react'
+import type { Reference } from '@/types/reference'
+import { ProgressBar } from './ProgressBar'
+import { ProgressHeader } from './ProgressHeader'
+import { StatusIndicators } from './StatusIndicator'
+import { useBatchProcessingVerify } from '@/hooks/useBatchProcessingVerify'
 
 interface VerifyReferencesProps {
-  references: Reference[];
+  references: Reference[]
   onComplete: (data: { 
     stats: { 
-      verified: number;
-      issues: number;
-      pending: number;
-      totalReferences: number;
+      verified: number
+      issues: number
+      pending: number
+      totalReferences: number
     };
-    references: Reference[];
-  }) => void;
+    references: Reference[]
+  }) => void
 }
 
 export default function VerifyReferencesComponent({
   references,
   onComplete
 }: VerifyReferencesProps): JSX.Element {
-  const { processBatch, progress, processedRefs } = useBatchProcessingVerify();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const { processBatch, progress, processedRefs } = useBatchProcessingVerify()
+  const [isProcessing, setIsProcessing] = useState(false)
 
   // Effect to check if verification is complete
   useEffect(() => {
@@ -34,34 +34,34 @@ export default function VerifyReferencesComponent({
         pending: 0,
         totalReferences: references.length
       };
-      onComplete({ stats, references: processedRefs });
+      onComplete({ stats, references: processedRefs })
     }
-  }, [processedRefs, references.length, onComplete]);
+  }, [processedRefs, references.length, onComplete])
 
   useEffect(() => {
     const startProcess = async () => {
-      if (isProcessing || references.length === 0) return;
-      setIsProcessing(true);
+      if (isProcessing || references.length === 0) return
+      setIsProcessing(true)
 
       try {
         await processBatch(references, 0, () => {
           // Processing is handled by the other useEffect
-          setIsProcessing(false);
+          setIsProcessing(false)
         });
       } catch (error) {
-        console.error('Error in verification process:', error);
-        setIsProcessing(false);
+        console.error('Error in verification process:', error)
+        setIsProcessing(false)
       }
     };
 
     startProcess();
-  }, [references, processBatch]);
+  }, [references, processBatch])
 
   const stats = {
     verified: processedRefs.filter(ref => ref.status === 'verified').length,
     issues: processedRefs.filter(ref => ref.status === 'error').length,
     pending: references.length - processedRefs.length
-  };
+  }
 
   return (
     <div className="p-16">

@@ -94,7 +94,12 @@ class TextReferenceProcessor implements ReferenceProcessor {
       throw new Error('Invalid response structure')
     }
 
-    return data.references
+    const processedReferences = data.references.map(reference => ({
+      ...reference,
+      raw: this.text
+    }));
+
+    return processedReferences;
   }
 
   validate(): boolean {

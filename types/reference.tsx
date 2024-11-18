@@ -86,6 +86,8 @@ export interface Reference {
   status: ReferenceStatus
   verification_source?: string
   message?: string
+  url_valid?: boolean
+  url_match?: boolean
   
   // New field for search results
   searchResults?: GoogleSearchResult
