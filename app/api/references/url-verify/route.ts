@@ -105,7 +105,7 @@ Reference to verify: "${reference.raw}"
 
 URL being checked: ${reference.url}
 
-Webpage content excerpt: "${webContent.substring(0, 8000)}"
+Webpage content excerpt: "${webContent.substring(0, 2500)}"
 
 Compare the reference against the webpage content and determine if the reference is accurate. If it is the reference, then the status should be "verified". If the reference is not found or is incorrect, the status should be "error".
 
