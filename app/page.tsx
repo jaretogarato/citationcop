@@ -4,8 +4,8 @@ import {
   getProducts,
   getSubscription,
   getUser
-} from '@/utils/supabase/queries';
-import HomePage from '@/components/verify/HomePage';
+} from '@/utils/supabase/queries'
+import HomePage from '@/components/home-page/HomePage';
 
 export default async function PricingPage() {
   const supabase = createClient();
