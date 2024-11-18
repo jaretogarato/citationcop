@@ -1,6 +1,6 @@
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { Zap, SearchCheck } from 'lucide-react';
+import { Zap, SearchCheck } from 'lucide-react'
 
 interface ModeSelectorProps {
     isHighAccuracy: boolean;
@@ -8,7 +8,11 @@ interface ModeSelectorProps {
     disabled: boolean;
 }
 
-export function ModeSelector({ isHighAccuracy, onToggle, disabled }: ModeSelectorProps) {
+export function ModeSelector({ 
+    isHighAccuracy = true, // Set default to true for accuracy mode
+    onToggle, 
+    disabled 
+}: ModeSelectorProps) {
     return (
         <div className="flex items-start space-x-2">
             <Switch
@@ -24,20 +28,26 @@ export function ModeSelector({ isHighAccuracy, onToggle, disabled }: ModeSelecto
             >
                 <div className="flex items-center gap-2">
                     <span className="font-semibold">
-                        {isHighAccuracy ? 'ACCURACY Mode' : 'TURBO Mode'}
+                        {isHighAccuracy ? 'High ACCURACY' : 'TURBO'}
                     </span>
                     {!isHighAccuracy ? (
-                        <Zap className="w-4 h-4 text-blue-400 animate-pulse" />
+                        <Zap className="w-4 h-4 text-red-400 animate-pulse" />
                     ) : (
-                        <SearchCheck className="w-4 h-4 text-red-400" />
+                        <SearchCheck className="w-4 h-4 text-green-400" />
+                    )}
+                    {isHighAccuracy && (
+                        <span className="text-xs font-medium bg-green-500/20 text-green-400 px-2 py-0.5 rounded">
+                            RECOMMENDED
+                        </span>
                     )}
                 </div>
-                <span className={`text-sm ${disabled
-                    ? 'text-gray-500'
-                    : isHighAccuracy
-                        ? 'text-red-400'
-                        : 'text-blue-400'
-                    }`}>
+                <span className={`text-sm ${
+                    disabled
+                        ? 'text-gray-500'
+                        : isHighAccuracy
+                            ? 'text-green-400'
+                            : 'text-red-400'
+                }`}>
                     {isHighAccuracy ? 'Slower, catch those edge cases' : 'Lightning fast validation'}
                 </span>
             </Label>

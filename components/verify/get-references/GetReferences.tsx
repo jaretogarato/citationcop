@@ -96,7 +96,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
   const [text, setText] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
-  const [highAccuracy, setHighAccuracy] = useState<boolean>(false);
+  const [highAccuracy, setHighAccuracy] = useState<boolean>(true);
   const [fastProgress, setFastProgress] = useState<number>(0);
 
   const getProcessor = (): ReferenceProcessor | null => {
