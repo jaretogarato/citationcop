@@ -49,7 +49,7 @@ export default function Footer() {
                 href="/"
                 className="text-white transition duration-150 ease-in-out hover:text-zinc-200"
               >
-                Pricing
+                Sign Up
               </Link>
             </li>
             <li className="py-3 md:py-0 md:pb-4">
