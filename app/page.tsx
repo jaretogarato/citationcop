@@ -1,4 +1,3 @@
-import HomePage from '@/components/verify/HomePage';
 import { createClient } from '@/utils/supabase/server';
 import Pricing from '@/components/ui/Pricing/Pricing';
 import {
