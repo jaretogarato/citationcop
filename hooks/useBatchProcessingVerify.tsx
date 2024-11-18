@@ -2,8 +2,9 @@
 
 import { useState, useCallback, useRef } from 'react';
 import type { Reference, ReferenceStatus } from '@/types/reference';
+import { useUrlContentVerify } from './useUrlContentVerify';
 
-const BATCH_SIZE = 3; // Match the number of API keys for true parallel processing
+const BATCH_SIZE = 3;
 
 interface VerificationData {
   stats: {
@@ -20,6 +21,7 @@ export function useBatchProcessingVerify() {
   const [progress, setProgress] = useState(0);
   const processingRef = useRef(false);
   const accumulatedRefs = useRef<Reference[]>([]);
+  const { processFailedReferences } = useUrlContentVerify();
 
   const processReference = async (reference: Reference, keyIndex: number): Promise<Reference> => {
     try {
@@ -88,34 +90,25 @@ export function useBatchProcessingVerify() {
       console.log(`Processing verify batch ${startIndex}-${endIndex} of ${references.length}`);
       
       // Process the current batch of references in parallel
-      // Each reference uses a different API key
       const results = await Promise.all(
         currentBatch.map((ref, index) => processReference(ref, index))
-      )
-
-      // Update accumulated refs
-      accumulatedRefs.current = [...accumulatedRefs.current, ...results];
-      
-      console.log('Batch verification complete:', results.length);
-      console.log('Accumulated refs:', accumulatedRefs
-        .current
-        .map(ref => ({ id: ref.title, status: ref.status }))
       );
 
+      // Attempt URL verification for failed references
+      const urlVerifiedResults = await processFailedReferences(results);
+
+      // Update accumulated refs
+      accumulatedRefs.current = [...accumulatedRefs.current, ...urlVerifiedResults];
+      
       // Update processed refs for UI
       setProcessedRefs(accumulatedRefs.current);
       setProgress((accumulatedRefs.current.length / references.length) * 100);
 
-      // If there are more references to process, continue with next batch
       if (endIndex < references.length) {
         setTimeout(() => {
           processBatch(references, endIndex, onBatchComplete);
-        }, 1000); // Longer delay between verification batches
+        }, 1000);
       } else {
-        // Final batch complete
-        console.log('Verification phase complete, passing refs:', accumulatedRefs.current.length)
-        
-        // Calculate final stats
         const verificationData: VerificationData = {
           stats: {
             verified: accumulatedRefs.current.filter(ref => ref.status === 'verified').length,
@@ -127,7 +120,6 @@ export function useBatchProcessingVerify() {
         };
         
         onBatchComplete(verificationData);
-        // Reset accumulated refs for next run
         accumulatedRefs.current = [];
       }
     } catch (error) {
@@ -135,7 +127,7 @@ export function useBatchProcessingVerify() {
     } finally {
       processingRef.current = false;
     }
-  }, []); // No dependencies to prevent recreation
+  }, [processFailedReferences]);
 
   return {
     processBatch,

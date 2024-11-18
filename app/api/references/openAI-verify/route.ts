@@ -85,15 +85,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid key index' }, { status: 400 });
     }
 
-    const openAI = openAIInstances[keyIndex];
-    const startTime = Date.now();
+    const openAI = openAIInstances[keyIndex]
+    const startTime = Date.now()
 
     //const reference_string = constructGoogleSearchString(reference)
 
     // FOR NOW JUST GOING WITH THE RAW TEXT FROM THE PAPER!
     const reference_string = reference.raw
-    console.log(`Google Search string: ${reference_string}`);
-
+    
+    console.log(`reference_string: ${reference_string}`);
+    
     /*const reference_string = [
       reference.authors?.join(' '),
       reference.title,
