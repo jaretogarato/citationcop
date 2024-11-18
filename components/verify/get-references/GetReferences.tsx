@@ -5,6 +5,7 @@ import { TabSelector } from './TabSelector'
 import { FileUpload } from './FileUpload'
 import { TextInput } from './TextInput'
 import { SubmitButton } from './SubmitButton'
+import { parsePDF } from '@/actions/parse-pdf'
 import type { Reference, ReferenceStatus } from '@/types/reference'
 import { ModeSelector } from './ModeSelector'
 import { ProcessingIndicator } from './ProcessingIndicator'
@@ -45,12 +46,24 @@ class FileReferenceProcessor implements ReferenceProcessor {
     }
 
     const data: ExtractResponse = await response.json()
-
     if (data.error) {
       throw new Error(data.error)
     }
 
     return data.references
+  }
+
+  async fallbackProcess(): Promise<Reference[]> {
+    // Convert file to array buffer
+    const arrayBuffer = await this.file.arrayBuffer()
+    const uint8Array = new Uint8Array(arrayBuffer)
+    
+    // Parse PDF to text using server action
+    const extractedText = await parsePDF(Array.from(uint8Array))
+    
+    // Use text processor as fallback
+    const textProcessor = new TextReferenceProcessor(extractedText)
+    return textProcessor.process()
   }
 
   validate(): boolean {
@@ -68,85 +81,99 @@ class TextReferenceProcessor implements ReferenceProcessor {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ text: this.text }),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(`HTTP error! status: ${response.status}`)
     }
 
-    const data: ExtractResponse = await response.json();
+    const data: ExtractResponse = await response.json()
 
     if (!data.references || !Array.isArray(data.references)) {
-      throw new Error('Invalid response structure');
+      throw new Error('Invalid response structure')
     }
 
-    return data.references;
+    return data.references
   }
 
   validate(): boolean {
-    return this.text.trim().length > 0;
+    return this.text.trim().length > 0
   }
 }
 
 export default function GetReferences({ onComplete }: GetReferencesProps): JSX.Element {
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [processingStage, setProcessingStage] = useState<'idle' | 'getting' | 'checking'>('idle');
-  const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('paste');
-  const [fileData, setFileData] = useState<FileData>({ file: null, name: null });
-  const [text, setText] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
-  const [highAccuracy, setHighAccuracy] = useState<boolean>(true);
-  const [fastProgress, setFastProgress] = useState<number>(0);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false)
+  const [processingStage, setProcessingStage] = useState<'idle' | 'getting' | 'checking' | 'fallback'>('idle')
+  const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('paste')
+  const [fileData, setFileData] = useState<FileData>({ file: null, name: null })
+  const [text, setText] = useState<string>('')
+  const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 })
+  const [highAccuracy, setHighAccuracy] = useState<boolean>(true)
+  const [fastProgress, setFastProgress] = useState<number>(0)
 
   const getProcessor = (): ReferenceProcessor | null => {
     if (activeTab === 'upload' && fileData.file) {
-      return new FileReferenceProcessor(fileData.file);
+      return new FileReferenceProcessor(fileData.file)
     }
     if (activeTab === 'paste' && text) {
-      return new TextReferenceProcessor(text);
+      return new TextReferenceProcessor(text)
     }
-    return null;
-  };
+    return null
+  }
 
   const handleSubmit = async () => {
-    const processor = getProcessor();
-    if (!processor) return;
+    const processor = getProcessor()
+    if (!processor) return
 
-    setIsProcessing(true);
-    setError(null);
-    setProcessingStage('getting');
-    setFastProgress(0);
+    setIsProcessing(true)
+    setError(null)
+    setProcessingStage('getting')
+    setFastProgress(0)
 
     try {
       // Get initial references
-      const references = await processor.process();
-      console.log("Initial references from processor:", references);
+      let references = await processor.process()
+      console.log("Initial references from processor:", references)
+
+      // If no references found and it's a file upload, try fallback method
+      if (references.length === 0 && activeTab === 'upload' && processor instanceof FileReferenceProcessor) {
+        setProcessingStage('fallback')
+        console.log("No references found, trying fallback method...")
+        references = await processor.fallbackProcess()
+        console.log("Fallback references:", references)
+      }
+
+      // If still no references, show error
+      if (references.length === 0) {
+        setError("Sorry, I looked really hard but couldn't find any references to verify! Please check if the document contains citations in a standard format.")
+        return
+      }
 
       if (!highAccuracy) {
         onComplete({
           type: activeTab === 'upload' ? 'file' : 'text',
           content: JSON.stringify(references)
-        });
-        return;
+        })
+        return
       }
 
       setProcessingStage('checking')
       setProgress({ current: 0, total: references.length })
 
-      const BATCH_SIZE = 3;
-      const finalReferences: Reference[] = [];
+      // Rest of the existing processing logic...
+      const BATCH_SIZE = 3
+      const finalReferences: Reference[] = []
 
-      // Process references in batches
       for (let i = 0; i < references.length; i += BATCH_SIZE) {
-        const batchStartTime = Date.now();
-        console.log(`Starting batch ${i / BATCH_SIZE + 1}`);
+        const batchStartTime = Date.now()
+        console.log(`Starting batch ${i / BATCH_SIZE + 1}`)
 
-        const batch = references.slice(i, i + BATCH_SIZE);
+        const batch = references.slice(i, i + BATCH_SIZE)
 
         const batchPromises = batch.map((reference, index) => {
-          const startTime = Date.now();
-          const keyIndex = index % 3;
+          const startTime = Date.now()
+          const keyIndex = index % 3
 
           return fetch('/api/double-check', {
             method: 'POST',
@@ -157,62 +184,62 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
           })
             .then(async response => {
               if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`HTTP error! status: ${response.status}`)
               }
-              const result = await response.json();
+              const result = await response.json()
 
-              const endTime = Date.now();
-              console.log(`Reference ${i + index + 1} took ${endTime - startTime}ms`);
+              const endTime = Date.now()
+              console.log(`Reference ${i + index + 1} took ${endTime - startTime}ms`)
 
-              setProgress(prev => ({ ...prev, current: prev.current + 1 }));
+              setProgress(prev => ({ ...prev, current: prev.current + 1 }))
 
               if ('ok' in result[0]) {
-                return reference;
+                return reference
               } else {
                 return (result as Reference[]).map(ref => ({
                   ...ref,
                   status: 'pending' as ReferenceStatus
-                }));
+                }))
               }
             })
             .catch(err => {
-              console.warn('Error checking reference:', err);
-              return reference;
-            });
-        });
+              console.warn('Error checking reference:', err)
+              return reference
+            })
+        })
 
-        const batchResults = await Promise.all(batchPromises);
-        const batchEndTime = Date.now();
-        console.log(`Batch ${i / BATCH_SIZE + 1} completed in ${batchEndTime - batchStartTime}ms`);
+        const batchResults = await Promise.all(batchPromises)
+        const batchEndTime = Date.now()
+        console.log(`Batch ${i / BATCH_SIZE + 1} completed in ${batchEndTime - batchStartTime}ms`)
 
-        finalReferences.push(...batchResults.flat());
+        finalReferences.push(...batchResults.flat())
       }
 
       onComplete({
         type: activeTab === 'upload' ? 'file' : 'text',
         content: JSON.stringify(finalReferences)
-      });
+      })
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
-      setError(errorMessage);
-      console.error('Processing error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred'
+      setError(errorMessage)
+      console.error('Processing error:', err)
     } finally {
-      setIsProcessing(false);
-      setProcessingStage('idle');
-      setProgress({ current: 0, total: 0 });
-      setFastProgress(0);
+      setIsProcessing(false)
+      setProcessingStage('idle')
+      setProgress({ current: 0, total: 0 })
+      setFastProgress(0)
     }
   }
 
-  const hasContent = fileData.file !== null || text.trim().length > 0;
+  const hasContent = fileData.file !== null || text.trim().length > 0
 
   const handleTabChange = (newTab: 'upload' | 'paste') => {
-    setActiveTab(newTab);
-    setFileData({ file: null, name: null });
-    setText('');
-    setError(null);
-  };
+    setActiveTab(newTab)
+    setFileData({ file: null, name: null })
+    setText('')
+    setError(null)
+  }
 
   return (
     <div className="p-8">
@@ -268,5 +295,5 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         </div>
       </div>
     </div>
-  );
+  )
 }
