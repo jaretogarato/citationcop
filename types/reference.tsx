@@ -5,7 +5,7 @@ export interface FileData {
 
 export type TabType = "upload" | "paste"
 
-export type VerifyStep = "get" | "verify" | "display"
+
 
 // uploaded paper metadata info
 export interface Author {
@@ -37,6 +37,24 @@ export type ReferenceType =
   | 'report'     // Technical report, white paper
   | 'webpage'    // Web content
 
+// New types for search results
+export interface SearchResultItem {
+  title: string;
+  link: string;
+  snippet: string;
+}
+
+export interface GoogleSearchResult {
+  organic?: SearchResultItem[];
+  knowledgeGraph?: any;
+  searchParameters?: {
+    q: string;
+    gl: string;
+    hl: string;
+  };
+}
+
+// Update Reference interface to include search results
 export interface Reference {
   date_of_access: any;
   // Core fields
@@ -61,11 +79,20 @@ export interface Reference {
   pages?: string | null
   conference?: string | null
 
+  // raw reference string
+  raw?: string
+
   // Your app's fields
   status: ReferenceStatus
   verification_source?: string
   message?: string
+  url_valid?: boolean
+  url_match?: boolean
+  
+  // New field for search results
+  searchResults?: GoogleSearchResult
 }
+
 
 
 // Type definitions for helper functions
@@ -82,4 +109,11 @@ interface ArticleMetadata {
   title: string | null
   authors: string[]
   year?: string | null
+}
+
+export interface VerificationResults {
+  verified: number;
+  issues: number;
+  pending: number;
+  totalReferences: number;
 }

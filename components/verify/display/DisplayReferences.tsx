@@ -1,14 +1,15 @@
 import React, { useEffect } from 'react';
-import { StatsCards } from '@/components/verify/StatsCard'
-import { ReferenceCard } from '@/components/verify/ReferenceCard'
+import { ReferenceCard } from './ReferenceCard';
+import { StatsCards } from './StatsCard';
 import type { Reference } from '@/types/reference';
 
-interface DisplayReferencesProps {
+export interface DisplayReferencesProps {
   data: Reference[];
   onComplete: () => void;
 }
 
-export default function DisplayReferences({ data, onComplete }: DisplayReferencesProps): JSX.Element {
+export const DisplayReferences = ({ data, onComplete }: DisplayReferencesProps) => {
+
   // Validate data prop
   useEffect(() => {
     if (!Array.isArray(data)) {
@@ -71,7 +72,10 @@ export default function DisplayReferences({ data, onComplete }: DisplayReference
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-[1400px] mx-auto border-none">
         {data.length === 1 ? (
           <div className="col-span-1 md:col-span-2 lg:col-span-3 flex justify-center">
-            <ReferenceCard reference={data[0]} />
+            <ReferenceCard
+              key={data[0].id} // Added key here for single reference case
+              reference={data[0]}
+            />
           </div>
         ) : (
           data.map((reference: Reference) => (

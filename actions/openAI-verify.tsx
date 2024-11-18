@@ -1,82 +1,111 @@
 'use server';
 
-import OpenAI from 'openai';
-import { Reference } from '@/types/reference';
+import OpenAI from 'openai'
+import { Reference } from '@/types/reference'
+
+
+const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
 
 export async function verifyGoogleSearchResultWithLLM(
   reference: Reference,
-  searchResults: any
+  searchResults: any,
+  maxRetries: number = 1
 ): Promise<{ isValid: boolean; message: string }> {
-  //console.log(`LLM Verification for reference: ${reference.title} | Google Results: ${searchResults}`);
 
-  const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-  // create reference string
   const reference_string = [
     reference.authors?.join(' '),
-    //reference.type,
     reference.title,
     reference.journal,
     reference.year,
     reference.volume,
     reference.pages,
-    //reference.DOI,
     reference.publisher,
     reference.conference,
-    //reference.url,
     reference.date_of_access,
     reference.issue
   ]
-    .filter((field) => field !== null && field !== undefined) // Only include non-null and defined fields
-    .join(' ');
+    .filter((field) => field !== null && field !== undefined)
+    .join(' ')
 
-  const prompt = `You are a machine that validates true references/citations and uncovers false references in writing. Given the following search results, determine whether the provided reference refers to an actual article, conference paper, blog post, or other reference. Only use the information from the search results to determine the validity of the reference.
+  const prompt = `You are a machine that checks references/citations and uncovers false references in writing. Given the following search results, determine whether the provided reference refers to an actual article, conference paper, blog post, or other. Only use the information from the search results to determine the validity of the reference.
   
-  Only one citation of the reference is not sufficient to determine validity. 
+  Only one citation of the reference is not sufficient to determine validity. You must consider multiple search results to make a decision.
 
+  Reference: ${reference_string}
 
-Reference: ${reference_string}
+  Google Search Results:
+  ${JSON.stringify(searchResults, null, 2)}
 
-Google Search Results:
-${JSON.stringify(searchResults, null, 2)}
+  Answer in the following JSON format:
+  {
+    "isValid": true or false,
+    "message": "Explain how the search results verify or not the given reference. Include links that support your conclusion.",
+  }`
 
-Answer in the following JSON format:
-{
-  "isValid": true or false,
-  "message": "Explain how the search results verify or not the given refernece. Include links that support your conclusion.",
-}`
+  let lastError: Error | null = null
 
-  try {
-    const response = await openAI.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'system', content: prompt }],
-      temperature: 0.0
-    });
+  // Retry loop
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      //console.log(`Attempt ${attempt + 1}/${maxRetries + 1}... JSON!!`);
+      const response = await openAI.chat.completions.create({
+        model: model,
+        messages: [{ role: 'system', content: prompt }],
+        temperature: 0.0,
+        response_format: { type: "json_object" },
+      })
 
-    let content = response.choices[0]?.message?.content;
-    if (!content) throw new Error('No content received from LLM');
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        console.warn(`Attempt ${attempt + 1}: No content received from LLM`);
+        continue;  // Skip to next attempt instead of throwing
+      }
 
-    //console.log('Raw Content from OpenAI:', content);
+      try {
+        const result = JSON.parse(content);
 
-    const jsonStartIndex = content.indexOf('{');
-    const jsonEndIndex = content.lastIndexOf('}');
-    if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-      content = content.slice(jsonStartIndex, jsonEndIndex + 1);
-    } else {
-      throw new Error('Response does not contain recognizable JSON structure.');
+        // Validate the result structure
+        if (typeof result.isValid !== 'boolean' || typeof result.message !== 'string') {
+          console.warn(`Attempt ${attempt + 1}: Invalid response structure`);
+          continue;  // Skip to next attempt instead of throwing
+        }
+
+        // If we get here, we have a valid result
+        return {
+          isValid: result.isValid,
+          message: result.message
+        };
+
+      } catch (parseError) {
+        console.warn(`Attempt ${attempt + 1}: JSON parsing failed:`,
+          parseError instanceof Error ? parseError.message : 'Unknown parsing error');
+        lastError = parseError instanceof Error ? parseError : new Error('Unknown parsing error');
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          continue;  // Skip to next attempt
+        }
+      }
+    } catch (error) {
+      console.warn(`Attempt ${attempt + 1}: Request failed:`,
+        error instanceof Error ? error.message : 'Unknown error');
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        continue;  // Skip to next attempt
+      }
     }
-
-    const result = JSON.parse(content);
-    return {
-      isValid: result.isValid,
-      message: result.message
-    };
-  } catch (error) {
-    console.error('Error verifying reference with LLM:', error);
-    return { isValid: false, message: 'Verification failed due to an error.' };
   }
-}
 
+  // If we've exhausted all retries, return an error result
+  console.error('All verification attempts failed. Last error:', lastError?.message);
+  return {
+    isValid: false,
+    message: `Verification failed after ${maxRetries + 1} attempts. Last error: ${lastError?.message}`
+  };
+}
 
 export async function verifyURL(reference: Reference): Promise<{ isValid: boolean; message: string }> {
   if (!reference.url) {
@@ -96,6 +125,7 @@ export async function verifyURL(reference: Reference): Promise<{ isValid: boolea
 
     // Initialize OpenAI
     const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
 
     // Create reference string
     const reference_string = [
@@ -122,12 +152,12 @@ Webpage Content (truncated): ${cleanContent.slice(0, 2000)}...
 Answer in the following format:
 {
   "isValid": true or false,
-  "message": "(If true start with: Confirmed URL) Explain whether the given url content matches the reference. Include specific details that support your conclusion.",
+  "message": "(If true start with: Confirmed UR and provide the url. Explain whether the given url content matches the reference. Include specific details that support your conclusion.",
 }`
 
     // Get OpenAI response
     const response = await openAI.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: model,
       messages: [{ role: 'system', content: prompt }],
       temperature: 0.0
     });
@@ -151,7 +181,7 @@ Answer in the following format:
     };
 
   } catch (error) {
-    console.error('Error verifying URL with LLM:', error);
+    //console.error('Error verifying URL with LLM:', error);
     return { isValid: false, message: 'URL verification failed due to an error.' };
   }
 }

@@ -1,0 +1,24 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: your-staging-project-id
+          VERCEL_ORG_ID: your-org-id
+        run: |
+          npx vercel deploy \
+            --token $VERCEL_TOKEN \
+            --prod \
+            --project-id $VERCEL_PROJECT_ID \
+            --scope $VERCEL_ORG_ID
