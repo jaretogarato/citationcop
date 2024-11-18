@@ -47,7 +47,7 @@ export function useBatchProcessingVerify() {
       return {
         ...reference,
         status: result.status as ReferenceStatus,
-        verification_source: 'openai',
+        verification_source: 'analysis of search results',
         message: result.message
       };
     } catch (error) {
@@ -55,7 +55,7 @@ export function useBatchProcessingVerify() {
       return {
         ...reference,
         status: 'error' as ReferenceStatus,
-        verification_source: 'openai',
+        verification_source: 'analysis of search results',
         message: error instanceof Error ? error.message : 'Failed to verify reference'
       };
     }

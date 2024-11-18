@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import SearchReferencesComponent from './verify/SearchReferencesComponent'
 import VerifyReferencesComponent from './verify/VerifyReferencesComponent';
 import GetReferences from './get-references/GetReferences';
-import DisplayReferences from './display/DisplayReferences';
+import { DisplayReferences } from '@/components/verify/display/DisplayReferences';
+
 import type { Reference } from '@/types/reference';
 
 export type VerifyStep = "get" | "search" | "verify" | "display";

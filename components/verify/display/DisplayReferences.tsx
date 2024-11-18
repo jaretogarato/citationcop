@@ -1,14 +1,15 @@
 import React, { useEffect } from 'react';
-import { StatsCards } from '@/components/verify/display/StatsCard'
-import { ReferenceCard } from '@/components/verify/display/ReferenceCard'
+import { ReferenceCard } from './ReferenceCard';
+import { StatsCards } from './StatsCard';
 import type { Reference } from '@/types/reference';
 
-interface DisplayReferencesProps {
+export interface DisplayReferencesProps {
   data: Reference[];
   onComplete: () => void;
 }
 
-export default function DisplayReferences({ data, onComplete }: DisplayReferencesProps): JSX.Element {
+export const DisplayReferences = ({ data, onComplete }: DisplayReferencesProps) => {
+
   // Validate data prop
   useEffect(() => {
     if (!Array.isArray(data)) {
