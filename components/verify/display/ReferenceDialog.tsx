@@ -2,7 +2,9 @@ import React from 'react';
 import { Reference, ReferenceStatus, SearchResultItem } from '@/types/reference';
 import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { renderMessageWithLinks } from '@/utils/ui/ui-utils'
+
 import {
     CheckCircle,
     XCircle,
@@ -96,12 +98,29 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
     const renderField = (label: string, value: string | null | undefined, icon: JSX.Element) => {
         if (!value) return null;
         const colors = tabColors[activeTab as keyof typeof tabColors];
+        
+        const isExplicitUrl = label === "URL" || label === "DOI";
+        
         return (
             <div className={`flex items-start gap-2 p-3 ${colors.accent} rounded-lg`}>
                 {React.cloneElement(icon, { className: `h-5 w-5 ${colors.text} mt-0.5 flex-shrink-0` })}
                 <div className="min-w-0 flex-1">
                     <h4 className={`text-sm font-medium ${colors.text}`}>{label}</h4>
-                    <p className="text-white whitespace-pre-wrap break-words">{value}</p>
+                    {isExplicitUrl ? (
+                        <a
+                            href={value}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-white hover:opacity-80 flex items-center gap-2"
+                        >
+                            <span className="break-words">{new URL(value).hostname}</span>
+                            <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                        </a>
+                    ) : (
+                        <p className="text-white whitespace-pre-wrap break-words">
+                            {renderMessageWithLinks(value)}
+                        </p>
+                    )}
                 </div>
             </div>
         );
@@ -130,8 +149,8 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
                 <DialogTitle className="text-white">Reference Details</DialogTitle>
             </DialogHeader>
 
-            <Tabs 
-                defaultValue="details" 
+            <Tabs
+                defaultValue="details"
                 className="w-full"
                 onValueChange={setActiveTab}
             >
@@ -215,5 +234,5 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
                 </ScrollArea>
             </Tabs>
         </DialogContent>
-    );
+    )
 }
