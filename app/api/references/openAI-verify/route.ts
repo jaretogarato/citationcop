@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import type { Reference } from '@/types/reference';
 
 const API_KEYS = [
   process.env.OPENAI_API_KEY_1,
@@ -12,6 +13,54 @@ const API_KEYS = [
   }
   return true;
 });
+
+const constructGoogleSearchString = (reference: Reference) => {
+  const parts = [];
+  
+  // Title with quotes
+  if (reference.title) {
+      parts.push(`"${reference.title}"`);
+  }
+  
+  // First two authors, simplified names
+  if (reference.authors?.length) {
+      const simplifyName = (name: string) => {
+          // Remove single letter followed by period
+          return name.replace(/\b[A-Z]\s/g, '')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+      };
+
+      const mainAuthors = reference.authors
+          .slice(0, 2)
+          .map(simplifyName)
+          .join(' ');
+      
+      parts.push(mainAuthors);
+  }
+  
+  // Year - extract just the year if it's a full date
+  if (reference.year) {
+      const yearStr = reference.year.toString();
+      const yearMatch = yearStr.match(/\d{4}/);
+      if (yearMatch) {
+          parts.push(`+${yearMatch[0]}`);
+      }
+  }
+
+  // Add journal in quotes if exists
+  if (reference.journal) {
+      parts.push(`"${reference.journal}"`);
+  }
+
+  // Add publisher in quotes if exists
+  if (reference.publisher) {
+      parts.push(`"${reference.publisher}"`);
+  }
+  
+  return parts.join(' ');
+};
+
 
 const openAIInstances = API_KEYS.map((apiKey) => new OpenAI({ apiKey }));
 const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini';
@@ -39,7 +88,13 @@ export async function POST(request: Request) {
     const openAI = openAIInstances[keyIndex];
     const startTime = Date.now();
 
-    const reference_string = [
+    //const reference_string = constructGoogleSearchString(reference)
+
+    // FOR NOW JUST GOING WITH THE RAW TEXT FROM THE PAPER!
+    const reference_string = reference.raw
+    console.log(`Google Search string: ${reference_string}`);
+
+    /*const reference_string = [
       reference.authors?.join(' '),
       reference.title,
       reference.journal,
@@ -49,17 +104,18 @@ export async function POST(request: Request) {
       reference.publisher,
       reference.conference,
       reference.date_of_access,
-      reference.issue
+      reference.issue,
     ]
       .filter((field) => field !== null && field !== undefined)
-      .join(' ');
+      .join(' ');*/
 
+      
     const prompt = `You are a machine that checks references/citations and uncovers false references in writing. Given the following search results, determine whether the provided reference refers to an actual article, conference paper, blog post, or other. Only use the information from the search results to determine the validity of the reference.
     
     A reference status is:
     - verified if multiple search results confirms its validity
     - unverified if there is no evidence of its existance
-    - error if there is some evidence but it is not conclusive
+    - error if there are some things that suggest that perhaps the reference is has some missing or incorrect info that a human shoud verify
 
     Reference: ${reference_string}
 
