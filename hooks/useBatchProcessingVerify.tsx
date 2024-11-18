@@ -42,9 +42,11 @@ export function useBatchProcessingVerify() {
 
       const result = await response.json();
 
+      console.log('Reference verified:', result.status, result.message);
+
       return {
         ...reference,
-        status: result.isValid ? 'verified' as ReferenceStatus : 'error' as ReferenceStatus,
+        status: result.status as ReferenceStatus,
         verification_source: 'openai',
         message: result.message
       };
