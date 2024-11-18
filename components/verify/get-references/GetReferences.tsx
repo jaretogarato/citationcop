@@ -9,6 +9,7 @@ import { parsePDF } from '@/actions/parse-pdf'
 import type { Reference, ReferenceStatus } from '@/types/reference'
 import { ModeSelector } from './ModeSelector'
 import { ProcessingIndicator } from './ProcessingIndicator'
+import { NoReferencesAlert } from './NoReferencesAlert'
 
 interface ExtractResponse {
   references: Reference[]
@@ -57,10 +58,10 @@ class FileReferenceProcessor implements ReferenceProcessor {
     // Convert file to array buffer
     const arrayBuffer = await this.file.arrayBuffer()
     const uint8Array = new Uint8Array(arrayBuffer)
-    
+
     // Parse PDF to text using server action
     const extractedText = await parsePDF(Array.from(uint8Array))
-    
+
     // Use text processor as fallback
     const textProcessor = new TextReferenceProcessor(extractedText)
     return textProcessor.process()
@@ -144,9 +145,8 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         console.log("Fallback references:", references)
       }
 
-      // If still no references, show error
       if (references.length === 0) {
-        setError("Sorry, I looked really hard but couldn't find any references to verify! Please check if the document contains citations in a standard format.")
+        setError('no-references')
         return
       }
 
@@ -253,7 +253,13 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
             activeTab={activeTab}
             setActiveTab={handleTabChange}
           />
-
+          {error === 'no-references' ? (
+            <NoReferencesAlert />
+          ) : error ? (
+            <div className="mt-4 text-red-500 text-sm text-center">
+              {error}
+            </div>
+          ) : null}
           <div className="mt-8">
             {activeTab === 'upload' ? (
               <FileUpload
@@ -265,14 +271,10 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
             )}
           </div>
 
-          {error && (
-            <div className="mt-4 text-red-500 text-sm text-center">
-              {error}
-            </div>
-          )}
+
 
           <div className="flex justify-between items-start mt-4">
-            <ModeSelector 
+            <ModeSelector
               isHighAccuracy={highAccuracy}
               onToggle={setHighAccuracy}
               disabled={isProcessing}
