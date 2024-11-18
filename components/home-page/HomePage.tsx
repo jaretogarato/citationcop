@@ -1,9 +1,10 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { ArrowRight, CheckCircle } from 'lucide-react';
-import { useCounter } from '@/hooks/useCounter';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react'
+import { ArrowRight, CheckCircle } from 'lucide-react'
+import { useCounter } from '@/hooks/useCounter'
+import { useRouter } from 'next/navigation'
+import WhoItsFor from '@/components/home-page/WhoItsFor'
 
 // Define types for number formatting
 type FormatNumberFunc = (num: number) => string;
@@ -72,7 +73,7 @@ export default function HomePage(): JSX.Element {
         </div>
 
         {/* Stats Section */}
-        <div className="mt-24 mb-24 grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="mt-20 mb-20 grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-6 transform hover:scale-105 transition-all duration-200 border border-indigo-500/20">
             <div className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 inline-block text-transparent bg-clip-text mb-2">
               {formatNumber(refsVerified)}
@@ -94,6 +95,9 @@ export default function HomePage(): JSX.Element {
             <div className="text-indigo-300">Minutes Saved</div>
           </div>
         </div>
+
+        <WhoItsFor />
+
 
         {/* Quick Features */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
