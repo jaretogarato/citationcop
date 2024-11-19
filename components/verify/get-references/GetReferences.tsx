@@ -10,6 +10,7 @@ import type { Reference, ReferenceStatus } from '@/types/reference'
 import { ModeSelector } from './ModeSelector'
 import { ProcessingIndicator } from './ProcessingIndicator'
 import { NoReferencesAlert } from './NoReferencesAlert'
+import { validateReferences } from '@/utils/filter-references'
 
 interface ExtractResponse {
   references: Reference[]
@@ -140,6 +141,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
     try {
       // Get initial references
       let references = await processor.process()
+      
       console.log("Initial references from processor:", references)
 
       // If no references found and it's a file upload, try fallback method
@@ -147,8 +149,11 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         setProcessingStage('fallback')
         console.log("No references found, trying fallback method...")
         references = await processor.fallbackProcess()
+        
         console.log("Fallback references:", references)
       }
+
+      references = validateReferences(references)
 
       if (references.length === 0) {
         setError('no-references')

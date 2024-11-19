@@ -77,9 +77,9 @@ export const DisplayReferences = ({ data, onComplete }: DisplayReferencesProps) 
             />
           </div>
         ) : (
-          data.map((reference: Reference) => (
+          data.map((reference: Reference, index) => (
             <ReferenceCard
-              key={reference.id}
+              key={reference.id || `${reference.title}-${index}`}
               reference={reference}
             />
           ))
