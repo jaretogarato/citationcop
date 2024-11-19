@@ -98,24 +98,36 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
     const renderField = (label: string, value: string | null | undefined, icon: JSX.Element) => {
         if (!value) return null;
         const colors = tabColors[activeTab as keyof typeof tabColors];
-        
+
         const isExplicitUrl = label === "URL" || label === "DOI";
-        
+
+        const getHostname = (url: string) => {
+            try {
+                return new URL(url).hostname;
+            } catch {
+                return url;
+            }
+        };
+
         return (
             <div className={`flex items-start gap-2 p-3 ${colors.accent} rounded-lg`}>
                 {React.cloneElement(icon, { className: `h-5 w-5 ${colors.text} mt-0.5 flex-shrink-0` })}
                 <div className="min-w-0 flex-1">
                     <h4 className={`text-sm font-medium ${colors.text}`}>{label}</h4>
                     {isExplicitUrl ? (
-                        <a
-                            href={value}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-white hover:opacity-80 flex items-center gap-2"
-                        >
-                            <span className="break-words">{new URL(value).hostname}</span>
-                            <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                        </a>
+                        value.startsWith('http') ? (
+                            <a
+                                href={value}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-white hover:opacity-80 flex items-center gap-2"
+                            >
+                                <span className="break-words">{getHostname(value)}</span>
+                                <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                            </a>
+                        ) : (
+                            <p className="text-white whitespace-pre-wrap break-words">{value}</p>
+                        )
                     ) : (
                         <p className="text-white whitespace-pre-wrap break-words">
                             {renderMessageWithLinks(value)}
