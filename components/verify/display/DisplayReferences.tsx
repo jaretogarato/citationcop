@@ -73,14 +73,13 @@ export const DisplayReferences = ({ data, onComplete }: DisplayReferencesProps) 
         {data.length === 1 ? (
           <div className="col-span-1 md:col-span-2 lg:col-span-3 flex justify-center">
             <ReferenceCard
-              key={data[0].id} // Added key here for single reference case
               reference={data[0]}
             />
           </div>
         ) : (
-          data.map((reference: Reference) => (
+          data.map((reference: Reference, index) => (
             <ReferenceCard
-              key={reference.id}
+              key={reference.id || `${reference.title}-${index}`}
               reference={reference}
             />
           ))
