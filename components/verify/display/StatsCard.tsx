@@ -50,7 +50,7 @@ const cardInfo = {
   },
   warning: {
     title: "Need Review",
-    description: "Requires manual verification",
+    description: "Requires human verification",
     details: "References with partial matches or conflicting information that need human expertise to verify their accuracy and completeness.",
     icon: AlertTriangle,
     colors: {
@@ -72,38 +72,37 @@ function StatsCard({
   const Icon = info.icon;
   
   return (
-    <div className="h-48 w-full [perspective:1000px] cursor-pointer">
-      <div className="relative h-full w-full transition-transform duration-500 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
-        {/* Front */}
-        <div className={`absolute inset-0 bg-gradient-to-br ${info.colors.gradient} rounded-2xl p-4 [backface-visibility:hidden] flex flex-col`}>
-          {/* Top section with icon */}
-          <div className="flex items-center justify-center mb-1">
-            <Icon className={`h-8 w-8 ${info.colors.iconColor}`} />
-          </div>
-          
-          {/* Middle section with title and number */}
-          <div className="flex-1 flex flex-col items-center justify-center">
-            <p className={`${info.colors.text} text-xl font-medium mb-2`}>{info.title}</p>
-            <p className="text-5xl font-bold text-white">{value}</p>
-          </div>
-          
-          {/* Bottom section with description */}
-          <div className="mt-auto">
-            <p className={`${info.colors.text} text-xs text-center opacity-80`}>
-              {info.description}
-            </p>
-          </div>
+    <div className="relative h-48 w-full">
+      {/* Front content */}
+      <div 
+        className={`absolute inset-0 bg-gradient-to-br ${info.colors.gradient} rounded-2xl p-4 flex flex-col
+          transition-opacity duration-300 group-hover:opacity-0`}
+      >
+        <div className="flex items-center justify-center mb-1">
+          <Icon className={`h-8 w-8 ${info.colors.iconColor}`} />
         </div>
+        
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <p className={`${info.colors.text} text-xl font-medium mb-2`}>{info.title}</p>
+          <p className="text-5xl font-bold text-white">{value}</p>
+        </div>
+        
+        <div className="mt-auto">
+          <p className={`${info.colors.text} text-xs text-center opacity-80`}>
+            {info.description}
+          </p>
+        </div>
+      </div>
 
-        {/* Back */}
-        <div 
-          className={`absolute inset-0 bg-gradient-to-br ${info.colors.gradient} rounded-2xl p-4 [transform:rotateY(180deg)] [backface-visibility:hidden]`}
-        >
-          <div className={`${info.colors.accent} rounded-lg p-3 h-full flex flex-col justify-center`}>
-            <p className={`${info.colors.text} text-sm leading-relaxed`}>
-              {info.details}
-            </p>
-          </div>
+      {/* Back content */}
+      <div 
+        className={`absolute inset-0 bg-gradient-to-br ${info.colors.gradient} rounded-2xl p-4
+          opacity-0 transition-opacity duration-300 group-hover:opacity-100`}
+      >
+        <div className={`${info.colors.accent} rounded-lg p-3 h-full flex flex-col justify-center`}>
+          <p className={`${info.colors.text} text-sm leading-relaxed`}>
+            {info.details}
+          </p>
         </div>
       </div>
     </div>
@@ -114,7 +113,7 @@ export function StatsCards({ data }: StatsCardsProps) {
   return (
     <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4 max-w-6xl mx-auto">
       {Object.entries(cardInfo).map(([key, info]) => (
-        <div key={key} className="group">
+        <div key={key} className="group cursor-pointer">
           <StatsCard 
             value={data[key as keyof StatsData]} 
             info={info}

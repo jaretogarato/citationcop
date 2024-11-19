@@ -78,7 +78,7 @@ const WhoItsFor = () => {
       </h2>
       
       <p className="text-xl text-indigo-300 text-center mb-16 max-w-2xl mx-auto">
-        From content creation to academic integrity, SourceVerify helps professionals across industries validate references with confidence
+        From content creation to academic integrity, SourceVerify helps professionals across industries validate references with confidence.
       </p>
 
       {/* Featured Card Carousel */}
