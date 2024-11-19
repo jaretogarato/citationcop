@@ -1,0 +1,11 @@
+{
+  "tasks": {
+    "serve": "deno run --allow-net --allow-env --watch index.ts"
+  },
+  "imports": {
+    "http/server": "https://deno.land/std@0.168.0/http/server.ts"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window"]
+  }
+}

@@ -1,5 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
+sourceverify-production-custom-20241117.backup
+/sourceverify-production-custom-20241117.backup
+/*.backup
 # dependencies
 /node_modules
 /.pnp
