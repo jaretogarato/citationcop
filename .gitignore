@@ -2,6 +2,9 @@
 sourceverify-production-custom-20241117.backup
 /sourceverify-production-custom-20241117.backup
 /*.backup
+test-products.json
+/test-products.json
+
 # dependencies
 /node_modules
 /.pnp

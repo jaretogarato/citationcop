@@ -111,7 +111,8 @@ export default function Pricing({ user, products, subscription }: Props) {
               Pricing Plans
             </h1>
             <p className="max-w-2xl m-auto mt-5 text-xl text-zinc-200 sm:text-center sm:text-2xl">
-              Start verifying references today through an individual or  organizational plans.
+              Start verifying references today through an individual or
+              organizational plans.
             </p>
             <div className="relative self-center mt-6 bg-zinc-900 rounded-lg p-0.5 flex sm:mt-8 border border-zinc-800">
               {intervals.includes('month') && (
@@ -163,6 +164,8 @@ export default function Pricing({ user, products, subscription }: Props) {
                   currency: price.currency!,
                   minimumFractionDigits: 0
                 }).format((price?.unit_amount || 0) / 100);
+                const isTargetProduct =
+                  product.name === 'Insight' || product.name === 'Journeyman';
                 return (
                   <div
                     key={product.id}
@@ -172,7 +175,7 @@ export default function Pricing({ user, products, subscription }: Props) {
                         'border border-pink-500': subscription
                           ? product.name ===
                             subscription?.prices?.products?.name
-                          : product.name === 'Insight'
+                          : isTargetProduct
                       },
                       'flex-1',
                       'basis-1/3',
@@ -205,7 +208,7 @@ export default function Pricing({ user, products, subscription }: Props) {
                       </Button>
                       {(subscription
                         ? product.name === subscription?.prices?.products?.name
-                        : product.name === 'Insight') && (
+                        : isTargetProduct) && (
                         <p className="mt-2 text-base font-medium text-pink-500 text-center">
                           Most Popular
                         </p>
