@@ -72,7 +72,7 @@ export default function SearchReferencesComponent({
 
         {/* Animated search progress */}
         <div className="relative h-2 bg-slate-700 rounded-full mb-8">
-          <div 
+          <div
             className="absolute h-full bg-indigo-500 rounded-full transition-all duration-500"
             style={{ width: `${progress}%` }}
           />
@@ -89,8 +89,8 @@ export default function SearchReferencesComponent({
         {/* Recent results preview */}
         <div className="space-y-4">
           {recentResults.map((ref, index) => (
-            <div 
-              key={ref.id}
+            <div
+              key={`${ref.title}-${index}`}
               className="bg-slate-800 rounded-lg p-4 animate-fadeIn flex items-center"
               style={{ animationDelay: `${index * 200}ms` }}
             >
