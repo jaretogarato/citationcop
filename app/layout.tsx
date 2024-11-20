@@ -1,10 +1,11 @@
-import { Metadata } from 'next';
-import Footer from '@/components/ui/Footer';
-import Navbar from '@/components/ui/Navbar';
-import { Toaster } from '@/components/ui/Toasts/toaster';
-import { PropsWithChildren, Suspense } from 'react';
-import { getURL } from '@/utils/helpers';
-import 'styles/main.css';
+import { Metadata } from 'next'
+import { AuthProvider } from '@/app/contexts/auth-contexts'
+import Footer from '@/components/ui/Footer'
+import Navbar from '@/components/ui/Navbar'
+import { Toaster } from '@/components/ui/Toasts/toaster'
+import { PropsWithChildren, Suspense } from 'react'
+import { getURL } from '@/utils/helpers'
+import 'styles/main.css'
 
 // Update these variables with the desired content
 const title = 'Fast, accurate reference validation for academic writing.';
@@ -45,6 +46,7 @@ export default async function RootLayout({ children }: PropsWithChildren) {
   return (
     <html lang="en">
       <body className="bg-gradient-to-b from-black via-blue-950 to-gray-900">
+        <AuthProvider>
         <Navbar />
         <main
           id="skip"
@@ -56,6 +58,7 @@ export default async function RootLayout({ children }: PropsWithChildren) {
         <Suspense>
           <Toaster />
         </Suspense>
+        </AuthProvider>
       </body>
     </html>
   );

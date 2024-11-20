@@ -1,7 +1,7 @@
 /*import { useEffect, useState } from 'react';
 import { createClientComponentClient } from '@/lib/supabase';
 import Cookies from 'js-cookie';
-import { Session } from '@supabase/supabase-js';
+
 
 interface UseReferenceLimitReturn {
   isAuthenticated: boolean;
