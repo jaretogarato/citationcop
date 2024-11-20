@@ -39,7 +39,7 @@ const cardInfo = {
   invalid: {
     title: "Invalid",
     description: "The reference could not be verified",
-    details: "No information was found that could corroborate the reference. It is impossible to prove a negative, but if it can't be found through a google search, it's likely invalid.",
+    details: "No information is found that corroborates the reference. You can't prove a negative, but if it doesn't show up on a google search, it likely doesn't exist.",
     icon: XCircle,
     colors: {
       gradient: "from-rose-900/50 to-rose-800/50",

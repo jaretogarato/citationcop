@@ -19,6 +19,8 @@ export default async function PricingPage() {
     getSubscription(supabase)
   ]);
 
+  console.log('user:', user);
+  console.log('user details:', user?.user_metadata);
   return (
     <Pricing
       user={user}
