@@ -1,3 +1,5 @@
+
+'use server'
 // Supabase client for server-side operations
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';

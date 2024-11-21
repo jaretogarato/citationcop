@@ -1,11 +1,16 @@
 import React, { useState } from 'react';
-import SearchReferencesComponent from './verify/SearchReferencesComponent'
+import { useAuth } from '@/app/contexts/auth-contexts';
+import { useReferenceLimit } from '@/hooks/useReferenceLimit';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+// key components
+import SearchReferencesComponent from './verify/SearchReferencesComponent';
 import VerifyReferencesComponent from './verify/VerifyReferencesComponent';
 import GetReferences from './get-references/GetReferences';
 import { DisplayReferences } from '@/components/verify/display/DisplayReferences';
 
 import type { Reference } from '@/types/reference';
-
+import TrailState from './TrialState';
 export type VerifyStep = "get" | "search" | "verify" | "display";
 
 // Input data from GetReferences component
@@ -35,37 +40,74 @@ interface VerificationData {
 }
 
 export default function VerifyController(): JSX.Element {
+  const { user, isLoading } = useAuth();
   const [currentStep, setCurrentStep] = useState<VerifyStep>('get');
   const [referenceData, setReferenceData] = useState<ReferenceData | null>(null);
   const [searchedReferences, setSearchedReferences] = useState<Reference[]>([]);
   const [verifiedReferences, setVerifiedReferences] = useState<Reference[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const {
+    canProcessReferences,
+    remainingReferences,
+    limitReferences,
+    updateReferenceCount
+  } = useReferenceLimit(!!user);
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   const handleStepComplete = (step: VerifyStep, data?: any) => {
+    setError(null); // Clear any previous errors
+
     switch (step) {
       case 'get':
         try {
           const getReferencesData = data as GetReferencesData;
           const references = JSON.parse(getReferencesData.content);
+
+          if (!canProcessReferences) {
+            setError("You've reached the maximum number of references. Please sign up for full access.");
+            return;
+          }
+
+          const limitedReferences = limitReferences(references as Reference[]);
+
           setReferenceData({
             type: getReferencesData.type,
-            content: references as Reference[]
+            content: limitedReferences
           });
           setCurrentStep('search');
+
+          // Update with the actual number of references being processed
+          updateReferenceCount(limitedReferences.length);
         } catch (error) {
           console.error("Error parsing reference data:", error);
+          setError("Error processing references. Please try again.");
         }
         break;
 
       case 'search':
-        const searchResults = data as Reference[];
-        setSearchedReferences(searchResults);
-        setCurrentStep('verify');
+        try {
+          const searchResults = data as Reference[];
+          setSearchedReferences(searchResults);
+          setCurrentStep('verify');
+        } catch (error) {
+          console.error("Error processing search results:", error);
+          setError("Error processing search results. Please try again.");
+        }
         break;
 
       case 'verify':
-        const verificationData = data as VerificationData;
-        setVerifiedReferences(verificationData.references);
-        setCurrentStep('display');
+        try {
+          const verificationData = data as VerificationData;
+          setVerifiedReferences(verificationData.references);
+          setCurrentStep('display');
+        } catch (error) {
+          console.error("Error processing verification:", error);
+          setError("Error processing verification. Please try again.");
+        }
         break;
 
       case 'display':
@@ -73,19 +115,34 @@ export default function VerifyController(): JSX.Element {
         setReferenceData(null);
         setSearchedReferences([]);
         setVerifiedReferences([]);
+        setError(null);
         setCurrentStep('get');
         break;
     }
   };
 
   return (
-    <>
-      {currentStep === 'get' && (
-        <GetReferences 
-          onComplete={(data: GetReferencesData) => handleStepComplete('get', data)} 
+    <div className="space-y-4">
+      {!user && (
+        <TrailState
+          remainingReferences={remainingReferences}
+          canProcessReferences={canProcessReferences}
         />
       )}
-      
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {currentStep === 'get' && (
+        <GetReferences
+          onComplete={(data: GetReferencesData) => handleStepComplete('get', data)}
+          maxReferences={!user ? remainingReferences : undefined}
+        />
+      )}
+
       {currentStep === 'search' && referenceData && (
         <SearchReferencesComponent
           data={referenceData}
@@ -106,6 +163,6 @@ export default function VerifyController(): JSX.Element {
           onComplete={() => handleStepComplete('display')}
         />
       )}
-    </>
+    </div>
   );
 }

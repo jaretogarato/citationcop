@@ -1,76 +1,66 @@
-/*import { useEffect, useState } from 'react';
-import { createClientComponentClient } from '@/lib/supabase';
-import Cookies from 'js-cookie';
-
+import Cookies from 'universal-cookie';
 
 interface UseReferenceLimitReturn {
-  isAuthenticated: boolean;
   canProcessReferences: boolean;
   remainingReferences: number;
-  limitReferences: (references: any[]) => any[];
-  updateReferenceCount: () => void;
+  limitReferences: <T extends any[]>(references: T) => T;
+  updateReferenceCount: (count: number) => void;  // Now takes a count parameter
 }
 
-export const useReferenceLimit = (): UseReferenceLimitReturn => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const supabase = createClientComponentClient();
+export const useReferenceLimit = (isAuthenticated: boolean): UseReferenceLimitReturn => {
+  const cookies = new Cookies();
+  
   const REFERENCE_LIMIT = 5;
   const COOKIE_NAME = 'reference_count';
-  const COOKIE_EXPIRE_DAYS = 7;
-
-  // Check authentication status
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsAuthenticated(!!session);
-    };
-    
-    checkAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(( _event: any, session: Session | null) => {
-      setIsAuthenticated(!!session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Get current reference count from cookie
-  const getReferenceCount = (): number => {
-    return parseInt(Cookies.get(COOKIE_NAME) || '0');
+  const COOKIE_OPTIONS = {
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60,
+    sameSite: 'strict' as const,
+    secure: process.env.NODE_ENV === 'production'
   };
 
-  // Calculate remaining references
+  const getReferenceCount = (): number => {
+    try {
+      const count = cookies.get(COOKIE_NAME);
+      return typeof count === 'number' ? count : 0;
+    } catch (error) {
+      console.error('Error reading cookie:', error);
+      return 0;
+    }
+  };
+
+  // Update to handle multiple references
+  const updateReferenceCount = (newReferences: number): void => {
+    if (!isAuthenticated) {
+      try {
+        const currentCount = getReferenceCount();
+        cookies.set(COOKIE_NAME, currentCount + newReferences, COOKIE_OPTIONS);
+      } catch (error) {
+        console.error('Error updating cookie:', error);
+      }
+    }
+  };
+
   const getRemainingReferences = (): number => {
     if (isAuthenticated) return Infinity;
     return Math.max(0, REFERENCE_LIMIT - getReferenceCount());
   };
 
-  // Check if user can process more references
   const canProcessReferences = (): boolean => {
     if (isAuthenticated) return true;
     return getReferenceCount() < REFERENCE_LIMIT;
   };
 
-  // Limit references array to maximum allowed
-  const limitReferences = (references: any[]): any[] => {
+  const limitReferences = <T extends any[]>(references: T): T => {
     if (isAuthenticated) return references;
     const remaining = getRemainingReferences();
-    return references.slice(0, remaining);
-  };
-
-  // Update reference count in cookie
-  const updateReferenceCount = (): void => {
-    if (!isAuthenticated) {
-      const currentCount = getReferenceCount();
-      Cookies.set(COOKIE_NAME, String(currentCount + 1), { expires: COOKIE_EXPIRE_DAYS });
-    }
-  };
+    return references.slice(0, remaining) as T;
+  }
 
   return {
-    isAuthenticated,
     canProcessReferences: canProcessReferences(),
     remainingReferences: getRemainingReferences(),
     limitReferences,
-    updateReferenceCount,
+    updateReferenceCount
   };
-};*/
+};
