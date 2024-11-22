@@ -1,20 +1,19 @@
 // app/api/doc-convert2PDF/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import officeParser from 'officeparser';
 import * as puppeteer from 'puppeteer';
-import { IncomingForm, Fields, Files, File as FormidableFile } from 'formidable';
+import {
+  IncomingForm,
+  Fields,
+  Files,
+  File as FormidableFile
+} from 'formidable';
 import { promises as fs } from 'fs';
 import { Buffer } from 'buffer';
 import path from 'path';
 import os from 'os';
 import { Readable } from 'stream';
 import type { IncomingMessage } from 'http';
-
-export const config = {
-  api: {
-    bodyParser: false, // Disable Next.js default body parser to use formidable
-  },
-};
 
 // Helper to convert Next.js Request to a readable Node stream that resembles IncomingMessage
 function requestToIncomingMessage(request: Request): IncomingMessage {
@@ -33,27 +32,41 @@ function requestToIncomingMessage(request: Request): IncomingMessage {
   return readable;
 }
 
-const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const DOCX_TYPE =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-export async function POST(request: Request): Promise<NextResponse> {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const form = new IncomingForm();
-    const stream = requestToIncomingMessage(request);
-
-    const { fields, files }: { fields: Fields; files: Files } = await new Promise((resolve, reject) => {
-      form.parse(stream, (err, fields, files) => {
-        if (err) reject(err);
-        resolve({ fields, files });
-      });
-    });
-
-    const file = files.file && (Array.isArray(files.file) ? files.file[0] : (files.file as FormidableFile));
-
-    if (!file) {
+   
+    const { headers } = request;
+    const contentType = headers.get('content-type');
+    if (!contentType || !contentType.includes('multipart/form-data')) {
       return NextResponse.json(
-        { error: 'No file uploaded' },
+        { error: 'Invalid content type. Please use multipart/form-data' },
         { status: 400 }
       );
+    }
+    //const formData = await request.formData();
+    const form = new IncomingForm();
+
+    const stream = requestToIncomingMessage(request);
+
+    const { fields, files }: { fields: Fields; files: Files } =
+      await new Promise((resolve, reject) => {
+        form.parse(stream, (err, fields, files) => {
+          if (err) reject(err);
+          resolve({ fields, files });
+        });
+      });
+
+    const file =
+      files.file &&
+      (Array.isArray(files.file)
+        ? files.file[0]
+        : (files.file as FormidableFile));
+
+    if (!file) {
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
     if (file.mimetype !== DOCX_TYPE) {
@@ -66,13 +79,16 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const tempDir: string = os.tmpdir();
     // Rename the file with a proper .docx extension for officeparser compatibility
-    const inputFilePath: string = path.join(tempDir, `${file.newFilename}.docx`);
+    const inputFilePath: string = path.join(
+      tempDir,
+      `${file.newFilename}.docx`
+    );
     await fs.rename(file.filepath, inputFilePath);
 
     // Parse DOCX to extract text using officeparser
     console.log('Parsing DOCX content with officeParser...');
     const config = {
-      newlineDelimiter: '\n',
+      newlineDelimiter: '\n'
     };
 
     let parsedData: string;
@@ -100,7 +116,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.log('Launching Puppeteer...');
     const browser: puppeteer.Browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
     const page: puppeteer.Page = await browser.newPage();
@@ -138,13 +154,13 @@ export async function POST(request: Request): Promise<NextResponse> {
     `;
     await page.setContent(html, {
       waitUntil: 'networkidle0',
-      timeout: 30000,
+      timeout: 30000
     });
 
     const pdfUint8Array: Uint8Array = await page.pdf({
       format: 'A4',
       margin: { top: '40px', right: '40px', bottom: '40px', left: '40px' },
-      printBackground: true,
+      printBackground: true
     });
 
     const pdfBuffer: Buffer = Buffer.from(pdfUint8Array);
@@ -161,14 +177,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     return new NextResponse(pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename=${file.originalFilename?.replace(/\.[^/.]+$/, '')}.pdf`,
-      },
+        'Content-Disposition': `attachment; filename=${file.originalFilename?.replace(/\.[^/.]+$/, '')}.pdf`
+      }
     });
   } catch (error) {
     console.error('Processing failed:', error);
     return NextResponse.json(
       {
-        error: `Processing failed: ${(error as Error).message}`,
+        error: `Processing failed: ${(error as Error).message}`
       },
       { status: 500 }
     );
