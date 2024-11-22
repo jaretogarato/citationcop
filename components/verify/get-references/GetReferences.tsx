@@ -97,8 +97,8 @@ class TextReferenceProcessor implements ReferenceProcessor {
     }
 
     const processedReferences = data.references.map(reference => ({
-      ...reference,
-      raw: ""//this.text
+      ...reference//,
+      //raw: ""//this.text
     }));
 
     return processedReferences;
