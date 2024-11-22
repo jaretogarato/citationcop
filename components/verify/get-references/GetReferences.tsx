@@ -121,9 +121,6 @@ export default function GetReferences({ onComplete, maxReferences }: GetReferenc
   const [fastProgress, setFastProgress] = useState<number>(0)
 
 
-
-
-
   const getProcessor = (): ReferenceProcessor | null => {
     if (activeTab === 'upload' && fileData.file) {
       return new FileReferenceProcessor(fileData.file)

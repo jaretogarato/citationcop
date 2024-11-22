@@ -1,71 +1,54 @@
-'use client';
-
 import { useState, useRef } from 'react';
 import { Upload } from 'lucide-react';
-import { stripImagesAndCompress } from '@/utils/grobid/pdf-processors';
+import { convert2Pdf } from '@/utils/file-utils';
+import type { FileUploadProps } from '@/types/files';
 
-interface CompressedFileData {
-    file: File | null;
-    name: string | null;
-    originalSize?: number;
-    compressedSize?: number;
-}
+const ACCEPTED_TYPES = [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx only
+] as const;
 
-interface FileUploadProps {
-    fileData: CompressedFileData;
-    setFileData: (data: CompressedFileData) => void;
-}
+const FILE_EXTENSIONS = '.pdf,.docx';
 
 export function FileUpload({ fileData, setFileData }: FileUploadProps) {
     const [dragActive, setDragActive] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [isCompressing, setIsCompressing] = useState(false);
+    const [isConverting, setIsConverting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFile = async (file: File) => {
-        if (!file.type.includes('pdf')) {
-            setError('Please upload a PDF file');
-            return;
-        }
-
         const MAX_SIZE = 5 * 1024 * 1024; // 5MB
         if (file.size > MAX_SIZE) {
             setError(`File too large. Maximum size is 5MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
             return;
         }
 
-        if (file.size <= 3 * 1024 * 1024) {  // If less than 3MB
-            setFileData({
-                file,
-                name: file.name,
-                originalSize: file.size,
-                compressedSize: file.size
-            });
+        if (!ACCEPTED_TYPES.includes(file.type as typeof ACCEPTED_TYPES[number])) {
+            setError('Please upload a PDF or DOCX file');
             return;
         }
 
-        setIsCompressing(true);
         try {
-            const processedBlob = await stripImagesAndCompress(file);
-            const finalFile = new File([processedBlob], file.name, { type: 'application/pdf' });
+            let finalFile = file;
+            if (file.type !== 'application/pdf') {
+                setIsConverting(true);
+                finalFile = await convert2Pdf(file);
+            }
+
             setFileData({
                 file: finalFile,
-                name: file.name,
+                name: finalFile.name,
                 originalSize: file.size,
-                compressedSize: processedBlob.size
+                compressedSize: finalFile.size
             });
+            setError(null);
         } catch (error) {
-            console.error('PDF compression failed:', error);
-            setFileData({
-                file,
-                name: file.name,
-                originalSize: file.size,
-                compressedSize: file.size
-            });
+            console.error('File processing failed:', error);
+            setError(error instanceof Error ? error.message : 'Failed to process file');
         } finally {
-            setIsCompressing(false);
+            setIsConverting(false);
         }
-    }
+    };
 
     const handleDrag = (e: React.DragEvent) => {
         e.preventDefault();
@@ -99,6 +82,7 @@ export function FileUpload({ fileData, setFileData }: FileUploadProps) {
                 className={`border-2 border-dashed rounded-[2rem] p-12 text-center transition-all duration-300
                     ${dragActive ? 'border-indigo-500 bg-indigo-900/20' : 'border-gray-700 bg-gray-800/50'}
                     cursor-pointer`}
+                role="button"
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
@@ -110,17 +94,17 @@ export function FileUpload({ fileData, setFileData }: FileUploadProps) {
                     type="file"
                     className="hidden"
                     onChange={handleFileSelect}
-                    accept=".pdf"
+                    accept={ACCEPTED_TYPES.join(',')}
                 />
                 <div className="flex flex-col items-center gap-6">
-                    {!fileData.file && !isCompressing && (
+                    {!fileData.file && !isConverting && (
                         <div className="w-24 h-24 rounded-[1.5rem] bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center">
                             <Upload className="w-12 h-12 text-white" />
                         </div>
                     )}
                     <div>
-                        {isCompressing ? (
-                            <p className="text-lg font-medium text-white mb-1">Compressing...</p>
+                        {isConverting ? (
+                            <p className="text-lg font-medium text-white mb-1" aria-live="polite">Converting to PDF...</p>
                         ) : fileData.file ? (
                             <>
                                 <p className="text-lg font-medium text-white mb-1">{fileData.name}</p>
@@ -132,8 +116,8 @@ export function FileUpload({ fileData, setFileData }: FileUploadProps) {
                             </>
                         ) : (
                             <>
-                                <p className="text-lg font-medium text-white mb-1">Drop your PDF document here</p>
-                                <p className="text-sm text-gray-400">or click to browse files</p>
+                                <p className="text-lg font-medium text-white mb-1">Drop your document here</p>
+                                <p className="text-sm text-gray-400">Supports PDF and DOCX files</p>
                             </>
                         )}
                     </div>
@@ -142,5 +126,5 @@ export function FileUpload({ fileData, setFileData }: FileUploadProps) {
 
             {error && <div className="text-red-500 text-center text-sm">{error}</div>}
         </div>
-    )
+    );
 }
