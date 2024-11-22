@@ -47,11 +47,46 @@ export const getUser = cache(async (supabase: SupabaseClient) => {
 export const getUserDetails = cache(async (supabase: SupabaseClient) => {
   try {
     const { data, error } = await supabase.from('users').select('*').single();
-    if (error) throw error;
-    return data;
+
+    // Handle "no rows returned" case (PGRST116)
+    if (error?.code === 'PGRST116') {
+      return {
+        data: null,
+        error: null
+      };
+    }
+
+    // Handle other database errors
+    if (error) {
+      return {
+        data: null,
+        error: {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        }
+      };
+    }
+
+    // Successful case with user details
+    return {
+      data,
+      error: null
+    };
   } catch (error) {
+    // Handle unexpected errors (network issues, etc)
     console.error('Error getting user details:', error);
-    return null;
+    return {
+      data: null,
+      error: {
+        message:
+          error instanceof Error ? error.message : 'Unknown error occurred',
+        code: 'UNEXPECTED_ERROR',
+        details: null,
+        hint: 'This might be a network or server issue'
+      }
+    };
   }
 });
 

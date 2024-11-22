@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadAuthData = async () => {
     try {
       setIsLoading(true);
-      const currentUser = await getUser(supabase);
+      const { user: currentUser } = await getUser(supabase);
       
       if (currentUser) {
         const [details, subs] = await Promise.all([
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ]);
         
         setUser(currentUser);
-        setUserDetails(details);
+        setUserDetails(details.data);
         setSubscription(subs);
       } else {
         setUser(null);

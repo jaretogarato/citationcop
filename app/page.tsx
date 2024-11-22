@@ -15,7 +15,7 @@ export default async function PricingPage() {
     data: { user }
   } = await supabase.auth.getUser();*/
 
-  const [user, products, subscription] = await Promise.all([
+  const [{ user }, products, subscription] = await Promise.all([
     getUser(supabase),
     getProducts(supabase),
     getSubscription(supabase)
