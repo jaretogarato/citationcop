@@ -114,7 +114,9 @@ export function FileUpload({ fileData, setFileData }: FileUploadProps) {
                 />
                 <div className="flex flex-col items-center gap-6">
                     {!fileData.file && !isCompressing && (
-                        <Upload className="w-12 h-12 text-gray-400 opacity-75" />
+                        <div className="w-24 h-24 rounded-[1.5rem] bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center">
+                            <Upload className="w-12 h-12 text-white" />
+                        </div>
                     )}
                     <div>
                         {isCompressing ? (
