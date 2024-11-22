@@ -24,7 +24,7 @@ export interface FileData {
 
 interface GetReferencesProps {
   onComplete: (data: { type: 'file' | 'text'; content: string }) => void;
-  maxReferences?: number; // Add this prop
+  maxReferences?: number;
 }
 
 interface ReferenceProcessor {
@@ -98,7 +98,7 @@ class TextReferenceProcessor implements ReferenceProcessor {
 
     const processedReferences = data.references.map(reference => ({
       ...reference,
-      raw: this.text
+      raw: ""//this.text
     }));
 
     return processedReferences;
@@ -119,7 +119,6 @@ export default function GetReferences({ onComplete, maxReferences }: GetReferenc
   const [progress, setProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 })
   const [highAccuracy, setHighAccuracy] = useState<boolean>(true)
   const [fastProgress, setFastProgress] = useState<number>(0)
-
 
   const getProcessor = (): ReferenceProcessor | null => {
     if (activeTab === 'upload' && fileData.file) {
@@ -150,7 +149,11 @@ export default function GetReferences({ onComplete, maxReferences }: GetReferenc
     try {
       // Get initial references
       let references = await processor.process()
+      let initialHadReferences = references.length
 
+      //console.log("Initial references from processor:", references) 
+      //console.log("Initial references length:", references.length)
+      //console.log("initialHadReferences:", initialHadReferences)
       // Limit references early before expensive processing
       references = limitReferences(references);
 
@@ -172,7 +175,8 @@ export default function GetReferences({ onComplete, maxReferences }: GetReferenc
         return
       }
 
-      if (!highAccuracy || activeTab === 'paste') {
+      // Skip high accuracy mode if initial process had no references, OR if it's disabled or paste mode
+      if (!initialHadReferences || !highAccuracy || activeTab === 'paste') {
         onComplete({
           type: activeTab === 'upload' ? 'file' : 'text',
           content: JSON.stringify(references)
@@ -183,7 +187,6 @@ export default function GetReferences({ onComplete, maxReferences }: GetReferenc
       setProcessingStage('checking')
       setProgress({ current: 0, total: references.length })
 
-      // Rest of the existing processing logic...
       const BATCH_SIZE = 3
       const finalReferences: Reference[] = []
 
@@ -256,7 +259,6 @@ export default function GetReferences({ onComplete, maxReferences }: GetReferenc
 
   const hasContent = fileData.file !== null || text.trim().length > 0
 
-
   const handleTabChange = (newTab: 'upload' | 'paste') => {
     setActiveTab(newTab)
     setFileData({ file: null, name: null })
@@ -293,8 +295,6 @@ export default function GetReferences({ onComplete, maxReferences }: GetReferenc
               <TextInput text={text} setText={setText} />
             )}
           </div>
-
-
 
           <div className="flex justify-between items-start mt-4">
             <ModeSelector
