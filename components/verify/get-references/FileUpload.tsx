@@ -93,13 +93,12 @@ export function FileUpload({ fileData, setFileData }: FileUploadProps) {
 
     return (
         <div className="space-y-4">
-            {/* Size limit message */}
             <p className="text-sm text-gray-400 text-center">Maximum file size: 5MB.</p>
 
             <div
                 className={`border-2 border-dashed rounded-[2rem] p-12 text-center transition-all duration-300
-          ${dragActive ? 'border-indigo-500 bg-indigo-900/20' : 'border-gray-700 bg-gray-800/50'}
-          cursor-pointer`}
+                    ${dragActive ? 'border-indigo-500 bg-indigo-900/20' : 'border-gray-700 bg-gray-800/50'}
+                    cursor-pointer`}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
@@ -114,9 +113,9 @@ export function FileUpload({ fileData, setFileData }: FileUploadProps) {
                     accept=".pdf"
                 />
                 <div className="flex flex-col items-center gap-6">
-                    <div className="w-24 h-24 rounded-[1.5rem] bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center">
-                        <Upload className="w-12 h-12 text-white" />
-                    </div>
+                    {!fileData.file && !isCompressing && (
+                        <Upload className="w-12 h-12 text-gray-400 opacity-75" />
+                    )}
                     <div>
                         {isCompressing ? (
                             <p className="text-lg font-medium text-white mb-1">Compressing...</p>
