@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ]);
         
         setUser(currentUser);
-        setUserDetails(details.data);
+        setUserDetails(details.data as UserDetails | null);
         setSubscription(subs);
       } else {
         setUser(null);
