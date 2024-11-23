@@ -1,6 +1,7 @@
 // utils/supabase/queries.ts
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cache } from 'react';
+import { UserDetails, UserDetailsResponse } from '@/types/user';
 
 export const getUser = cache(async (supabase: SupabaseClient) => {
   try {
@@ -44,51 +45,53 @@ export const getUser = cache(async (supabase: SupabaseClient) => {
   }
 });
 
-export const getUserDetails = cache(async (supabase: SupabaseClient) => {
-  try {
-    const { data, error } = await supabase.from('users').select('*').single();
+export const getUserDetails = cache(
+  async (supabase: SupabaseClient): Promise<UserDetailsResponse> => {
+    try {
+      const { data, error } = await supabase.from('users').select('*').single();
 
-    // Handle "no rows returned" case (PGRST116)
-    if (error?.code === 'PGRST116') {
+      // Handle "no rows returned" case (PGRST116)
+      if (error?.code === 'PGRST116') {
+        return {
+          data: null,
+          error: null
+        };
+      }
+
+      // Handle other database errors
+      if (error) {
+        return {
+          data: null,
+          error: {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint
+          }
+        };
+      }
+
+      // Successful case with user details
       return {
-        data: null,
+        data: data as UserDetails,
         error: null
       };
-    }
-
-    // Handle other database errors
-    if (error) {
+    } catch (error) {
+      // Handle unexpected errors (network issues, etc)
+      console.error('Error getting user details:', error);
       return {
         data: null,
         error: {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint
+          message:
+            error instanceof Error ? error.message : 'Unknown error occurred',
+          code: 'UNEXPECTED_ERROR',
+          details: null,
+          hint: 'This might be a network or server issue'
         }
       };
     }
-
-    // Successful case with user details
-    return {
-      data,
-      error: null
-    };
-  } catch (error) {
-    // Handle unexpected errors (network issues, etc)
-    console.error('Error getting user details:', error);
-    return {
-      data: null,
-      error: {
-        message:
-          error instanceof Error ? error.message : 'Unknown error occurred',
-        code: 'UNEXPECTED_ERROR',
-        details: null,
-        hint: 'This might be a network or server issue'
-      }
-    };
   }
-});
+);
 
 export const getSubscription = cache(async (supabase: SupabaseClient) => {
   try {
