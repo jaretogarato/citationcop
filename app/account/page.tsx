@@ -8,12 +8,17 @@ import {
   getSubscription,
   getUser
 } from '@/utils/supabase/queries';
+import { UserDetailsResponse, UserDetails } from '@/types/user'; 
 
 export default async function Account() {
   const supabase = createClient();
 
   // Fetch data concurrently
-  const [userResponse, userDetailsResponse, subscription] = await Promise.all([
+  const [userResponse, userDetailsResponse, subscription]: [
+    { user: any } | null,
+    UserDetailsResponse,
+    any
+  ] = await Promise.all([
     getUser(supabase),
     getUserDetails(supabase),
     getSubscription(supabase)
@@ -27,7 +32,7 @@ export default async function Account() {
   }
 
   // Ensure `userDetails` data is available
-  const userDetails = userDetailsResponse?.data ?? null;
+  const userDetails: UserDetails | null = userDetailsResponse?.data ?? null;
 
   return (
     <section className="mb-32 bg-black">

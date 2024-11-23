@@ -1,26 +1,42 @@
 'use client';
 
 import Button from '@/components/ui/Button';
-import Card  from '@/components/ui/Card';
+import Card from '@/components/ui/Card';
 import { updateName } from '@/utils/auth-helpers/server';
 import { handleRequest } from '@/utils/auth-helpers/client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { UserDetails } from '@/types/user'; // Importing the UserDetails type
 
-export default function NameForm({ userName }: { userName: string }) {
+type NameFormProps = {
+  userName: UserDetails['full_name']; // Type `userName` using UserDetails type for consistency
+};
+
+export default function NameForm({ userName }: NameFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    setIsSubmitting(true);
+    e.preventDefault(); // Prevent default form submission behavior.
+
+    const newName = e.currentTarget.fullName.value.trim();
+
     // Check if the new name is the same as the old name
-    if (e.currentTarget.fullName.value === userName) {
-      e.preventDefault();
+    if (newName === userName) {
       setIsSubmitting(false);
       return;
     }
-    handleRequest(e, updateName, router);
-    setIsSubmitting(false);
+
+    setIsSubmitting(true); // Only set to submitting if there is actually something to submit.
+
+    try {
+      // Await the handleRequest call so that we only set isSubmitting back to false once completed
+      await handleRequest(e, updateName, router);
+    } catch (error) {
+      console.error('Failed to update name:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -42,7 +58,7 @@ export default function NameForm({ userName }: { userName: string }) {
       }
     >
       <div className="mt-8 mb-4 text-xl font-semibold">
-        <form id="nameForm" onSubmit={(e) => handleSubmit(e)}>
+        <form id="nameForm" onSubmit={handleSubmit}>
           <input
             type="text"
             name="fullName"
