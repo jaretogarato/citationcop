@@ -11,15 +11,23 @@ import {
 
 export default async function Account() {
   const supabase = createClient();
-  const [user, userDetails, subscription] = await Promise.all([
+
+  // Fetch data concurrently
+  const [userResponse, userDetailsResponse, subscription] = await Promise.all([
     getUser(supabase),
     getUserDetails(supabase),
     getSubscription(supabase)
   ]);
 
+  // Ensure `user` data is available, otherwise redirect to /signin
+  const user = userResponse?.user ?? null;
   if (!user) {
-    return redirect('/signin');
+    redirect('/signin');
+    return null;
   }
+
+  // Ensure `userDetails` data is available
+  const userDetails = userDetailsResponse?.data ?? null;
 
   return (
     <section className="mb-32 bg-black">
@@ -36,7 +44,7 @@ export default async function Account() {
       <div className="p-4">
         <CustomerPortalForm subscription={subscription} />
         <NameForm userName={userDetails?.full_name ?? ''} />
-        <EmailForm userEmail={user.email} />
+        {user.email && <EmailForm userEmail={user.email} />}
       </div>
     </section>
   );
