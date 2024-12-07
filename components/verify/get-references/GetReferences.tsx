@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { TabSelector } from './TabSelector'
 import { FileUpload } from './FileUpload'
 import { TextInput } from './TextInput'
@@ -23,7 +23,8 @@ export interface FileData {
 }
 
 interface GetReferencesProps {
-  onComplete: (data: { type: 'file' | 'text'; content: string }) => void
+  onComplete: (data: { type: 'file' | 'text'; content: string }) => void;
+  maxReferences?: number;
 }
 
 interface ReferenceProcessor {
@@ -96,8 +97,8 @@ class TextReferenceProcessor implements ReferenceProcessor {
     }
 
     const processedReferences = data.references.map(reference => ({
-      ...reference,
-      raw: this.text
+      ...reference//,
+      //raw: ""//this.text
     }));
 
     return processedReferences;
@@ -108,7 +109,7 @@ class TextReferenceProcessor implements ReferenceProcessor {
   }
 }
 
-export default function GetReferences({ onComplete }: GetReferencesProps): JSX.Element {
+export default function GetReferences({ onComplete, maxReferences }: GetReferencesProps): JSX.Element {
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
   const [processingStage, setProcessingStage] = useState<'idle' | 'getting' | 'checking' | 'fallback'>('idle')
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('paste')
@@ -129,6 +130,13 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
     return null
   }
 
+  const limitReferences = (references: Reference[]): Reference[] => {
+    if (maxReferences !== undefined) {
+      return references.slice(0, maxReferences);
+    }
+    return references;
+  };
+
   const handleSubmit = async () => {
     const processor = getProcessor()
     if (!processor) return
@@ -141,7 +149,14 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
     try {
       // Get initial references
       let references = await processor.process()
-      
+      let initialHadReferences = references.length
+
+      //console.log("Initial references from processor:", references) 
+      //console.log("Initial references length:", references.length)
+      //console.log("initialHadReferences:", initialHadReferences)
+      // Limit references early before expensive processing
+      references = limitReferences(references);
+
       console.log("Initial references from processor:", references)
 
       // If no references found and it's a file upload, try fallback method
@@ -149,7 +164,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         setProcessingStage('fallback')
         console.log("No references found, trying fallback method...")
         references = await processor.fallbackProcess()
-        
+        references = limitReferences(references);
         console.log("Fallback references:", references)
       }
 
@@ -160,7 +175,8 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
         return
       }
 
-      if (!highAccuracy || activeTab === 'paste') {
+      // Skip high accuracy mode if initial process had no references, OR if it's disabled or paste mode
+      if (!initialHadReferences || !highAccuracy || activeTab === 'paste') {
         onComplete({
           type: activeTab === 'upload' ? 'file' : 'text',
           content: JSON.stringify(references)
@@ -171,7 +187,6 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
       setProcessingStage('checking')
       setProgress({ current: 0, total: references.length })
 
-      // Rest of the existing processing logic...
       const BATCH_SIZE = 3
       const finalReferences: Reference[] = []
 
@@ -281,8 +296,6 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
             )}
           </div>
 
-
-
           <div className="flex justify-between items-start mt-4">
             <ModeSelector
               isHighAccuracy={highAccuracy}
@@ -300,6 +313,7 @@ export default function GetReferences({ onComplete }: GetReferencesProps): JSX.E
           <div className="mt-4 flex justify-center">
             <SubmitButton
               isProcessing={isProcessing}
+              isLimitReached={maxReferences === 0}
               disabled={!hasContent}
               onClick={handleSubmit}
             />

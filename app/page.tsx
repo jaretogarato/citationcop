@@ -3,24 +3,38 @@ import Pricing from '@/components/ui/Pricing/Pricing';
 import {
   getProducts,
   getSubscription,
-  getUser
-} from '@/utils/supabase/queries'
+  getUser,
+  getUserDetails
+} from '@/utils/supabase/queries';
 import HomePage from '@/components/home-page/HomePage';
+import { UserDetailsResponse, GetUserResponse } from '@/types/user'; 
 
-export default async function PricingPage() {
+export default async function Home() {
   const supabase = createClient();
-  const [user, products, subscription] = await Promise.all([
+
+  // Fetch data concurrently using Promise.all
+  const [userResponse, products, subscription, userDetailsResponse]: [
+    GetUserResponse,
+    any,
+    any,
+    UserDetailsResponse
+  ] = await Promise.all([
     getUser(supabase),
     getProducts(supabase),
-    getSubscription(supabase)
+    getSubscription(supabase),
+    getUserDetails(supabase),
   ]);
 
-  //const supabase = createClient();
-  //const [user, products, subscription] = await Promise.all([
-  //  getUser(supabase),
-  //  getProducts(supabase),
-  //  getSubscription(supabase)
-  //]);
+  // Extract user and userDetails safely
+  const user = userResponse?.user ?? null;
+  const userDetails = userDetailsResponse?.data ?? null;
+
+  // Safe fallback to empty values
+  const userName = userDetails?.full_name ?? '';
+  const userEmail = user?.email ?? '';
+
+  console.log('**** user ***', user);
+  console.log('**** userDetails ***', userDetailsResponse);
 
   return (
     <>
@@ -31,10 +45,5 @@ export default async function PricingPage() {
         subscription={subscription}
       />
     </>
-    //<Pricing
-    //  user={user}
-    //  products={products ?? []}
-    //  subscription={subscription}
-    ///>
   );
 }

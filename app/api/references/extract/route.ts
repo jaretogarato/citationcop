@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       "conference": "conference name if applicable",
       "url": "URL if available. Do NOT create a URL if it does not exist.",
       "date_of_access": "date of access if applicable, will come after url"
+      "raw": the raw text of the reference itself. This is the text that was parsed to create this reference.
     }
   ]
 }
