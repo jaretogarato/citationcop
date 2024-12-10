@@ -7,7 +7,7 @@ import {
   getUserDetails
 } from '@/utils/supabase/queries';
 import HomePage from '@/components/home-page/HomePage';
-import { UserDetailsResponse, GetUserResponse } from '@/types/user'; 
+import { UserDetailsResponse, GetUserResponse } from '@/types/user';
 
 export default async function Home() {
   const supabase = createClient();
@@ -22,7 +22,7 @@ export default async function Home() {
     getUser(supabase),
     getProducts(supabase),
     getSubscription(supabase),
-    getUserDetails(supabase),
+    getUserDetails(supabase)
   ]);
 
   // Extract user and userDetails safely
@@ -39,11 +39,11 @@ export default async function Home() {
   return (
     <>
       <HomePage />
-      <Pricing
+      {/*<Pricing
         user={user}
         products={products ?? []}
         subscription={subscription}
-      />
+      />*/}
     </>
   );
 }

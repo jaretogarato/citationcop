@@ -25,14 +25,15 @@ interface SubscriptionWithProduct extends Subscription {
 }
 
 interface Props {
-  user: User | null | undefined;
+  //user: User | null | undefined;
   products: ProductWithPrices[];
   subscription: SubscriptionWithProduct | null;
 }
 
 type BillingInterval = 'lifetime' | 'year' | 'month';
 
-export default function Pricing({ user, products, subscription }: Props) {
+//export default function Pricing({ user, products, subscription }: Props) {
+export default function Pricing({ products, subscription }: Props) {
   const intervals = Array.from(
     new Set(
       products.flatMap((product) =>
@@ -49,10 +50,10 @@ export default function Pricing({ user, products, subscription }: Props) {
   const handleStripeCheckout = async (price: Price) => {
     setPriceIdLoading(price.id);
 
-    if (!user) {
-      setPriceIdLoading(undefined);
-      return router.push('/signin/signup');
-    }
+    //if (!user) {
+    //  setPriceIdLoading(undefined);
+    //  return router.push('/signin/signup');
+    //}
 
     const { errorRedirect, sessionId } = await checkoutWithStripe(
       price,
