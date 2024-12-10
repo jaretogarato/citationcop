@@ -40,6 +40,26 @@ const upsertPriceRecord = async (
   retryCount = 0,
   maxRetries = 3
 ) => {
+  console.log('Attempting to upsert price:', {
+    priceId: price.id,
+    productId: price.product,
+    active: price.active
+  });
+
+  // Check if product exists first
+  const { data: productExists, error: productCheckError } = await supabaseAdmin
+    .from('products')
+    .select('id')
+    .eq('id', typeof price.product === 'string' ? price.product : '')
+    .single();
+
+  console.log('Product check for price:', {
+    priceId: price.id,
+    productId: price.product,
+    productExists: !!productExists,
+    error: productCheckError
+  });
+
   const priceData: Price = {
     id: price.id,
     product_id: typeof price.product === 'string' ? price.product : '',
@@ -52,26 +72,72 @@ const upsertPriceRecord = async (
     trial_period_days: price.recurring?.trial_period_days ?? TRIAL_PERIOD_DAYS
   };
 
-  const { error: upsertError } = await supabaseAdmin
+  const { data, error: upsertError } = await supabaseAdmin
     .from('prices')
-    .upsert([priceData]);
-
+    .upsert([priceData])
+    .select();
   if (upsertError?.message.includes('foreign key constraint')) {
+    console.log('Foreign key constraint error:', {
+      error: upsertError.message,
+      retryCount,
+      priceId: price.id,
+      productId: priceData.product_id
+    });
+
     if (retryCount < maxRetries) {
       console.log(`Retry attempt ${retryCount + 1} for price ID: ${price.id}`);
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      await upsertPriceRecord(price, retryCount + 1, maxRetries);
+      return await upsertPriceRecord(price, retryCount + 1, maxRetries);
     } else {
       throw new Error(
         `Price insert/update failed after ${maxRetries} retries: ${upsertError.message}`
       );
     }
   } else if (upsertError) {
+    console.log('Non-foreign key error:', upsertError);
     throw new Error(`Price insert/update failed: ${upsertError.message}`);
   } else {
-    console.log(`Price inserted/updated: ${price.id}`);
+    console.log(`Price inserted/updated successfully:`, data);
   }
 };
+
+//const upsertPriceRecord = async (
+//  price: Stripe.Price,
+//  retryCount = 0,
+//  maxRetries = 3
+//) => {
+//  const priceData: Price = {
+//    id: price.id,
+//    product_id: typeof price.product === 'string' ? price.product : '',
+//    active: price.active,
+//    currency: price.currency,
+//    type: price.type,
+//    unit_amount: price.unit_amount ?? null,
+//    interval: price.recurring?.interval ?? null,
+//    interval_count: price.recurring?.interval_count ?? null,
+//    trial_period_days: price.recurring?.trial_period_days ?? TRIAL_PERIOD_DAYS
+//  };
+
+//  const { error: upsertError } = await supabaseAdmin
+//    .from('prices')
+//    .upsert([priceData]);
+
+//  if (upsertError?.message.includes('foreign key constraint')) {
+//    if (retryCount < maxRetries) {
+//      console.log(`Retry attempt ${retryCount + 1} for price ID: ${price.id}`);
+//      await new Promise((resolve) => setTimeout(resolve, 2000));
+//      await upsertPriceRecord(price, retryCount + 1, maxRetries);
+//    } else {
+//      throw new Error(
+//        `Price insert/update failed after ${maxRetries} retries: ${upsertError.message}`
+//      );
+//    }
+//  } else if (upsertError) {
+//    throw new Error(`Price insert/update failed: ${upsertError.message}`);
+//  } else {
+//    console.log(`Price inserted/updated: ${price.id}`);
+//  }
+//};
 
 const deleteProductRecord = async (product: Stripe.Product) => {
   const { error: deletionError } = await supabaseAdmin

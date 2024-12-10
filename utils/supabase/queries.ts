@@ -3,6 +3,15 @@ import type {
   SupabaseClient,
   User as SupabaseUser
 } from '@supabase/supabase-js';
+import { Tables } from '../../types_db';  // Adjust based on your file's location relative to root
+
+
+type Product = Tables<'products'>;
+type Price = Tables<'prices'>;
+interface ProductWithPrices extends Product {
+  prices: Price[];
+}
+
 import { cache } from 'react';
 import {
   UserDetailsResponse,
@@ -117,18 +126,46 @@ export const getSubscription = cache(async (supabase: SupabaseClient) => {
   }
 });
 
+//export const getProducts = cache(async (supabase: SupabaseClient) => {
+//  try {
+//    const { data, error } = await supabase
+//      .from('products')
+//      .select('*, prices(*)')
+//      .eq('active', true)
+//      .eq('prices.active', true)
+//      .order('metadata->index')
+//      .order('unit_amount', { referencedTable: 'prices' });
+
+//    if (error) throw error;
+//    return data;
+//  } catch (error) {
+//    console.error('Error getting products:', error);
+//    return null;
+//  }
+//});
+
 export const getProducts = cache(async (supabase: SupabaseClient) => {
   try {
     const { data, error } = await supabase
       .from('products')
-      .select('*, prices(*)')
+      .select(`
+        *,
+        prices (
+          *
+        )
+      `)
       .eq('active', true)
-      .eq('prices.active', true)
-      .order('metadata->index')
-      .order('unit_amount', { referencedTable: 'prices' });
+      .order('metadata->index');
 
     if (error) throw error;
-    return data;
+
+    // Filter out inactive prices after fetching, with proper typing
+    const productsWithActivePrices = data?.map(product => ({
+      ...product,
+      prices: product.prices.filter((price: Price) => price.active)
+    })) as ProductWithPrices[];
+
+    return productsWithActivePrices;
   } catch (error) {
     console.error('Error getting products:', error);
     return null;
