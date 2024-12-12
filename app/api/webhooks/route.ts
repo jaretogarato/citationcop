@@ -28,10 +28,13 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
-    if (!sig || !webhookSecret)
+    if (!sig || !webhookSecret){
+			console.log('Missing signature or webhook secret');
       return new Response('Webhook secret not found.', { status: 400 });
+		}
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
     console.log(`🔔  Webhook received: ${event.type}`);
+		console.log('Event data:', JSON.stringify(event.data.object, null, 2));
   } catch (err: any) {
     console.log(`❌ Error message: ${err.message}`);
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
@@ -42,17 +45,37 @@ export async function POST(req: Request) {
 			switch (event.type) {
 				case 'product.created':
 				case 'product.updated':
-					await upsertProductRecord(event.data.object as Stripe.Product);
+					const productData = event.data.object as Stripe.Product;
+					await upsertProductRecord(productData);
+
+					if (productData.default_price) {
+						// Handle default price for test mode products
+						console.log('Fetching default price:', productData.default_price);
+						try {
+							const defaultPrice = await stripe.prices.retrieve(productData.default_price as string);
+							if (defaultPrice.active) {
+								await upsertPriceRecord(defaultPrice);
+							}
+						} catch (error) {
+							console.error('Error handling default price:', error);
+						}
+					}
+
+					// Also fetch all active prices for this product
+					// This handles both production cases and any additional test prices
+					try {
+						const prices = await stripe.prices.list({
+							product: productData.id,
+							active: true
+						});
+						for (const price of prices.data) {
+							await upsertPriceRecord(price);
+						}
+					} catch (error) {
+						console.error('Error fetching product prices:', error);
+					}
 					break;
-				case 'price.created':
-				case 'price.updated':
-					console.log('Received price webhook:', {
-						priceId: event.data.object.id,
-						productId: event.data.object.product,
-						eventType: event.type
-					});
-					await upsertPriceRecord(event.data.object as Stripe.Price);
-					break;
+
 				case 'price.deleted':
 					await deletePriceRecord(event.data.object as Stripe.Price);
 					break;

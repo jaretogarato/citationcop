@@ -126,6 +126,49 @@ export const getSubscription = cache(async (supabase: SupabaseClient) => {
   }
 });
 
+export const getProducts = cache(async (supabase: SupabaseClient) => {
+  try {
+    const { data, error } = await supabase
+      .from('products')
+      .select(`
+        *,
+        prices (
+          *
+        )
+      `)
+      .eq('active', true)
+      .eq('prices.active', true);  // Only get active prices
+
+    console.log('Raw database response:', data);
+
+    if (error) {
+      console.error('Database error:', error);
+      throw error;
+    }
+    return data;
+  } catch (error) {
+    console.error('Error getting products:', error);
+    return null;
+  }
+});
+
+//export const getProducts = cache(async (supabase: SupabaseClient) => {
+//  try {
+//    const { data, error } = await supabase
+//      .from('products')
+//      .select('*, prices(*)')
+//      .eq('active', true);
+
+//    console.log('Products from database:', data);
+
+//    if (error) throw error;
+//    return data;
+//  } catch (error) {
+//    console.error('Error getting products:', error);
+//    return null;
+//  }
+//});
+
 //export const getProducts = cache(async (supabase: SupabaseClient) => {
 //  try {
 //    const { data, error } = await supabase
@@ -144,30 +187,30 @@ export const getSubscription = cache(async (supabase: SupabaseClient) => {
 //  }
 //});
 
-export const getProducts = cache(async (supabase: SupabaseClient) => {
-  try {
-    const { data, error } = await supabase
-      .from('products')
-      .select(`
-        *,
-        prices (
-          *
-        )
-      `)
-      .eq('active', true)
-      .order('metadata->index');
+//export const getProducts = cache(async (supabase: SupabaseClient) => {
+//  try {
+//    const { data, error } = await supabase
+//      .from('products')
+//      .select(`
+//        *,
+//        prices (
+//          *
+//        )
+//      `)
+//      .eq('active', true)
+//      .order('metadata->index');
 
-    if (error) throw error;
+//    if (error) throw error;
 
-    // Filter out inactive prices after fetching, with proper typing
-    const productsWithActivePrices = data?.map(product => ({
-      ...product,
-      prices: product.prices.filter((price: Price) => price.active)
-    })) as ProductWithPrices[];
+//    // Filter out inactive prices after fetching, with proper typing
+//    const productsWithActivePrices = data?.map(product => ({
+//      ...product,
+//      prices: product.prices.filter((price: Price) => price.active)
+//    })) as ProductWithPrices[];
 
-    return productsWithActivePrices;
-  } catch (error) {
-    console.error('Error getting products:', error);
-    return null;
-  }
-});
+//    return productsWithActivePrices;
+//  } catch (error) {
+//    console.error('Error getting products:', error);
+//    return null;
+//  }
+//});
