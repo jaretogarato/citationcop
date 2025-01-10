@@ -1,14 +1,14 @@
 import React from 'react';
-import Pricing from '@/components/ui/Pricing/Pricing';
+import Pricing from '@/app/components/ui/Pricing/Pricing';
 //import { User } from '@supabase/supabase-js';
-import { createClient } from '@/utils/supabase/server';
+import { createClient } from '@/app/utils/supabase/server';
 //import { createClient } from '@/utils/supabase/client';
 
 import {
   getProducts,
   getSubscription
   //getUser
-} from '@/utils/supabase/queries';
+} from '@/app/utils/supabase/queries';
 
 export default async function PricingPage() {
   const supabase = createClient();
