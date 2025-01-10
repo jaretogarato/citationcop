@@ -112,7 +112,7 @@
         console.log("Search API results for reference:", reference.id, results);
         return {
           ...reference,
-          status: (results.organic?.length ?? 0) > 0 ? "verified" : "error",
+          status: (results.organic?.length ?? 0) > 0 ? "pending" : "error",
           verification_source: "google",
           message: (results.organic?.length ?? 0) > 0 ? "Found matching results" : "No matching results found",
           searchResults: results
@@ -224,8 +224,17 @@
   var URLContentVerifyService = class _URLContentVerifyService {
     static BATCH_SIZE = 5;
     // Adjust batch size as needed
+    // Utility function to validate URLs
+    isValidUrl(url) {
+      try {
+        new URL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    }
     async verifyReferencesWithUrls(references) {
-      const urlReferences = references.filter((ref) => ref.url);
+      const urlReferences = references.filter((ref) => ref.url && this.isValidUrl(ref.url));
       const verifiedReferences = [];
       let currentIndex = 0;
       while (currentIndex < urlReferences.length) {

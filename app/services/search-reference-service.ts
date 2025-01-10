@@ -37,7 +37,7 @@ export class SearchReferenceService {
         ...reference,
         status:
           (results.organic?.length ?? 0) > 0
-            ? ('verified' as ReferenceStatus)
+            ? ('pending' as ReferenceStatus)
             : ('error' as ReferenceStatus),
         verification_source: 'google',
         message:

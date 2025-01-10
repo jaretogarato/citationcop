@@ -86,7 +86,7 @@ const PDFProcessor = () => {
   const updateProcessingState = () => {
     if (queueServiceRef.current) {
       const { processing, pending } = queueServiceRef.current.getStatus()
-      setIsProcessing(processing > 0 || pending > 0)
+      setIsProcessing(processing > 0)
     }
   }
 
