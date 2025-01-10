@@ -3,7 +3,7 @@ import type {
   SupabaseClient,
   User as SupabaseUser
 } from '@supabase/supabase-js';
-import { Tables } from '../../types_db';  // Adjust based on your file's location relative to root
+import type { Tables } from 'types_db';
 
 
 type Product = Tables<'products'>;
