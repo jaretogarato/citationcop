@@ -49,8 +49,20 @@ export class VerifyReferenceService {
     const processedRefs: Reference[] = []
     let currentIndex = 0
 
-    while (currentIndex < references.length) {
-      const batch = references.slice(currentIndex, currentIndex + BATCH_SIZE)
+    // Filter out references that are already verified
+    const unverifiedReferences = references.filter(
+      (ref) => ref.status !== 'verified'
+    )
+
+    console.log(
+      `Skipping ${references.length - unverifiedReferences.length} already verified references.`
+    )
+
+    while (currentIndex < unverifiedReferences.length) {
+      const batch = unverifiedReferences.slice(
+        currentIndex,
+        currentIndex + BATCH_SIZE
+      )
       console.log(
         `Processing verification batch: ${currentIndex}-${currentIndex + batch.length}`
       )
@@ -66,6 +78,12 @@ export class VerifyReferenceService {
       await new Promise((resolve) => setTimeout(resolve, 100))
     }
 
-    return processedRefs
+    // Reconstruct the full list in the original order
+    return references.map((ref) => {
+      const processedRef = processedRefs.find(
+        (processed) => processed.id === ref.id
+      )
+      return processedRef || ref
+    })
   }
 }

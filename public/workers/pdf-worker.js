@@ -189,8 +189,17 @@
     async processBatch(references, onBatchComplete) {
       const processedRefs = [];
       let currentIndex = 0;
-      while (currentIndex < references.length) {
-        const batch = references.slice(currentIndex, currentIndex + BATCH_SIZE2);
+      const unverifiedReferences = references.filter(
+        (ref) => ref.status !== "verified"
+      );
+      console.log(
+        `Skipping ${references.length - unverifiedReferences.length} already verified references.`
+      );
+      while (currentIndex < unverifiedReferences.length) {
+        const batch = unverifiedReferences.slice(
+          currentIndex,
+          currentIndex + BATCH_SIZE2
+        );
         console.log(
           `Processing verification batch: ${currentIndex}-${currentIndex + batch.length}`
         );
@@ -202,7 +211,12 @@
         currentIndex += BATCH_SIZE2;
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-      return processedRefs;
+      return references.map((ref) => {
+        const processedRef = processedRefs.find(
+          (processed) => processed.id === ref.id
+        );
+        return processedRef || ref;
+      });
     }
   };
 
@@ -296,17 +310,17 @@
       console.log(`\u{1F680} Worker starting to process PDF ${pdfId}`);
       try {
         const references = await referenceService.extractReferences(file);
-        let finalReferences = references;
+        let parsedRefernces = references;
         if (references.length === 0) {
           console.log(
             "No references found via GROBID, falling back to PDF parsing..."
           );
-          finalReferences = await pdfReferenceService.parseAndExtractReferences(file);
-          console.log("\u{1F4E5} Received references from OpenAI:", finalReferences);
+          parsedRefernces = await pdfReferenceService.parseAndExtractReferences(file);
+          console.log("\u{1F4E5} Received references from OpenAI:", parsedRefernces);
         } else if (highAccuracy) {
           console.log("\u{1F50D} High Accuracy mode enabled. Verifying references...");
-          const verifiedReferences2 = [];
-          for (const reference of finalReferences) {
+          const checkedReferences = [];
+          for (const reference of parsedRefernces) {
             const response = await fetch("/api/high-accuracy-check", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -318,16 +332,16 @@
             }
             const result = await response.json();
             console.log("\u{1F50D} Verification result:", result);
-            verifiedReferences2.push(...result);
+            checkedReferences.push(...result);
           }
-          finalReferences = verifiedReferences2;
+          parsedRefernces = checkedReferences;
         }
         console.log("\u{1F9F9} Removing duplicate references...");
-        finalReferences = removeDuplicates(finalReferences);
-        console.log("\u2705 Unique references:", finalReferences);
+        parsedRefernces = removeDuplicates(parsedRefernces);
+        console.log("\u2705 Unique references:", parsedRefernces);
         console.log("\u{1F50D} Starting batch processing for search...");
-        await searchReferenceService.processBatch(
-          finalReferences,
+        const referencesWithSearch = await searchReferenceService.processBatch(
+          parsedRefernces,
           (batchResults) => {
             self.postMessage({
               type: "search-update",
@@ -337,9 +351,11 @@
           }
         );
         console.log("\u2705 search complete.");
-        logReferences(finalReferences);
+        logReferences(referencesWithSearch);
         console.log("\u{1F310} Verifying references with URLs...");
-        const urlVerifiedreferences = await urlVerificationCheck.verifyReferencesWithUrls(finalReferences);
+        const urlVerifiedreferences = await urlVerificationCheck.verifyReferencesWithUrls(
+          referencesWithSearch
+        );
         console.log("\u2705 URL verification complete.");
         logReferences(urlVerifiedreferences);
         console.log("*** final verification ***");

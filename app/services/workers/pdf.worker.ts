@@ -33,21 +33,21 @@ self.onmessage = async (e: MessageEvent) => {
       const references: Reference[] =
         await referenceService.extractReferences(file)
 
-      let finalReferences: Reference[] = references
+      let parsedRefernces: Reference[] = references
 
       // STEP 1.5: IF NO REFERENCES FROM GROBID, FALLBACK TO PDF PARSING
       if (references.length === 0) {
         console.log(
           'No references found via GROBID, falling back to PDF parsing...'
         )
-        finalReferences =
+        parsedRefernces =
           await pdfReferenceService.parseAndExtractReferences(file)
-        console.log('📥 Received references from OpenAI:', finalReferences)
+        console.log('📥 Received references from OpenAI:', parsedRefernces)
       } else if (highAccuracy) {
         // if HIGH-ACCURACY THEN DOUBLE-CHECK REFERENCES
         console.log('🔍 High Accuracy mode enabled. Verifying references...')
-        const verifiedReferences: Reference[] = []
-        for (const reference of finalReferences) {
+        const checkedReferences: Reference[] = []
+        for (const reference of parsedRefernces) {
           const response = await fetch('/api/high-accuracy-check', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -61,23 +61,23 @@ self.onmessage = async (e: MessageEvent) => {
 
           const result: Reference[] = await response.json()
           console.log('🔍 Verification result:', result)
-          verifiedReferences.push(...result)
+          checkedReferences.push(...result)
         }
 
-        finalReferences = verifiedReferences
+        parsedRefernces = checkedReferences
       }
 
       // STEP 2: REMOVE DUPLICATES
       console.log('🧹 Removing duplicate references...')
-      finalReferences = removeDuplicates(finalReferences)
-      console.log('✅ Unique references:', finalReferences)
+      parsedRefernces = removeDuplicates(parsedRefernces)
+      console.log('✅ Unique references:', parsedRefernces)
 
       // STEP 3: BATCH PROCESS SEARCH CALLS
       console.log('🔍 Starting batch processing for search...')
 
       // this is the model for sending an update back to UI through the postMessage and into the queue...
-      await searchReferenceService.processBatch(
-        finalReferences,
+      const referencesWithSearch = await searchReferenceService.processBatch(
+        parsedRefernces,
         (batchResults) => {
           //logReferences(batchResults)
 
@@ -90,15 +90,16 @@ self.onmessage = async (e: MessageEvent) => {
         }
       )
       console.log('✅ search complete.')
-      logReferences(finalReferences)
+      logReferences(referencesWithSearch)
 
       // STEP 4: Verify references with URLs only
       console.log('🌐 Verifying references with URLs...')
       const urlVerifiedreferences =
-        await urlVerificationCheck.verifyReferencesWithUrls(finalReferences)
+        await urlVerificationCheck.verifyReferencesWithUrls(
+          referencesWithSearch
+        )
       console.log('✅ URL verification complete.')
       logReferences(urlVerifiedreferences)
-
 
       // STEP 5: FINAL VERIFICATION
       console.log('*** final verification ***')
