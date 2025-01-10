@@ -9,7 +9,7 @@ import {
 } from '@/app/components/ui/dialog'
 import { ReferenceDialog } from '../verify/display/ReferenceDialog'
 
-const ANIMATION_DELAY_PER_SQUARE = 50
+const ANIMATION_DELAY = 100 // ms between each reference appearance
 
 const statusColors: Record<ReferenceStatus, string> = {
   verified: 'bg-emerald-400/60',
@@ -30,27 +30,41 @@ interface ReferenceGridProps {
 }
 
 const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
-  const [visibleCount, setVisibleCount] = useState(0)
-  const [prevLength, setPrevLength] = useState(0)
+  const [visibleReferences, setVisibleReferences] = useState<Reference[]>([])
+  const [lastProcessedLength, setLastProcessedLength] = useState(0)
 
   useEffect(() => {
-    if (references.length > prevLength) {
-      setVisibleCount(prevLength)
+    console.log('New references array received:', references.length)
+    console.log('Current visible references:', visibleReferences.length)
+    console.log('Last processed length:', lastProcessedLength)
 
-      const interval = setInterval(() => {
-        setVisibleCount((prev) => {
-          if (prev < references.length) {
-            return prev + 1
+    // If we got new references
+    if (references.length > lastProcessedLength) {
+      // Find the new references that weren't processed yet
+      const newRefs = references.slice(lastProcessedLength)
+      console.log('New references to process:', newRefs.length)
+      
+      // Clear any existing timeouts
+      const timeouts: NodeJS.Timeout[] = []
+      
+      // Add them one by one with delays
+      newRefs.forEach((ref, index) => {
+        const timeout = setTimeout(() => {
+          setVisibleReferences(prev => [...prev, ref])
+          
+          // If this is the last reference in the batch, update lastProcessedLength
+          if (index === newRefs.length - 1) {
+            setLastProcessedLength(references.length)
           }
-          clearInterval(interval)
-          return prev
-        })
-      }, ANIMATION_DELAY_PER_SQUARE)
+        }, index * ANIMATION_DELAY)
+        
+        timeouts.push(timeout)
+      })
 
-      setPrevLength(references.length)
-      return () => clearInterval(interval)
+      // Cleanup timeouts if component unmounts or new references arrive
+      return () => timeouts.forEach(timeout => clearTimeout(timeout))
     }
-  }, [references.length, prevLength])
+  }, [references, lastProcessedLength])
 
   return (
     <div>
@@ -60,7 +74,7 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
 
       <div className="max-w-4xl rounded-lg border border-slate-700 p-4">
         <div className="flex flex-wrap gap-1">
-          {references.map((ref, i) => (
+          {visibleReferences.map((ref, i) => (
             <Dialog key={i}>
               <DialogTrigger>
                 <div
@@ -69,18 +83,8 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                     ${statusColors[ref.status]}
                     hover:opacity-75 transition-opacity
                     cursor-pointer
-                    ${
-                      i >= prevLength && i < visibleCount
-                        ? 'animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4'
-                        : i < prevLength
-                          ? 'opacity-100'
-                          : 'opacity-0'
-                    }
+                    animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4
                   `}
-                  style={{
-                    animationDelay: `${(i - prevLength) * 75}ms`,
-                    transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
-                  }}
                 />
               </DialogTrigger>
               <DialogContent className="bg-transparent border-none shadow-none max-w-lg">
