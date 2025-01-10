@@ -1,3 +1,5 @@
+//app/types/references.ts
+
 export interface FileData {
   file: File | null
   name: string | null

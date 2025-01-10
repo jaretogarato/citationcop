@@ -9,7 +9,7 @@ export class PDFQueueService {
 
   constructor(workerScript: string) {
     this.workerScript = workerScript
-    console.log('Worker script path:', this.workerScript)
+    //console.log('Worker script path:', this.workerScript)
   }
 
   public addPDFs(files: File[], highAccuracy: boolean) {
@@ -25,11 +25,11 @@ export class PDFQueueService {
   }
 
   private initializeWorkerPool() {
-    console.log('Initializing worker pool')
-    console.log('queue length: ', this.queue.length)
+    //console.log('Initializing worker pool')
+    //console.log('queue length: ', this.queue.length)
     const workerCount = Math.min(this.maxWorkers, this.queue.length)
 
-    console.log(`Initializing worker pool with ${workerCount} workers`)
+    //console.log(`Initializing worker pool with ${workerCount} workers`)
     for (let i = 0; i < workerCount; i++) {
       const worker = new Worker(this.workerScript)
       worker.onmessage = (e: MessageEvent<WorkerMessage>) =>
