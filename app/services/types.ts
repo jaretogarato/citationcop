@@ -4,11 +4,12 @@ import { Reference } from '@/app/types/reference';
 export type QueueItemStatus = 'pending' | 'processing' | 'complete' | 'error';
 
 export interface QueueItem {
-  id: string;
-  file: File;
-  status: QueueItemStatus;
-  references?: Reference[];
-  error?: string;
+  id: string
+  file: File
+  status: QueueItemStatus
+  highAccuracy: boolean
+  references?: Reference[]
+  error?: string
 }
 
 export type WorkerMessage = 

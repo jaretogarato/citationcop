@@ -4,10 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PDFQueueService } from '@/app/services/queue-service';
 import { FileText, CheckCircle, XCircle, Loader } from 'lucide-react';
 import { PDFDropZone } from './PDFDropZone';
+import { ModeSelector } from '@/app/components/ui/ModeSelector';
 
 const PDFProcessor = () => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isHighAccuracy, setIsHighAccuracy] = useState(true); // High accuracy enabled by default
   const [status, setStatus] = useState({
     pending: 0,
     processing: 0,
@@ -37,8 +39,12 @@ const PDFProcessor = () => {
   const handleProcessFiles = () => {
     if (queueServiceRef.current && selectedFiles.length > 0) {
       setIsProcessing(true);
-      queueServiceRef.current.addPDFs(selectedFiles);
+      queueServiceRef.current.addPDFs(selectedFiles, isHighAccuracy);
     }
+  };
+
+  const toggleHighAccuracy = (checked) => {
+    setIsHighAccuracy(checked);
   };
 
   return (
@@ -48,6 +54,14 @@ const PDFProcessor = () => {
           onFilesSelected={handleFilesSelected}
           isProcessing={isProcessing}
           onProcess={handleProcessFiles}
+        />
+      </div>
+
+      <div className="mb-6">
+        <ModeSelector
+          isHighAccuracy={isHighAccuracy}
+          onToggle={toggleHighAccuracy}
+          disabled={isProcessing}
         />
       </div>
 

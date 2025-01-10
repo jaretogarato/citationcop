@@ -1,3 +1,4 @@
+//app/components/ui/ModeSelector.tsx
 import { Switch } from '@/app/components/ui/switch'
 import { Label } from '@/app/components/ui/label'
 import { Zap, SearchCheck } from 'lucide-react'

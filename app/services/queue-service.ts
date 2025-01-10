@@ -12,11 +12,12 @@ export class PDFQueueService {
     console.log('Worker script path:', this.workerScript);
   }
 
-  public addPDFs(files: File[]) {
+  public addPDFs(files: File[], highAccuracy: boolean) {
     const items: QueueItem[] = files.map((file) => ({
       id: crypto.randomUUID(),
       file,
-      status: 'pending'
+      status: 'pending',
+      highAccuracy
     }));
 
     this.queue.push(...items);
@@ -25,7 +26,7 @@ export class PDFQueueService {
 
   private initializeWorkerPool() {
     console.log('Initializing worker pool');
-    console.log("queue length: ", this.queue.length)
+    console.log('queue length: ', this.queue.length);
     const workerCount = Math.min(this.maxWorkers, this.queue.length);
 
     console.log(`Initializing worker pool with ${workerCount} workers`);
@@ -84,7 +85,8 @@ export class PDFQueueService {
       worker.postMessage({
         type: 'process',
         pdfId: nextItem.id,
-        file: nextItem.file
+        file: nextItem.file,
+        highAccuracy: nextItem.highAccuracy
       });
     } else {
       // No more items to process
