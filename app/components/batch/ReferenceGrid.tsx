@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react'
 import type { Reference, ReferenceStatus } from '@/app/types/reference'
 import {
   Dialog,
+  DialogContent,
   DialogDescription,
+  DialogHeader,
   DialogTitle,
   DialogTrigger
 } from '@/app/components/ui/dialog'
-import GridReferenceDialogue from './GridReferenceDialogue'
-import { DialogContent } from '@radix-ui/react-dialog'
+//import GridReferenceDialogue from './GridReferenceDialogue'
+import { ReferenceDialog } from '../verify/display/ReferenceDialog'
 
-const SQUARES_PER_ROW = 30
-const ANIMATION_DELAY_PER_SQUARE = 50 // milliseconds
+const ANIMATION_DELAY_PER_SQUARE = 50
 
 const statusColors: Record<ReferenceStatus, string> = {
   verified: 'bg-emerald-400/60',
@@ -35,14 +36,11 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
   const [prevLength, setPrevLength] = useState(0)
 
   useEffect(() => {
-    // Only animate new squares
     if (references.length > prevLength) {
-      // Start from previous length
       setVisibleCount(prevLength)
-      
-      // Animate new squares
+
       const interval = setInterval(() => {
-        setVisibleCount(prev => {
+        setVisibleCount((prev) => {
           if (prev < references.length) {
             return prev + 1
           }
@@ -51,22 +49,21 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
         })
       }, ANIMATION_DELAY_PER_SQUARE)
 
-      // Update previous length after animation
       setPrevLength(references.length)
-
       return () => clearInterval(interval)
     }
   }, [references.length, prevLength])
 
   return (
     <div>
-      <h3 className="text-lg font-semibold text-slate-200 mb-4">Reference Status</h3>
-      
+      <h3 className="text-lg font-semibold text-slate-200 mb-4">
+        Reference Status
+      </h3>
+
       <div className="max-w-4xl rounded-lg border border-slate-700 p-4">
         <div className="flex flex-wrap gap-1">
           {references.map((ref, i) => (
             <Dialog key={i}>
-              <DialogDescription></DialogDescription>
               <DialogTrigger>
                 <div
                   className={`
@@ -75,25 +72,31 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                     hover:opacity-75 transition-opacity
                     cursor-pointer
                     transform
-                    ${i >= prevLength && i < visibleCount ? 
-                      'animate-in fade-in slide-in-from-bottom-2 duration-300' : 
-                      i < prevLength ? 'opacity-100' : 'opacity-0'}
+                    ${
+                      i >= prevLength && i < visibleCount
+                        ? 'animate-in fade-in slide-in-from-bottom-2 duration-300'
+                        : i < prevLength
+                          ? 'opacity-100'
+                          : 'opacity-0'
+                    }
                   `}
                   style={{
                     animationDelay: `${(i - prevLength) * 50}ms`
                   }}
                 />
               </DialogTrigger>
-              <DialogContent title="Reference display">
-                <DialogTitle></DialogTitle>
-                <GridReferenceDialogue reference={ref} />
+              <DialogContent className="bg-transparent border-none shadow-none max-w-lg">
+                <DialogTitle hidden>Reference {ref.title}</DialogTitle>
+                <DialogDescription hidden>Details of the verification of the reference</DialogDescription>
+                <div className="mt-4">
+                  <ReferenceDialog reference={ref} />
+                </div>
               </DialogContent>
             </Dialog>
           ))}
         </div>
       </div>
 
-      {/* Legend */}
       <div className="mt-4 flex gap-4 items-center justify-end">
         {Object.entries(statusDisplayNames).map(([status, displayName]) => (
           <div key={status} className="flex items-center gap-2">

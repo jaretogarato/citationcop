@@ -48,6 +48,10 @@ self.onmessage = async (e: MessageEvent) => {
         console.log('🔍 High Accuracy mode enabled. Verifying references...')
         const checkedReferences: Reference[] = []
         
+        // TO DO -- MAKE THIS BE BATCHED !!! PARALLEL PLEASE !!
+        // CRITICAL
+        // ITS TOO SLOW OTHERWISE
+
         for (const reference of parsedRefernces) {
             console.log('Checking reference:', {
                 id: reference.id,
