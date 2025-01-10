@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { PDFQueueService } from '@/app/services/queue-service'
-import { FileText, CheckCircle, XCircle, Loader } from 'lucide-react'
+import { FileText, CheckCircle, XCircle, Cog } from 'lucide-react'
 import { PDFDropZone } from './PDFDropZone'
 import { ModeSelector } from '@/app/components/ui/ModeSelector'
 
@@ -39,9 +39,10 @@ const PDFProcessor = () => {
             `✅ Processing complete for PDF ${message.pdfId}`,
             `Verified References for PDF ${message.pdfId}:`,
             ...(message.references || []).map(
-              (ref, index) => `  ${index + 1}. ${JSON.stringify(ref, null, 2)}` 
+              (ref, index) => `  ${index + 1}. ${JSON.stringify(ref, null, 2)}`
             )
           ])
+          updateProcessingState()
           break
 
         case 'error':
@@ -49,6 +50,7 @@ const PDFProcessor = () => {
             ...prev,
             `❌ Error processing PDF ${message.pdfId}: ${message.error}`
           ])
+          updateProcessingState()
           break
 
         default:
@@ -81,6 +83,13 @@ const PDFProcessor = () => {
     setIsHighAccuracy(checked)
   }
 
+  const updateProcessingState = () => {
+    if (queueServiceRef.current) {
+      const { processing, pending } = queueServiceRef.current.getStatus()
+      setIsProcessing(processing > 0 || pending > 0)
+    }
+  }
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-8">
@@ -99,7 +108,8 @@ const PDFProcessor = () => {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 md:grid-cols-4">
+
         {[
           {
             icon: <FileText className="w-8 h-8 text-blue-500" />,
@@ -108,7 +118,11 @@ const PDFProcessor = () => {
             bg: 'bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400'
           },
           {
-            icon: <Loader className="w-8 h-8 text-yellow-500 animate-spin" />,
+            icon: (
+              <Cog
+                className={`w-8 h-8 text-yellow-500 ${isProcessing ? 'animate-spin' : ''}`}
+              />
+            ),
             label: 'Processing',
             value: status.processing,
             bg: 'bg-gradient-to-r from-yellow-600 via-yellow-500 to-yellow-400'
@@ -128,10 +142,10 @@ const PDFProcessor = () => {
         ].map(({ icon, label, value, bg }, index) => (
           <div
             key={index}
-            className={`flex items-center p-6 rounded-lg shadow-lg ${bg}`}
+            className={`flex items-center p-4 rounded-lg shadow-lg ${bg}`}
           >
             <div className="flex-shrink-0 mr-4">{icon}</div>
-            <div>
+            <div >
               <p className="text-lg font-semibold text-white">{label}</p>
               <p className="text-3xl font-bold text-white">{value}</p>
             </div>
