@@ -54,18 +54,18 @@ export class VerifyReferenceService {
       (ref) => ref.status !== 'verified'
     )
 
-    console.log(
+    /*console.log(
       `Skipping ${references.length - unverifiedReferences.length} already verified references.`
-    )
+    )*/
 
     while (currentIndex < unverifiedReferences.length) {
       const batch = unverifiedReferences.slice(
         currentIndex,
         currentIndex + BATCH_SIZE
       )
-      console.log(
+      /*console.log(
         `Processing verification batch: ${currentIndex}-${currentIndex + batch.length}`
-      )
+      )*/
 
       const results = await Promise.all(
         batch.map((ref, index) => this.processReference(ref, index))

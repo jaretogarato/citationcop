@@ -60,7 +60,6 @@ export const ReferenceCard = ({ reference }: ReferenceCardProps) => {
   };
 
   
-
   return (
     <Dialog>
       <DialogTrigger asChild>

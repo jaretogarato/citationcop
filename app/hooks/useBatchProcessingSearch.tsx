@@ -64,7 +64,7 @@ export function useBatchProcessingSearch() {
       onBatchComplete: (refs: Reference[]) => void
     ) => {
       if (processingRef.current) {
-        console.log('Already processing a batch, skipping')
+        //console.log('Already processing a batch, skipping')
         return
       }
 
@@ -103,10 +103,10 @@ export function useBatchProcessingSearch() {
           }, 100)
         } else {
           // Final batch complete
-          console.log(
+          /*console.log(
             'Search phase complete, passing refs:',
             accumulatedRefs.current.length
-          )
+          )*/
           onBatchComplete(accumulatedRefs.current)
           // Reset accumulated refs for next run
           accumulatedRefs.current = []

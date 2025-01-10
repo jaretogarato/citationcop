@@ -66,9 +66,9 @@ export class SearchReferenceService {
 
     while (currentIndex < references.length) {
       const batch = references.slice(currentIndex, currentIndex + BATCH_SIZE)
-      console.log(
+      /*console.log(
         `Processing batch ${currentIndex}-${currentIndex + batch.length}...`
-      )
+      )*/
 
       const results = await Promise.all(
         batch.map((ref) => this.processReference(ref))
@@ -76,10 +76,10 @@ export class SearchReferenceService {
       processedRefs.push(...results)
 
       // Log batch results for debugging
-      console.log(
+     /* console.log(
         `Batch results (${currentIndex}-${currentIndex + batch.length}):`,
         results
-      )
+      )*/
 
       // Notify the callback with the batch results
       onBatchComplete(results)
@@ -90,7 +90,7 @@ export class SearchReferenceService {
       await new Promise((resolve) => setTimeout(resolve, 100))
     }
 
-    console.log('All references processed:', processedRefs)
+    //console.log('All references processed:', processedRefs)
     return processedRefs
   }
 }

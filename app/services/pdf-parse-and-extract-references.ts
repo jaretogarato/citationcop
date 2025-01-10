@@ -32,10 +32,10 @@ export class PDFParseAndExtractReferenceService {
     }
 
     const { text: extractedText }: { text: string } = await parseResponse.json()
-    console.log('Extracted text from parse-pdf endpoint:', extractedText)
+    //console.log('Extracted text from parse-pdf endpoint:', extractedText)
 
     // Send the extracted text to OpenAI for reference extraction
-    console.log('📤 Sending to OpenAI...')
+    //console.log('📤 Sending to OpenAI...')
 
     const response = await fetch(this.openAIEndpoint, {
       method: 'POST',
@@ -50,11 +50,11 @@ export class PDFParseAndExtractReferenceService {
     }
 
     const { references }: { references: Reference[] } = await response.json()
-    console.log('📥 Received references from OpenAI:', references)
+    //console.log('📥 Received references from OpenAI:', references)
 
     // Log extracted references in a structured format
-    console.log('*** Detailed References ***')
-    references.forEach((ref, index) => {
+    //console.log('*** Detailed References ***')
+    /*references.forEach((ref, index) => {
       console.log(`Reference #${index + 1}`)
       console.log(`  Authors: ${ref.authors.join(', ')}`)
       console.log(`  Title: ${ref.title}`)
@@ -67,7 +67,7 @@ export class PDFParseAndExtractReferenceService {
       console.log(`  Pages: ${ref.pages}`)
       console.log(`  URL: ${ref.url}`)
       console.log(`  Raw: ${ref.raw}`)
-    })
+    })*/
 
     return references
   }

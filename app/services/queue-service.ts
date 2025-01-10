@@ -15,7 +15,7 @@ export class PDFQueueService {
 
   public addPDFs(files: File[], highAccuracy: boolean) {
     const items: QueueItem[] = files.map((file) => ({
-      id: crypto.randomUUID(),
+      id: file.name,
       file,
       status: 'pending',
       highAccuracy
@@ -81,9 +81,9 @@ export class PDFQueueService {
         break
 
       case 'search-update':
-        console.log(
+        /*console.log(
           `Received search update for PDF ${message.pdfId} : message ${message.message}`
-        )
+        )*/
         // Update state or UI with the batch results
         if (this.updateListener) {
           this.updateListener(message)
@@ -105,8 +105,6 @@ export class PDFQueueService {
 
   private processNextItem(worker: Worker) {
     const nextItem = this.queue.find((item) => item.status === 'pending')
-
-    console.log('Processing next item:', nextItem)
 
     if (nextItem) {
       nextItem.status = 'processing'
