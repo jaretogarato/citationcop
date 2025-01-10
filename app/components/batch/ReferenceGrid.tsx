@@ -4,11 +4,9 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
   DialogTrigger
 } from '@/app/components/ui/dialog'
-//import GridReferenceDialogue from './GridReferenceDialogue'
 import { ReferenceDialog } from '../verify/display/ReferenceDialog'
 
 const ANIMATION_DELAY_PER_SQUARE = 50
@@ -71,23 +69,25 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                     ${statusColors[ref.status]}
                     hover:opacity-75 transition-opacity
                     cursor-pointer
-                    transform
                     ${
                       i >= prevLength && i < visibleCount
-                        ? 'animate-in fade-in slide-in-from-bottom-2 duration-300'
+                        ? 'animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4'
                         : i < prevLength
                           ? 'opacity-100'
                           : 'opacity-0'
                     }
                   `}
                   style={{
-                    animationDelay: `${(i - prevLength) * 50}ms`
+                    animationDelay: `${(i - prevLength) * 75}ms`,
+                    transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
                   }}
                 />
               </DialogTrigger>
               <DialogContent className="bg-transparent border-none shadow-none max-w-lg">
                 <DialogTitle hidden>Reference {ref.title}</DialogTitle>
-                <DialogDescription hidden>Details of the verification of the reference</DialogDescription>
+                <DialogDescription hidden>
+                  Details of the verification of the reference
+                </DialogDescription>
                 <div className="mt-4">
                   <ReferenceDialog reference={ref} />
                 </div>
