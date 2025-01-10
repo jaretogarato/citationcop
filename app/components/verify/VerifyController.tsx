@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/app/contexts/auth-contexts';
-import { useReferenceLimit } from '@/hooks/useReferenceLimit';
+import { useReferenceLimit } from '@/app/hooks/useReferenceLimit';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // key components

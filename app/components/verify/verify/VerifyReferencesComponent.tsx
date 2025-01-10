@@ -3,7 +3,7 @@ import type { Reference } from '@/types/reference'
 import { ProgressBar } from './ProgressBar'
 import { ProgressHeader } from './ProgressHeader'
 import { StatusIndicators } from './StatusIndicator'
-import { useBatchProcessingVerify } from '@/hooks/useBatchProcessingVerify'
+import { useBatchProcessingVerify } from '@/app/hooks/useBatchProcessingVerify'
 
 interface VerifyReferencesProps {
   references: Reference[]

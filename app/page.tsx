@@ -1,12 +1,12 @@
 import { createClient } from '@/utils/supabase/server';
-import Pricing from '@/components/ui/Pricing/Pricing';
+import Pricing from '@/app/components/ui/Pricing/Pricing';
 import {
   getProducts,
   getSubscription,
   getUser,
   getUserDetails
 } from '@/utils/supabase/queries';
-import HomePage from '@/components/home-page/HomePage';
+import HomePage from '@/app/components/home-page/HomePage';
 import { UserDetailsResponse, GetUserResponse } from '@/types/user';
 
 export default async function Home() {

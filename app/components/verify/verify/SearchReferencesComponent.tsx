@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import type { Reference } from '@/types/reference';
 import { Search, BookOpen, CheckCircle2, XCircle } from 'lucide-react';
-import { useBatchProcessingSearch } from '@/hooks/useBatchProcessingSearch';
+import { useBatchProcessingSearch } from '@/app/hooks/useBatchProcessingSearch';
 
 interface SearchReferencesProps {
   data: {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCounter } from '@/hooks/useCounter'
+import { useCounter } from '@/app/hooks/useCounter'
 
 const Stats = () => {
 
