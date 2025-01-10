@@ -9,7 +9,7 @@ import VerifyReferencesComponent from './verify/VerifyReferencesComponent';
 import GetReferences from './get-references/GetReferences';
 import { DisplayReferences } from '@/components/verify/display/DisplayReferences';
 
-import type { Reference } from '@/types/reference';
+import type { Reference } from '@/app/types/reference';
 
 import TrailState from './TrialState';
 export type VerifyStep = 'get' | 'search' | 'verify' | 'display';

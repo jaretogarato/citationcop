@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import type { Reference, ReferenceStatus } from '@/types/reference';
+import type { Reference, ReferenceStatus } from '@/app/types/reference';
 
 const BATCH_SIZE = 5;
 

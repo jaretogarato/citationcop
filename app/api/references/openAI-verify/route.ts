@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import type { Reference } from '@/types/reference';
+import type { Reference } from '@/app/types/reference';
 
 const API_KEYS = [
   process.env.OPENAI_API_KEY_1,

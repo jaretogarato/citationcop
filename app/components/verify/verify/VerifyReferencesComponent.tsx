@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import type { Reference } from '@/types/reference'
+import type { Reference } from '@/app/types/reference'
 import { ProgressBar } from './ProgressBar'
 import { ProgressHeader } from './ProgressHeader'
 import { StatusIndicators } from './StatusIndicator'

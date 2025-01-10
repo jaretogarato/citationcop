@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import type { Reference, ReferenceStatus } from '@/types/reference';
+import type { Reference, ReferenceStatus } from '@/app/types/reference';
 
 interface UrlVerificationResult {
   status: 'verified' | 'invalid' | 'error';

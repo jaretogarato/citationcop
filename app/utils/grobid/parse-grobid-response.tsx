@@ -1,5 +1,5 @@
 import { XMLParser } from 'fast-xml-parser';
-import { Reference, ReferenceType } from '@/types/reference';
+import { Reference, ReferenceType } from '@/app/types/reference';
 
 const parserOptions = {
   ignoreAttributes: false,

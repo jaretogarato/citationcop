@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import type { Reference } from '@/types/reference';
+import type { Reference } from '@/app/types/reference';
 import { Search, BookOpen, CheckCircle2, XCircle } from 'lucide-react';
 import { useBatchProcessingSearch } from '@/app/hooks/useBatchProcessingSearch';
 

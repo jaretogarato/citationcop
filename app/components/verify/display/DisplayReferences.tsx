@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { ReferenceCard } from './ReferenceCard';
 import { StatsCards } from './StatsCard';
-import type { Reference } from '@/types/reference';
+import type { Reference } from '@/app/types/reference';
 
 export interface DisplayReferencesProps {
   data: Reference[];

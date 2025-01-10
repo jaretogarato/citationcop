@@ -6,7 +6,7 @@ import { updateName } from '@/utils/auth-helpers/server';
 import { handleRequest } from '@/utils/auth-helpers/client';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { UserDetails } from '@/types/user'; // Importing the UserDetails type
+import { UserDetails } from '@/app/types/user'; // Importing the UserDetails type
 
 type NameFormProps = {
   userName: UserDetails['full_name']; // Type `userName` using UserDetails type for consistency

@@ -17,7 +17,7 @@ import {
   UserDetailsResponse,
   GetUserResponse,
   UserDetails
-} from '@/types/user'; // Importing shared types
+} from '@/app/types/user'; // Importing shared types
 
 export const getUser = cache(
   async (supabase: SupabaseClient): Promise<GetUserResponse> => {

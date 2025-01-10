@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { XMLParser } from 'fast-xml-parser';
 
-import { Author, DocumentMetadata, MetadataResponse } from '@/types/reference';
+import { Author, DocumentMetadata, MetadataResponse } from '@/app/types/reference';
 
 export const runtime = "edge"
 

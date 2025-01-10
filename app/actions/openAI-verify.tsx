@@ -1,7 +1,7 @@
 'use server';
 
 import OpenAI from 'openai'
-import { Reference } from '@/types/reference'
+import { Reference } from '@/app/types/reference'
 
 
 const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseReferences } from '@/utils/grobid/parse-grobid-response';
-import { Reference } from '@/types/reference';
+import { Reference } from '@/app/types/reference';
 
 export const runtime = 'edge';
 

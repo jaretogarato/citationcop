@@ -1,5 +1,5 @@
 import React from 'react'
-import { Reference, ReferenceStatus } from '@/types/reference'
+import { Reference, ReferenceStatus } from '@/app/types/reference'
 import { Dialog, DialogTrigger } from "@/components/ui/dialog"
 import { ReferenceDialog } from "@/components/verify/display/ReferenceDialog"
 import { renderMessageWithLinks } from '@/utils/ui/ui-utils'
