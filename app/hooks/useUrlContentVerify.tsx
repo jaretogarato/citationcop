@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import type { Reference, ReferenceStatus, UrlVerificationResult } from '@/app/types/reference'
-
-
+import type {
+  Reference,
+  ReferenceStatus,
+  UrlVerificationResult
+} from '@/app/types/reference'
 
 export interface UseUrlContentVerifyResult {
   processFailedReferences: (references: Reference[]) => Promise<Reference[]>

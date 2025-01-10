@@ -18,10 +18,10 @@ interface UseReferenceProcessorProps {
   highAccuracy: boolean
 }
 
-export const useReferenceExtractor = ({ 
-  onComplete, 
-  maxReferences, 
-  highAccuracy 
+export const useReferenceExtractor = ({
+  onComplete,
+  maxReferences,
+  highAccuracy
 }: UseReferenceProcessorProps) => {
   const [state, setState] = useState<ProcessingState>({
     isProcessing: false,
@@ -40,7 +40,7 @@ export const useReferenceExtractor = ({
       return references
     }
 
-    updateState({ 
+    updateState({
       processingStage: 'checking',
       progress: { current: 0, total: references.length }
     })
@@ -55,28 +55,29 @@ export const useReferenceExtractor = ({
         return fetch('/api/double-check', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reference, keyIndex }),
+          body: JSON.stringify({ reference, keyIndex })
         })
-        .then(async response => {
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-          const result = await response.json()
+          .then(async (response) => {
+            if (!response.ok)
+              throw new Error(`HTTP error! status: ${response.status}`)
+            const result = await response.json()
 
-          const newState = (prev: ProcessingState) => ({
-                      ...prev,
-                      progress: { 
-                        ...prev.progress, 
-                        current: prev.progress.current + 1 
-                      }
-                    });
-          updateState(newState(state));
+            const newState = (prev: ProcessingState) => ({
+              ...prev,
+              progress: {
+                ...prev.progress,
+                current: prev.progress.current + 1
+              }
+            })
+            updateState(newState(state))
 
-          if ('ok' in result[0]) return reference
-          return (result as Reference[]).map(ref => ({
-            ...ref,
-            status: 'pending' as ReferenceStatus
-          }))
-        })
-        .catch(() => reference)
+            if ('ok' in result[0]) return reference
+            return (result as Reference[]).map((ref) => ({
+              ...ref,
+              status: 'pending' as ReferenceStatus
+            }))
+          })
+          .catch(() => reference)
       })
 
       const batchResults = await Promise.all(batchPromises)
@@ -88,14 +89,14 @@ export const useReferenceExtractor = ({
 
   const processFile = async (file: File) => {
     try {
-      updateState({ 
-        isProcessing: true, 
-        error: null, 
-        processingStage: 'getting' 
+      updateState({
+        isProcessing: true,
+        error: null,
+        processingStage: 'getting'
       })
 
       let references: Reference[]
-      
+
       // Try GROBID first
       try {
         const formData = new FormData()
@@ -104,7 +105,7 @@ export const useReferenceExtractor = ({
           method: 'POST',
           body: formData
         })
-        
+
         if (!response.ok) throw new Error()
         const data = await response.json()
         references = data.references
@@ -118,7 +119,7 @@ export const useReferenceExtractor = ({
       }
 
       references = validateReferences(references.slice(0, maxReferences))
-      
+
       if (references.length === 0) {
         updateState({ error: 'no-references' })
         return []
@@ -131,12 +132,12 @@ export const useReferenceExtractor = ({
       })
       return references
     } catch (err) {
-      updateState({ 
-        error: err instanceof Error ? err.message : 'An error occurred' 
+      updateState({
+        error: err instanceof Error ? err.message : 'An error occurred'
       })
     } finally {
-      updateState({ 
-        isProcessing: false, 
+      updateState({
+        isProcessing: false,
         processingStage: 'idle',
         progress: { current: 0, total: 0 },
         fastProgress: 0
@@ -146,10 +147,10 @@ export const useReferenceExtractor = ({
 
   const processText = async (text: string) => {
     try {
-      updateState({ 
-        isProcessing: true, 
-        error: null, 
-        processingStage: 'getting' 
+      updateState({
+        isProcessing: true,
+        error: null,
+        processingStage: 'getting'
       })
 
       const response = await fetch('/api/references/extract', {
@@ -158,8 +159,9 @@ export const useReferenceExtractor = ({
         body: JSON.stringify({ text })
       })
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`)
-      
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`)
+
       const data = await response.json()
       if (!data.references || !Array.isArray(data.references)) {
         throw new Error('Invalid response structure')
@@ -183,12 +185,12 @@ export const useReferenceExtractor = ({
         content: JSON.stringify(finalReferences)
       })
     } catch (err) {
-      updateState({ 
-        error: err instanceof Error ? err.message : 'An error occurred' 
+      updateState({
+        error: err instanceof Error ? err.message : 'An error occurred'
       })
     } finally {
-      updateState({ 
-        isProcessing: false, 
+      updateState({
+        isProcessing: false,
         processingStage: 'idle',
         progress: { current: 0, total: 0 },
         fastProgress: 0
