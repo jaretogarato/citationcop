@@ -1,30 +1,30 @@
-'use client';
+'use client'
 
-import Button from '@/app/components/ui/Button';
-import Link from 'next/link';
-import { signInWithPassword } from '@/app/utils/auth-helpers/server';
-import { handleRequest } from '@/app/utils/auth-helpers/client';
-import { useRouter } from 'next/navigation';
-import React, { useState } from 'react';
+import Button from '@/app/components/ui/Button'
+import Link from 'next/link'
+import { signInWithPassword } from '@/app/utils/auth-helpers/server'
+import { handleRequest } from '@/app/utils/auth-helpers/client'
+import { useRouter } from 'next/navigation'
+import React, { useState } from 'react'
 
 // Define prop type with allowEmail boolean
 interface PasswordSignInProps {
-  allowEmail: boolean;
-  redirectMethod: string;
+  allowEmail: boolean
+  redirectMethod: string
 }
 
 export default function PasswordSignIn({
   allowEmail,
   redirectMethod
 }: PasswordSignInProps) {
-  const router = redirectMethod === 'client' ? useRouter() : null;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = redirectMethod === 'client' ? useRouter() : null
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    setIsSubmitting(true); // Disable the button while the request is being handled
-    await handleRequest(e, signInWithPassword, router);
-    setIsSubmitting(false);
-  };
+    setIsSubmitting(true) // Disable the button while the request is being handled
+    await handleRequest(e, signInWithPassword, router)
+    setIsSubmitting(false)
+  }
 
   return (
     <div className="my-8">
@@ -84,5 +84,5 @@ export default function PasswordSignIn({
         </Link>
       </p>
     </div>
-  );
+  )
 }
