@@ -7,6 +7,12 @@ import {
   DialogTitle,
   DialogTrigger
 } from '@/app/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/app/components/ui/tooltip"
 import { ReferenceDialog } from '../verify/display/ReferenceDialog'
 
 const ANIMATION_DELAY = 100 // ms between each reference appearance
@@ -34,25 +40,14 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
   const [lastProcessedLength, setLastProcessedLength] = useState(0)
 
   useEffect(() => {
-    //console.log('New references array received:', references.length)
-    //console.log('Current visible references:', visibleReferences.length)
-    //console.log('Last processed length:', lastProcessedLength)
-
-    // If we got new references
     if (references.length > lastProcessedLength) {
-      // Find the new references that weren't processed yet
       const newRefs = references.slice(lastProcessedLength)
-      //console.log('New references to process:', newRefs.length)
-      
-      // Clear any existing timeouts
       const timeouts: NodeJS.Timeout[] = []
       
-      // Add them one by one with delays
       newRefs.forEach((ref, index) => {
         const timeout = setTimeout(() => {
           setVisibleReferences(prev => [...prev, ref])
           
-          // If this is the last reference in the batch, update lastProcessedLength
           if (index === newRefs.length - 1) {
             setLastProcessedLength(references.length)
           }
@@ -61,7 +56,6 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
         timeouts.push(timeout)
       })
 
-      // Cleanup timeouts if component unmounts or new references arrive
       return () => timeouts.forEach(timeout => clearTimeout(timeout))
     }
   }, [references, lastProcessedLength])
@@ -76,17 +70,34 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
         <div className="flex flex-wrap gap-1">
           {visibleReferences.map((ref, i) => (
             <Dialog key={i}>
-              <DialogTrigger>
-                <div
-                  className={`
-                    w-4 h-4
-                    ${statusColors[ref.status]}
-                    hover:opacity-75 transition-opacity
-                    cursor-pointer
-                    animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4
-                  `}
-                />
-              </DialogTrigger>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DialogTrigger>
+                      <div
+                        className={`
+                          w-4 h-4
+                          ${statusColors[ref.status]}
+                          hover:opacity-75 transition-opacity
+                          cursor-pointer
+                          animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4
+                        `}
+                      />
+                    </DialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent 
+                    side="top" 
+                    className="max-w-[300px] text-xs bg-slate-800 text-slate-100 border-slate-700"
+                  >
+                    <p className="font-semibold">{ref.title}</p>
+                    {ref.sourceDocument && (
+                      <p className="text-slate-300 mt-1">
+                        Source: {ref.sourceDocument}
+                      </p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <DialogContent className="bg-transparent border-none shadow-none max-w-lg">
                 <DialogTitle hidden>Reference {ref.title}</DialogTitle>
                 <DialogDescription hidden>
