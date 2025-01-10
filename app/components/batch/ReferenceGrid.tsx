@@ -34,15 +34,15 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
   const [lastProcessedLength, setLastProcessedLength] = useState(0)
 
   useEffect(() => {
-    console.log('New references array received:', references.length)
-    console.log('Current visible references:', visibleReferences.length)
-    console.log('Last processed length:', lastProcessedLength)
+    //console.log('New references array received:', references.length)
+    //console.log('Current visible references:', visibleReferences.length)
+    //console.log('Last processed length:', lastProcessedLength)
 
     // If we got new references
     if (references.length > lastProcessedLength) {
       // Find the new references that weren't processed yet
       const newRefs = references.slice(lastProcessedLength)
-      console.log('New references to process:', newRefs.length)
+      //console.log('New references to process:', newRefs.length)
       
       // Clear any existing timeouts
       const timeouts: NodeJS.Timeout[] = []
