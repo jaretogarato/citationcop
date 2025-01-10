@@ -1,17 +1,17 @@
-import CustomerPortalForm from '@/app/components/ui/AccountForms/CustomerPortalForm';
-import EmailForm from '@/app/components/ui/AccountForms/EmailForm';
-import NameForm from '@/app/components/ui/AccountForms/NameForm';
-import { redirect } from 'next/navigation';
-import { createClient } from '@/app/utils/supabase/server';
+import CustomerPortalForm from '@/app/components/ui/AccountForms/CustomerPortalForm'
+import EmailForm from '@/app/components/ui/AccountForms/EmailForm'
+import NameForm from '@/app/components/ui/AccountForms/NameForm'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/app/utils/supabase/server'
 import {
   getUserDetails,
   getSubscription,
   getUser
-} from '@/app/utils/supabase/queries';
-import { UserDetailsResponse, UserDetails } from '@/app/types/user'; 
+} from '@/app/utils/supabase/queries'
+import { UserDetailsResponse, UserDetails } from '@/app/types/user'
 
 export default async function Account() {
-  const supabase = createClient();
+  const supabase = createClient()
 
   // Fetch data concurrently
   const [userResponse, userDetailsResponse, subscription]: [
@@ -22,17 +22,17 @@ export default async function Account() {
     getUser(supabase),
     getUserDetails(supabase),
     getSubscription(supabase)
-  ]);
+  ])
 
   // Ensure `user` data is available, otherwise redirect to /signin
-  const user = userResponse?.user ?? null;
+  const user = userResponse?.user ?? null
   if (!user) {
-    redirect('/signin');
-    return null;
+    redirect('/signin')
+    return null
   }
 
   // Ensure `userDetails` data is available
-  const userDetails: UserDetails | null = userDetailsResponse?.data ?? null;
+  const userDetails: UserDetails | null = userDetailsResponse?.data ?? null
 
   return (
     <section className="mb-32 bg-black">
@@ -52,5 +52,5 @@ export default async function Account() {
         {user.email && <EmailForm userEmail={user.email} />}
       </div>
     </section>
-  );
+  )
 }

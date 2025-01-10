@@ -1,27 +1,27 @@
-import React from 'react';
-import Pricing from '@/app/components/ui/Pricing/Pricing';
+import React from 'react'
+import Pricing from '@/app/components/ui/Pricing/Pricing'
 //import { User } from '@supabase/supabase-js';
-import { createClient } from '@/app/utils/supabase/server';
+import { createClient } from '@/app/utils/supabase/server'
 //import { createClient } from '@/utils/supabase/client';
 
 import {
   getProducts,
   getSubscription
   //getUser
-} from '@/app/utils/supabase/queries';
+} from '@/app/utils/supabase/queries'
 
 export default async function PricingPage() {
-  const supabase = createClient();
+  const supabase = createClient()
 
   const [products, subscription] = await Promise.all([
     //getUser(supabase),
     getProducts(supabase),
     getSubscription(supabase)
-  ]);
+  ])
 
   //console.log('Products:', products);
   //console.log('Subscription:', subscription);
-  console.log('Products with prices:', JSON.stringify(products, null, 2));
+  console.log('Products with prices:', JSON.stringify(products, null, 2))
 
   return (
     <Pricing
@@ -29,7 +29,7 @@ export default async function PricingPage() {
       products={products ?? []}
       subscription={subscription}
     />
-  );
+  )
 }
 
 //import React from 'react';

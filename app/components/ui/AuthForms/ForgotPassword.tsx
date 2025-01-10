@@ -1,17 +1,17 @@
-'use client';
+'use client'
 
-import Button from '@/components/ui/Button';
-import Link from 'next/link';
-import { requestPasswordUpdate } from '@/utils/auth-helpers/server';
-import { handleRequest } from '@/utils/auth-helpers/client';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import Button from '@/app/components/ui/Button'
+import Link from 'next/link'
+import { requestPasswordUpdate } from '@/app/utils/auth-helpers/server'
+import { handleRequest } from '@/app/utils/auth-helpers/client'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 // Define prop type with allowEmail boolean
 interface ForgotPasswordProps {
-  allowEmail: boolean;
-  redirectMethod: string;
-  disableButton?: boolean;
+  allowEmail: boolean
+  redirectMethod: string
+  disableButton?: boolean
 }
 
 export default function ForgotPassword({
@@ -19,14 +19,14 @@ export default function ForgotPassword({
   redirectMethod,
   disableButton
 }: ForgotPasswordProps) {
-  const router = redirectMethod === 'client' ? useRouter() : null;
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = redirectMethod === 'client' ? useRouter() : null
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    setIsSubmitting(true); // Disable the button while the request is being handled
-    await handleRequest(e, requestPasswordUpdate, router);
-    setIsSubmitting(false);
-  };
+    setIsSubmitting(true) // Disable the button while the request is being handled
+    await handleRequest(e, requestPasswordUpdate, router)
+    setIsSubmitting(false)
+  }
 
   return (
     <div className="my-8">
@@ -78,5 +78,5 @@ export default function ForgotPassword({
         </Link>
       </p>
     </div>
-  );
+  )
 }

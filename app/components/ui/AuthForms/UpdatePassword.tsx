@@ -1,8 +1,8 @@
 'use client';
 
-import Button from '@/components/ui/Button';
-import { updatePassword } from '@/utils/auth-helpers/server';
-import { handleRequest } from '@/utils/auth-helpers/client';
+import Button from '@/app/components/ui/Button';
+import { updatePassword } from '@/app/utils/auth-helpers/server';
+import { handleRequest } from '@/app/utils/auth-helpers/client';
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 
