@@ -1,14 +1,17 @@
-import React from 'react';
-import Card from '@/app/components/ui/Card';
-import Button from '@/app/components/ui/Button';
-import { Gift, ArrowRight, Info } from 'lucide-react';
+import React from 'react'
+import Card from '@/app/components/ui/Card'
+import Button from '@/app/components/ui/Button'
+import { Gift, ArrowRight, Info } from 'lucide-react'
 
 interface TrialStateProps {
-  remainingReferences: number;
-  canProcessReferences: boolean;
+  remainingReferences: number
+  canProcessReferences: boolean
 }
 
-const TrialState = ({ remainingReferences, canProcessReferences }: TrialStateProps) => {
+const TrialState = ({
+  remainingReferences,
+  canProcessReferences
+}: TrialStateProps) => {
   if (!canProcessReferences) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -29,7 +32,7 @@ const TrialState = ({ remainingReferences, canProcessReferences }: TrialStatePro
           </div>
         </Card>
       </div>
-    );
+    )
   }
 
   return (
@@ -49,7 +52,7 @@ const TrialState = ({ remainingReferences, canProcessReferences }: TrialStatePro
         </div>
       </div>
     </Card>
-  );
-};
+  )
+}
 
-export default TrialState;
+export default TrialState
