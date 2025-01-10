@@ -46,7 +46,6 @@
      * @returns The extracted references.
      */
     async parseAndExtractReferences(file) {
-      console.log("*** Parsing PDF using the parse-pdf endpoint ***");
       const formData = new FormData();
       formData.append("file", file);
       const parseResponse = await fetch(this.parsePDFEndpoint, {
@@ -95,7 +94,6 @@
   var SearchReferenceService = class {
     async processReference(reference) {
       const query = `${reference.title} ${reference.authors.join(" ")}`;
-      console.log("Processing reference:", reference.id, "with query:", query);
       try {
         const response = await fetch("/api/serper", {
           method: "POST",
@@ -154,6 +152,135 @@
     }
   };
 
+  // app/services/verify-reference-service.ts
+  var BATCH_SIZE2 = 3;
+  var VerifyReferenceService = class {
+    async processReference(reference, keyIndex) {
+      try {
+        const response = await fetch("/api/references/openAI-verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reference,
+            searchResults: reference.searchResults,
+            keyIndex,
+            maxRetries: 2
+          })
+        });
+        if (!response.ok) {
+          throw new Error("Failed to verify reference");
+        }
+        const result = await response.json();
+        return {
+          ...reference,
+          status: result.status,
+          verification_source: "analysis of search results",
+          message: result.message
+        };
+      } catch (error) {
+        return {
+          ...reference,
+          status: "error",
+          verification_source: "analysis of search results",
+          message: error instanceof Error ? error.message : "Failed to verify reference"
+        };
+      }
+    }
+    async processBatch(references, onBatchComplete) {
+      const processedRefs = [];
+      let currentIndex = 0;
+      while (currentIndex < references.length) {
+        const batch = references.slice(currentIndex, currentIndex + BATCH_SIZE2);
+        console.log(
+          `Processing verification batch: ${currentIndex}-${currentIndex + batch.length}`
+        );
+        const results = await Promise.all(
+          batch.map((ref, index) => this.processReference(ref, index))
+        );
+        processedRefs.push(...results);
+        onBatchComplete(results);
+        currentIndex += BATCH_SIZE2;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      return processedRefs;
+    }
+  };
+
+  // app/services/url-content-verify-service.ts
+  var URLContentVerifyService = class _URLContentVerifyService {
+    static BATCH_SIZE = 5;
+    // Adjust batch size as needed
+    async verifyReferencesWithUrls(references) {
+      const urlReferences = references.filter((ref) => ref.url);
+      const verifiedReferences = [];
+      let currentIndex = 0;
+      while (currentIndex < urlReferences.length) {
+        const batch = urlReferences.slice(
+          currentIndex,
+          currentIndex + _URLContentVerifyService.BATCH_SIZE
+        );
+        const batchResults = await Promise.all(
+          batch.map(async (ref) => {
+            try {
+              const response = await fetch("/api/references/url-verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ reference: ref, maxRetries: 2 })
+              });
+              if (!response.ok) {
+                throw new Error("Failed to verify URL content");
+              }
+              const result = await response.json();
+              if (result.status === "verified") {
+                return {
+                  ...ref,
+                  status: "verified",
+                  message: result.message,
+                  url_match: true
+                };
+              }
+            } catch (error) {
+              console.error("Error verifying URL content:", error);
+            }
+            return ref;
+          })
+        );
+        verifiedReferences.push(...batchResults);
+        currentIndex += _URLContentVerifyService.BATCH_SIZE;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      const finalResults = references.map(
+        (ref) => verifiedReferences.find((vRef) => vRef.id === ref.id) || ref
+      );
+      return finalResults;
+    }
+  };
+
+  // app/utils/log-references.ts
+  var logReferences = (references) => {
+    console.log("\u{1F50D} References:");
+    references.forEach((reference, index) => {
+      console.log(`Reference #${index + 1}:`);
+      console.log(`  Title: ${reference.title}`);
+      console.log(`  Authors: ${reference.authors.join(", ")}`);
+      console.log(`  Status: ${reference.status}`);
+      console.log(`  Verification Source: ${reference.verification_source}`);
+      console.log(`  Message: ${reference.message}`);
+      console.log(`  Search Results:`);
+      if (reference.searchResults?.organic?.length) {
+        reference.searchResults.organic.forEach((result, i) => {
+          console.log(`    Result #${i + 1}:`);
+          console.log(`      Title: ${result.title}`);
+          console.log(`      Link: ${result.link}`);
+          console.log(`      Snippet: ${result.snippet}`);
+        });
+      } else {
+        console.log("    No organic search results found.");
+      }
+      console.log("---");
+    });
+  };
+
   // app/services/workers/pdf.worker.ts
   var referenceService = new GrobidReferenceService("/api/grobid/references");
   var pdfReferenceService = new PDFParseAndExtractReferenceService(
@@ -161,12 +288,13 @@
     "/api/parse-pdf"
   );
   var searchReferenceService = new SearchReferenceService();
+  var verifyReferenceService = new VerifyReferenceService();
+  var urlVerificationCheck = new URLContentVerifyService();
   self.onmessage = async (e) => {
     const { type, pdfId, file, highAccuracy } = e.data;
     if (type === "process") {
       console.log(`\u{1F680} Worker starting to process PDF ${pdfId}`);
       try {
-        console.log("\u{1F4E4} Sending to GROBID...");
         const references = await referenceService.extractReferences(file);
         let finalReferences = references;
         if (references.length === 0) {
@@ -177,7 +305,7 @@
           console.log("\u{1F4E5} Received references from OpenAI:", finalReferences);
         } else if (highAccuracy) {
           console.log("\u{1F50D} High Accuracy mode enabled. Verifying references...");
-          const verifiedReferences = [];
+          const verifiedReferences2 = [];
           for (const reference of finalReferences) {
             const response = await fetch("/api/high-accuracy-check", {
               method: "POST",
@@ -190,9 +318,9 @@
             }
             const result = await response.json();
             console.log("\u{1F50D} Verification result:", result);
-            verifiedReferences.push(...result);
+            verifiedReferences2.push(...result);
           }
-          finalReferences = verifiedReferences;
+          finalReferences = verifiedReferences2;
         }
         console.log("\u{1F9F9} Removing duplicate references...");
         finalReferences = removeDuplicates(finalReferences);
@@ -201,13 +329,36 @@
         await searchReferenceService.processBatch(
           finalReferences,
           (batchResults) => {
-            console.log("\u{1F50D} Batch results:", batchResults);
+            self.postMessage({
+              type: "search-update",
+              pdfId,
+              message: "google searching..."
+            });
           }
         );
+        console.log("\u2705 search complete.");
+        logReferences(finalReferences);
+        console.log("\u{1F310} Verifying references with URLs...");
+        const urlVerifiedreferences = await urlVerificationCheck.verifyReferencesWithUrls(finalReferences);
+        console.log("\u2705 URL verification complete.");
+        logReferences(urlVerifiedreferences);
+        console.log("*** final verification ***");
+        const verifiedReferences = await verifyReferenceService.processBatch(
+          urlVerifiedreferences,
+          (batchResults) => {
+            self.postMessage({
+              type: "verification-update",
+              pdfId,
+              message: "Verifying references...",
+              batchResults
+            });
+          }
+        );
+        logReferences(verifiedReferences);
         self.postMessage({
           type: "complete",
           pdfId,
-          references: finalReferences
+          references: verifiedReferences
         });
         console.log(`\u2705 Successfully processed PDF ${pdfId}`);
       } catch (error) {

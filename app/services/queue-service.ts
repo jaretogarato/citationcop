@@ -6,6 +6,7 @@ export class PDFQueueService {
   private maxWorkers: number = 5
   private workerScript: string
   private activeJobs: Map<Worker, string> = new Map()
+  private updateListener: ((message: WorkerMessage) => void) | null = null
 
   constructor(workerScript: string) {
     this.workerScript = workerScript
@@ -22,6 +23,13 @@ export class PDFQueueService {
 
     this.queue.push(...items)
     this.processQueue()
+  }
+
+  /**
+   * Register a listener for worker updates (e.g., UI updates).
+   */
+  public onUpdate(listener: (message: WorkerMessage) => void) {
+    this.updateListener = listener
   }
 
   private initializeWorkerPool() {
@@ -56,7 +64,28 @@ export class PDFQueueService {
             item.status = 'complete'
           }
           this.activeJobs.delete(worker)
+
+          // Send verified references to the update listener
+          if (this.updateListener) {
+            this.updateListener({
+              type: 'complete',
+              pdfId: message.pdfId,
+              references: message.references,
+              message: `Processing complete for PDF ${message.pdfId}`
+            })
+          }
+
           this.processNextItem(worker)
+        }
+        break
+
+      case 'search-update':
+        console.log(
+          `Received search update for PDF ${message.pdfId} : message ${message.message}`
+        )
+        // Update state or UI with the batch results
+        if (this.updateListener) {
+          this.updateListener(message)
         }
         break
 

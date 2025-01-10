@@ -15,7 +15,7 @@ export class PDFParseAndExtractReferenceService {
    * @returns The extracted references.
    */
   public async parseAndExtractReferences(file: File): Promise<Reference[]> {
-    console.log('*** Parsing PDF using the parse-pdf endpoint ***')
+    //console.log('*** Parsing PDF using the parse-pdf endpoint ***')
 
     // Prepare the file as binary data
     const formData = new FormData()

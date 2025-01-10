@@ -4,6 +4,12 @@ import { WorkerMessage } from '../types'
 import { GrobidReferenceService } from '../grobid-reference-service'
 import { PDFParseAndExtractReferenceService } from '@/app/services/pdf-parse-and-extract-references'
 import { SearchReferenceService } from '@/app/services/search-reference-service'
+import { VerifyReferenceService } from '../verify-reference-service'
+import { URLContentVerifyService } from '../url-content-verify-service'
+//import { logReferences } from '@/app/utils/log-references'
+import type { Reference } from '@/app/types/reference'
+import { logReferences } from '@/app/utils/log-references'
+import { url } from 'inspector'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -14,7 +20,8 @@ const pdfReferenceService = new PDFParseAndExtractReferenceService(
   '/api/parse-pdf'
 )
 const searchReferenceService = new SearchReferenceService()
-
+const verifyReferenceService = new VerifyReferenceService()
+const urlVerificationCheck = new URLContentVerifyService()
 // Listen for messages
 self.onmessage = async (e: MessageEvent) => {
   const { type, pdfId, file, highAccuracy } = e.data
@@ -23,10 +30,10 @@ self.onmessage = async (e: MessageEvent) => {
     console.log(`🚀 Worker starting to process PDF ${pdfId}`)
     try {
       // STEP 1: TRY TO GET REFERENCES FROM GROBID
-      console.log('📤 Sending to GROBID...')
-      const references = await referenceService.extractReferences(file)
+      const references: Reference[] =
+        await referenceService.extractReferences(file)
 
-      let finalReferences = references
+      let finalReferences: Reference[] = references
 
       // STEP 1.5: IF NO REFERENCES FROM GROBID, FALLBACK TO PDF PARSING
       if (references.length === 0) {
@@ -39,7 +46,7 @@ self.onmessage = async (e: MessageEvent) => {
       } else if (highAccuracy) {
         // if HIGH-ACCURACY THEN DOUBLE-CHECK REFERENCES
         console.log('🔍 High Accuracy mode enabled. Verifying references...')
-        const verifiedReferences = []
+        const verifiedReferences: Reference[] = []
         for (const reference of finalReferences) {
           const response = await fetch('/api/high-accuracy-check', {
             method: 'POST',
@@ -52,7 +59,7 @@ self.onmessage = async (e: MessageEvent) => {
             continue
           }
 
-          const result = await response.json()
+          const result: Reference[] = await response.json()
           console.log('🔍 Verification result:', result)
           verifiedReferences.push(...result)
         }
@@ -67,18 +74,55 @@ self.onmessage = async (e: MessageEvent) => {
 
       // STEP 3: BATCH PROCESS SEARCH CALLS
       console.log('🔍 Starting batch processing for search...')
+
+      // this is the model for sending an update back to UI through the postMessage and into the queue...
       await searchReferenceService.processBatch(
         finalReferences,
         (batchResults) => {
-          console.log('🔍 Batch results:', batchResults)
+          //logReferences(batchResults)
+
+          // Send batch results to the main thread
+          self.postMessage({
+            type: 'search-update',
+            pdfId,
+            message: 'google searching...'
+          })
         }
       )
-      
+      console.log('✅ search complete.')
+      logReferences(finalReferences)
+
+      // STEP 4: Verify references with URLs only
+      console.log('🌐 Verifying references with URLs...')
+      const urlVerifiedreferences =
+        await urlVerificationCheck.verifyReferencesWithUrls(finalReferences)
+      console.log('✅ URL verification complete.')
+      logReferences(urlVerifiedreferences)
+
+
+      // STEP 5: FINAL VERIFICATION
+      console.log('*** final verification ***')
+      const verifiedReferences: Reference[] =
+        await verifyReferenceService.processBatch(
+          urlVerifiedreferences,
+          (batchResults) => {
+            self.postMessage({
+              type: 'verification-update',
+              pdfId,
+              message: 'Verifying references...',
+              batchResults
+            })
+          }
+        )
+
+      // print them out for a check
+      logReferences(verifiedReferences)
+
       // Send completion message with references back to the main thread
       self.postMessage({
         type: 'complete',
         pdfId,
-        references: finalReferences
+        references: verifiedReferences
       } as WorkerMessage)
 
       console.log(`✅ Successfully processed PDF ${pdfId}`)

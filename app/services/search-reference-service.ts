@@ -9,7 +9,7 @@ const BATCH_SIZE = 5
 export class SearchReferenceService {
   private async processReference(reference: Reference): Promise<Reference> {
     const query = `${reference.title} ${reference.authors.join(' ')}`
-    console.log('Processing reference:', reference.id, 'with query:', query)
+    //console.log('searching withreference:', reference.id, 'with query:', query)
 
     try {
       const response = await fetch('/api/serper', {

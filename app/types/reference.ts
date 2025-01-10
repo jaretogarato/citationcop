@@ -7,7 +7,10 @@ export interface FileData {
 
 export type TabType = "upload" | "paste"
 
-
+export interface UrlVerificationResult {
+  status: ReferenceStatus
+  message: string
+}
 
 // uploaded paper metadata info
 export interface Author {

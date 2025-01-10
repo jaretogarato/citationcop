@@ -14,5 +14,6 @@ export interface QueueItem {
 
 export type WorkerMessage = 
   | { type: 'ready' }
-  | { type: 'complete'; pdfId: string; references: Reference[] }
-  | { type: 'error'; pdfId: string; error: string };
+  | { type: 'complete'; pdfId: string; references: Reference[], message: string }
+  | { type: 'error'; pdfId: string; error: string }
+  | { type: 'search-update'; pdfId: string, message: string }
