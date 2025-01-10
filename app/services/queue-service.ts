@@ -74,6 +74,7 @@ export class PDFQueueService {
             })
           }
 
+    
           this.processNextItem(worker)
           
           // update database with references

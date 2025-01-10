@@ -45,23 +45,58 @@ self.onmessage = async (e: MessageEvent) => {
         //console.log('📥 Received references from OpenAI:', parsedRefernces)
       } else if (highAccuracy) {
         // if HIGH-ACCURACY THEN DOUBLE-CHECK REFERENCES
-        //console.log('🔍 High Accuracy mode enabled. Verifying references...')
+        console.log('🔍 High Accuracy mode enabled. Verifying references...')
         const checkedReferences: Reference[] = []
+        
         for (const reference of parsedRefernces) {
-          const response = await fetch('/api/high-accuracy-check', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reference })
-          })
-
-          if (!response.ok) {
-            console.error('Error verifying reference:', reference)
-            continue
-          }
-
-          const result: Reference[] = await response.json()
-          //console.log('🔍 Verification result:', result)
-          checkedReferences.push(...result)
+            console.log('Checking reference:', {
+                id: reference.id,
+                title: reference.title
+            })
+            
+            const response = await fetch('/api/high-accuracy-check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reference })
+            })
+        
+            if (!response.ok) {
+                console.error('Error verifying reference:', reference)
+                reference.status = 'error'
+                reference.message = 'Verification failed'
+                checkedReferences.push(reference)
+                continue
+            }
+        
+            const result = await response.json()
+            
+            // Handle the different possible responses:
+            if (Array.isArray(result)) {
+                if (result.length === 1 && result[0].ok === true) {
+                    // Reference is verified correct
+                    checkedReferences.push({
+                        ...reference,
+                        status: 'verified',
+                        message: 'Reference verified correct'
+                    })
+                } else {
+                    // We got corrected/multiple references
+                    result.forEach((correctedRef, index) => {
+                        checkedReferences.push({
+                            ...correctedRef,
+                            id: correctedRef.id || `${reference.id}-${index + 1}`,
+                            status: 'verified',
+                            message: 'Reference corrected/expanded'
+                        })
+                    })
+                }
+            } else {
+                // Unexpected response format
+                console.error('Unexpected response format:', result)
+                reference.status = 'error'
+                reference.message = 'Invalid verification response'
+                checkedReferences.push(reference)
+            }
         }
 
         parsedRefernces = checkedReferences
@@ -88,7 +123,7 @@ self.onmessage = async (e: MessageEvent) => {
         }
       )
       //console.log('✅ search complete.')
-      logReferences(referencesWithSearch)
+      //logReferences(referencesWithSearch)
 
       // STEP 4: Verify references with URLs only
       //console.log('🌐 Verifying references with URLs...')
@@ -115,7 +150,7 @@ self.onmessage = async (e: MessageEvent) => {
         )
 
       // print them out for a check
-      logReferences(verifiedReferences)
+      //logReferences(verifiedReferences)
 
       // Send completion message with references back to the main thread
       self.postMessage({

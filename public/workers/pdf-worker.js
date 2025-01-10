@@ -247,31 +247,6 @@
     }
   };
 
-  // app/utils/log-references.ts
-  var logReferences = (references) => {
-    console.log("\u{1F50D} References:");
-    references.forEach((reference, index) => {
-      console.log(`Reference #${index + 1}:`);
-      console.log(`  Title: ${reference.title}`);
-      console.log(`  Authors: ${reference.authors.join(", ")}`);
-      console.log(`  Status: ${reference.status}`);
-      console.log(`  Verification Source: ${reference.verification_source}`);
-      console.log(`  Message: ${reference.message}`);
-      console.log(`  Search Results:`);
-      if (reference.searchResults?.organic?.length) {
-        reference.searchResults.organic.forEach((result, i) => {
-          console.log(`    Result #${i + 1}:`);
-          console.log(`      Title: ${result.title}`);
-          console.log(`      Link: ${result.link}`);
-          console.log(`      Snippet: ${result.snippet}`);
-        });
-      } else {
-        console.log("    No organic search results found.");
-      }
-      console.log("---");
-    });
-  };
-
   // app/services/workers/pdf.worker.ts
   var referenceService = new GrobidReferenceService("/api/grobid/references");
   var pdfReferenceService = new PDFParseAndExtractReferenceService(
@@ -290,8 +265,13 @@
         if (references.length === 0) {
           parsedRefernces = await pdfReferenceService.parseAndExtractReferences(file);
         } else if (highAccuracy) {
+          console.log("\u{1F50D} High Accuracy mode enabled. Verifying references...");
           const checkedReferences = [];
           for (const reference of parsedRefernces) {
+            console.log("Checking reference:", {
+              id: reference.id,
+              title: reference.title
+            });
             const response = await fetch("/api/high-accuracy-check", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -299,10 +279,35 @@
             });
             if (!response.ok) {
               console.error("Error verifying reference:", reference);
+              reference.status = "error";
+              reference.message = "Verification failed";
+              checkedReferences.push(reference);
               continue;
             }
             const result = await response.json();
-            checkedReferences.push(...result);
+            if (Array.isArray(result)) {
+              if (result.length === 1 && result[0].ok === true) {
+                checkedReferences.push({
+                  ...reference,
+                  status: "verified",
+                  message: "Reference verified correct"
+                });
+              } else {
+                result.forEach((correctedRef, index) => {
+                  checkedReferences.push({
+                    ...correctedRef,
+                    id: correctedRef.id || `${reference.id}-${index + 1}`,
+                    status: "verified",
+                    message: "Reference corrected/expanded"
+                  });
+                });
+              }
+            } else {
+              console.error("Unexpected response format:", result);
+              reference.status = "error";
+              reference.message = "Invalid verification response";
+              checkedReferences.push(reference);
+            }
           }
           parsedRefernces = checkedReferences;
         }
@@ -317,7 +322,6 @@
             });
           }
         );
-        logReferences(referencesWithSearch);
         const urlVerifiedreferences = await urlVerificationCheck.verifyReferencesWithUrls(
           referencesWithSearch
         );
@@ -332,7 +336,6 @@
             });
           }
         );
-        logReferences(verifiedReferences);
         self.postMessage({
           type: "complete",
           pdfId,

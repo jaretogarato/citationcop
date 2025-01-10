@@ -156,6 +156,7 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
     };
 
     return (
+        
         <DialogContent className="max-w-2xl bg-gray-900">
             <DialogHeader>
                 <DialogTitle className="text-white">Reference Details</DialogTitle>

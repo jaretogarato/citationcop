@@ -52,23 +52,7 @@ export class PDFParseAndExtractReferenceService {
     const { references }: { references: Reference[] } = await response.json()
     //console.log('📥 Received references from OpenAI:', references)
 
-    // Log extracted references in a structured format
-    //console.log('*** Detailed References ***')
-    /*references.forEach((ref, index) => {
-      console.log(`Reference #${index + 1}`)
-      console.log(`  Authors: ${ref.authors.join(', ')}`)
-      console.log(`  Title: ${ref.title}`)
-      console.log(`  Year: ${ref.year}`)
-      console.log(`  Journal: ${ref.journal}`)
-      console.log(`  DOI: ${ref.DOI}`)
-      console.log(`  Publisher: ${ref.publisher}`)
-      console.log(`  Volume: ${ref.volume}`)
-      console.log(`  Issue: ${ref.issue}`)
-      console.log(`  Pages: ${ref.pages}`)
-      console.log(`  URL: ${ref.url}`)
-      console.log(`  Raw: ${ref.raw}`)
-    })*/
-
+    
     return references
   }
 }
