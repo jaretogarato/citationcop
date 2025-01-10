@@ -67,7 +67,7 @@ export default function VerifyController(): JSX.Element {
   }
 
   const handleStepComplete = (step: VerifyStep, data?: any) => {
-    setError(null); // Clear any previous errors
+    setError(null)
 
     switch (step) {
       case 'get':

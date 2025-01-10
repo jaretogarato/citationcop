@@ -1,14 +1,15 @@
-import type { QueueItem, WorkerMessage } from './types'
+import type { QueueItem, WorkerMessage } from './types';
 
 export class PDFQueueService {
-  private queue: QueueItem[] = []
-  private workers: Worker[] = []
-  private maxWorkers: number = 5
-  private workerScript: string
-  private activeJobs: Map<Worker, string> = new Map()
+  private queue: QueueItem[] = [];
+  private workers: Worker[] = [];
+  private maxWorkers: number = 5;
+  private workerScript: string;
+  private activeJobs: Map<Worker, string> = new Map();
 
   constructor(workerScript: string) {
-    this.workerScript = workerScript
+    this.workerScript = workerScript;
+    console.log('Worker script path:', this.workerScript);
   }
 
   public addPDFs(files: File[]) {
@@ -23,13 +24,20 @@ export class PDFQueueService {
   }
 
   private initializeWorkerPool() {
+    console.log('Initializing worker pool');
+    console.log("queue length: ", this.queue.length)
     const workerCount = Math.min(this.maxWorkers, this.queue.length);
 
+    console.log(`Initializing worker pool with ${workerCount} workers`);
     for (let i = 0; i < workerCount; i++) {
       const worker = new Worker(this.workerScript);
       worker.onmessage = (e: MessageEvent<WorkerMessage>) =>
         this.handleWorkerMessage(worker, e.data);
       this.workers.push(worker);
+      worker.onerror = (e) => {
+        console.error('Worker error:', e.message, e);
+      };
+      //worker.postMessage({ type: 'ready' });
     }
   }
 
@@ -67,9 +75,12 @@ export class PDFQueueService {
   private processNextItem(worker: Worker) {
     const nextItem = this.queue.find((item) => item.status === 'pending');
 
+    console.log('Processing next item:', nextItem);
+
     if (nextItem) {
       nextItem.status = 'processing';
       this.activeJobs.set(worker, nextItem.id);
+
       worker.postMessage({
         type: 'process',
         pdfId: nextItem.id,
@@ -110,37 +121,4 @@ export class PDFQueueService {
       error: this.queue.filter((i) => i.status === 'error').length
     };
   }
-}
-
-// worker.ts
-self.onmessage = async (e: MessageEvent) => {
-  const { type, pdfId, file } = e.data;
-
-  if (type === 'process') {
-    try {
-      // Here you would add the actual PDF processing logic
-      // For now, we'll just simulate processing with a delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Send completion message back to main thread
-      self.postMessage({
-        type: 'complete',
-        pdfId
-      });
-    } catch (error) {
-      self.postMessage({
-        type: 'error',
-        pdfId,
-        error: (error as Error).message
-      });
-    }
-  }
-};
-
-// usage-example.ts
-const queueService = new PDFQueueService('/worker.js');
-
-// When user selects files
-function handleFileSelect(files: FileList) {
-  queueService.addPDFs(Array.from(files));
 }

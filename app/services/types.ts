@@ -1,12 +1,17 @@
 // app/services/types.ts
+import { Reference } from '@/app/types/reference';
+
+export type QueueItemStatus = 'pending' | 'processing' | 'complete' | 'error';
+
 export interface QueueItem {
   id: string;
   file: File;
-  status: 'pending' | 'processing' | 'complete' | 'error';
-}
-
-export interface WorkerMessage {
-  type: 'ready' | 'complete' | 'error';
-  pdfId?: string;
+  status: QueueItemStatus;
+  references?: Reference[];
   error?: string;
 }
+
+export type WorkerMessage = 
+  | { type: 'ready' }
+  | { type: 'complete'; pdfId: string; references: Reference[] }
+  | { type: 'error'; pdfId: string; error: string };

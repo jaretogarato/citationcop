@@ -54,7 +54,6 @@ export interface GoogleSearchResult {
   };
 }
 
-// Update Reference interface to include search results
 export interface Reference {
   date_of_access: any;
   // Core fields
