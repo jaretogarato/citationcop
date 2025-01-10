@@ -9,7 +9,6 @@ import { URLContentVerifyService } from '../url-content-verify-service'
 //import { logReferences } from '@/app/utils/log-references'
 import type { Reference } from '@/app/types/reference'
 import { logReferences } from '@/app/utils/log-references'
-import { url } from 'inspector'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -22,6 +21,7 @@ const pdfReferenceService = new PDFParseAndExtractReferenceService(
 const searchReferenceService = new SearchReferenceService()
 const verifyReferenceService = new VerifyReferenceService()
 const urlVerificationCheck = new URLContentVerifyService()
+
 // Listen for messages
 self.onmessage = async (e: MessageEvent) => {
   const { type, pdfId, file, highAccuracy } = e.data

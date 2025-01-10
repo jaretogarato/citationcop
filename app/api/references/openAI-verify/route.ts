@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     // FOR NOW JUST GOING WITH THE RAW TEXT FROM THE PAPER!
     const reference_string = reference.raw
     
-    console.log(`reference_string: ${reference_string}`);
+    //console.log(`reference_string: ${reference_string}`);
     
     /*const reference_string = [
       reference.authors?.join(' '),
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
           console.warn(`Attempt ${attempt + 1}: No content received from LLM`);
           continue;
         }
-        console.log(`content: ${content}`);
+        //console.log(`content: ${content}`);
         try {
           const result = JSON.parse(content);
 

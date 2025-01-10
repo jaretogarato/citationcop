@@ -46,7 +46,6 @@ export class PDFQueueService {
       worker.onerror = (e) => {
         console.error('Worker error:', e.message, e)
       }
-      //worker.postMessage({ type: 'ready' });
     }
   }
 
@@ -76,6 +75,8 @@ export class PDFQueueService {
           }
 
           this.processNextItem(worker)
+          
+          // update database with references
         }
         break
 

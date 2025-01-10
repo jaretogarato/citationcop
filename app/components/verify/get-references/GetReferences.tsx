@@ -157,15 +157,15 @@ export default function GetReferences({ onComplete, maxReferences }: GetReferenc
       // Limit references early before expensive processing
       references = limitReferences(references);
 
-      console.log("Initial references from processor:", references)
+      //console.log("Initial references from processor:", references)
 
       // If no references found and it's a file upload, try fallback method
       if (references.length === 0 && activeTab === 'upload' && processor instanceof FileReferenceProcessor) {
         setProcessingStage('fallback')
-        console.log("No references found, trying fallback method...")
+        //console.log("No references found, trying fallback method...")
         references = await processor.fallbackProcess()
         references = limitReferences(references);
-        console.log("Fallback references:", references)
+        //console.log("Fallback references:", references)
       }
 
       references = validateReferences(references)

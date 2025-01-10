@@ -70,7 +70,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     if (file.mimetype !== DOCX_TYPE) {
-      console.log('Invalid content type:', file.mimetype);
+      //console.log('Invalid content type:', file.mimetype);
       return NextResponse.json(
         { error: `Please upload a DOCX file. Received type: ${file.mimetype}` },
         { status: 400 }
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     await fs.rename(file.filepath, inputFilePath);
 
     // Parse DOCX to extract text using officeparser
-    console.log('Parsing DOCX content with officeParser...');
+    //console.log('Parsing DOCX content with officeParser...');
     const config = {
       newlineDelimiter: '\n'
     };
@@ -110,17 +110,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .join('');
     htmlContent += '</body></html>';
 
-    console.log('DOCX to HTML conversion successful');
+    //console.log('DOCX to HTML conversion successful');
 
     // Create PDF using Puppeteer
-    console.log('Launching Puppeteer...');
+    //console.log('Launching Puppeteer...');
     const browser: puppeteer.Browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
     const page: puppeteer.Page = await browser.newPage();
-    console.log('Setting page content...');
+    //console.log('Setting page content...');
     const html = `
       <!DOCTYPE html>
       <html>
@@ -168,11 +168,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       throw new Error('PDF buffer creation failed');
     }
     await browser.close();
-    console.log('PDF generated successfully, size:', pdfBuffer.length);
+    //console.log('PDF generated successfully, size:', pdfBuffer.length);
 
     // Clean up temporary DOCX file
     await fs.unlink(inputFilePath);
-    console.log('Temporary DOCX file removed');
+    //console.log('Temporary DOCX file removed');
 
     return new NextResponse(pdfBuffer, {
       headers: {

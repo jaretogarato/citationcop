@@ -43,10 +43,10 @@ export async function POST(req: NextRequest) {
       new Blob([await file.arrayBuffer()], { type: 'application/pdf' })
     )
 
-    console.log(
+    /*console.log(
       'Attempting to connect to GROBID at:',
       GROBID_ENDPOINTS.references
-    )
+    )*/
 
     // Add optional parameters
     grobidFormData.append('includeRawCitations', '1')
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     const xml = await response.text()
     const references: Reference[] = parseReferences(xml)
 
-    console.log('Extracted references:', references)
+    //console.log('Extracted references:', references)
     return NextResponse.json({ references })
   } catch (error) {
     console.error('Error processing document:', error)

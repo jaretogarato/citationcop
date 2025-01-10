@@ -97,7 +97,7 @@ export async function POST(request: Request) {
         message: `Failed to fetch URL content: ${error instanceof Error ? error.message : 'Unknown error'}`
       })
     }
-    console.log('URL webcontent: ', webContent)
+    //console.log('URL webcontent: ', webContent)
 
     const prompt = `You are a reference validation system analyzing webpage content to verify citations.
 
@@ -136,7 +136,7 @@ Answer in the following JSON format:
 
         try {
           const result = JSON.parse(content)
-          console.log(`result: ${result.status}, ${result.message}`)
+          //console.log(`result: ${result.status}, ${result.message}`)
 
           // Validate the response structure
           if (
@@ -152,7 +152,7 @@ Answer in the following JSON format:
             continue
           }
 
-          console.log(`URL content verified in ${Date.now() - startTime}ms`)
+          //console.log(`URL content verified in ${Date.now() - startTime}ms`)
           return NextResponse.json(result)
         } catch (parseError) {
           console.warn(

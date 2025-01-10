@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     // For debugging
-    console.log('Raw citations being sent:', rawCitations)
+    //console.log('Raw citations being sent:', rawCitations)
 
     const formData = new FormData()
     formData.append('citations', rawCitations)

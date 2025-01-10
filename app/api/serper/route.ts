@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 })
     }
 
-    console.log('Searching:', q)
+    //console.log('Searching:', q)
 
     const response = await fetch('https://google.serper.dev/search', {
       method: 'POST',
