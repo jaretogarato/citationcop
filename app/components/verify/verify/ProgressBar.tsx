@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import * as Progress from "@radix-ui/react-progress"
-import { cn } from "@/utils/cn"
+import { cn } from "@/app/utils/cn"
 
 interface ProgressBarProps {
   onProgress: number

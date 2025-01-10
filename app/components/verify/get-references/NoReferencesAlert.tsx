@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/app/components/ui/alert'
 import { X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 

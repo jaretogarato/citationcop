@@ -1,6 +1,6 @@
 import React from 'react';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
+import Card from '@/app/components/ui/Card';
+import Button from '@/app/components/ui/Button';
 import { Gift, ArrowRight, Info } from 'lucide-react';
 
 interface TrialStateProps {

@@ -1,11 +1,11 @@
 'use client';
 
-import Button from '@/components/ui/Button';
+import Button from '@/app/components/ui/Button';
 //import LogoCloud from '@/components/ui/LogoCloud';
 import type { Tables } from '@/types_db';
-import { getStripe } from '@/utils/stripe/client';
-import { checkoutWithStripe } from '@/utils/stripe/server';
-import { getErrorRedirect } from '@/utils/helpers';
+import { getStripe } from '@/app/utils/stripe/client';
+import { checkoutWithStripe } from '@/app/utils/stripe/server';
+import { getErrorRedirect } from '@/app/utils/helpers';
 import { User } from '@supabase/supabase-js';
 import cn from 'classnames';
 import { useRouter, usePathname } from 'next/navigation';

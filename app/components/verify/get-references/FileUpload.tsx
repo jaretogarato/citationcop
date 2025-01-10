@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Upload } from 'lucide-react';
-import { convert2Pdf } from '@/utils/file-utils';
+import { convert2Pdf } from '@/app/utils/file-utils';
 import type { FileUploadProps } from '@/app/types/files';
 
 const ACCEPTED_TYPES = [

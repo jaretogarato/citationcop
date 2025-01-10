@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/app/contexts/auth-contexts';
 import { useReferenceLimit } from '@/app/hooks/useReferenceLimit';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '@/app/components/ui/alert';
 
 // key components
 import SearchReferencesComponent from './verify/SearchReferencesComponent';
 import VerifyReferencesComponent from './verify/VerifyReferencesComponent';
 import GetReferences from './get-references/GetReferences';
-import { DisplayReferences } from '@/components/verify/display/DisplayReferences';
+import { DisplayReferences } from '@/app/components/verify/display/DisplayReferences';
 
 import type { Reference } from '@/app/types/reference';
 

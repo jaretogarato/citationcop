@@ -1,5 +1,7 @@
+'use client'
+
 import React, { useState, useEffect, useRef } from 'react'
-import { PDFQueueService } from '@/services/PDFQueueService'
+import { PDFQueueService } from '@/app/services/queue-service'
 import { Upload, FileText, CheckCircle, XCircle, Loader } from 'lucide-react'
 
 const PDFProcessor = () => {

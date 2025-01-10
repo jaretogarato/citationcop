@@ -1,8 +1,8 @@
 import React from 'react'
 import { Reference, ReferenceStatus } from '@/app/types/reference'
-import { Dialog, DialogTrigger } from "@/components/ui/dialog"
-import { ReferenceDialog } from "@/components/verify/display/ReferenceDialog"
-import { renderMessageWithLinks } from '@/utils/ui/ui-utils'
+import { Dialog, DialogTrigger } from "@/app/components/ui/dialog"
+import { ReferenceDialog } from "@/app/components/verify/display/ReferenceDialog"
+import { renderMessageWithLinks } from '@/app/utils/ui/ui-utils'
 
 import {
   CheckCircle,

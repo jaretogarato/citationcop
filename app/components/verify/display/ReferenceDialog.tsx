@@ -1,9 +1,9 @@
 import React from 'react';
 import { Reference, ReferenceStatus, SearchResultItem } from '@/app/types/reference';
-import { DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { renderMessageWithLinks } from '@/utils/ui/ui-utils'
+import { DialogContent, DialogHeader, DialogTitle } from "@/app/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
+import { ScrollArea } from "@/app/components/ui/scroll-area"
+import { renderMessageWithLinks } from '@/app/utils/ui/ui-utils'
 
 import {
     CheckCircle,

@@ -3,9 +3,9 @@
 import { useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import WhoItsFor from '@/components/home-page/WhoItsFor'
-import QuickFeatures from '@/components/home-page/QuickFeatures'
-import Stats from '@/components/home-page/Stats'
+import WhoItsFor from '@/app/components/home-page/WhoItsFor'
+import QuickFeatures from '@/app/components/home-page/QuickFeatures'
+import Stats from '@/app/components/home-page/Stats'
 
 
 

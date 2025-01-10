@@ -2,7 +2,7 @@
 'use client';
 
 import React from 'react';
-import VerifyController from '@/components/verify/VerifyController';
+import VerifyController from '@/app/components/verify/VerifyController';
 
 export default function VerifyPage(): JSX.Element {
   return (

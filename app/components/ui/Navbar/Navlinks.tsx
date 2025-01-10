@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { SignOut } from '@/utils/auth-helpers/server';
-import { handleRequest } from '@/utils/auth-helpers/client';
+import { SignOut } from '@/app/utils/auth-helpers/server';
+import { handleRequest } from '@/app/utils/auth-helpers/client';
 import { usePathname, useRouter } from 'next/navigation';
-import { getRedirectMethod } from '@/utils/auth-helpers/settings';
+import { getRedirectMethod } from '@/app/utils/auth-helpers/settings';
 import Image from 'next/image';
 import s from './Navbar.module.css';
 
