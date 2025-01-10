@@ -8,10 +8,11 @@ declare const self: DedicatedWorkerGlobalScope;
 
 // Initialize services
 const referenceService = new GrobidReferenceService('/api/grobid/references');
+
 const pdfReferenceService = new PDFParseAndExtractReferenceService(
   '/api/references/extract',
   '/api/parse-pdf'
-);
+)
 
 // Listen for messages
 self.onmessage = async (e: MessageEvent) => {
@@ -28,17 +29,21 @@ self.onmessage = async (e: MessageEvent) => {
 
       // STEP 1.5: IF NO REFERENCES FROM GROBID, FALLBACK TO PDF PARSING
       if (references.length === 0) {
-        console.log('No references found via GROBID, falling back to PDF parsing...');
-        finalReferences = await pdfReferenceService.parseAndExtractReferences(file);
+        console.log(
+          'No references found via GROBID, falling back to PDF parsing...'
+        );
+        finalReferences =
+          await pdfReferenceService.parseAndExtractReferences(file);
         console.log('📥 Received references from OpenAI:', finalReferences);
-      } else if (highAccuracy) {  // if HIGH-ACCURACY THEN DOUBLE-CHECK REFERENCES
+      } else if (highAccuracy) {
+        // if HIGH-ACCURACY THEN DOUBLE-CHECK REFERENCES
         console.log('🔍 High Accuracy mode enabled. Verifying references...');
         const verifiedReferences = [];
         for (const reference of finalReferences) {
           const response = await fetch('/api/high-accuracy-check', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reference }),
+            body: JSON.stringify({ reference })
           });
 
           if (!response.ok) {
@@ -58,7 +63,7 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({
         type: 'complete',
         pdfId,
-        references: finalReferences,
+        references: finalReferences
       } as WorkerMessage);
 
       console.log(`✅ Successfully processed PDF ${pdfId}`);
@@ -67,7 +72,7 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({
         type: 'error',
         pdfId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : 'Unknown error'
       } as WorkerMessage);
     }
   }

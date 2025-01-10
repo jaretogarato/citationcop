@@ -1,51 +1,51 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect, useRef } from 'react';
-import { PDFQueueService } from '@/app/services/queue-service';
-import { FileText, CheckCircle, XCircle, Loader } from 'lucide-react';
-import { PDFDropZone } from './PDFDropZone';
-import { ModeSelector } from '@/app/components/ui/ModeSelector';
+import React, { useState, useEffect, useRef } from 'react'
+import { PDFQueueService } from '@/app/services/queue-service'
+import { FileText, CheckCircle, XCircle, Loader } from 'lucide-react'
+import { PDFDropZone } from './PDFDropZone'
+import { ModeSelector } from '@/app/components/ui/ModeSelector'
 
 const PDFProcessor = () => {
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isHighAccuracy, setIsHighAccuracy] = useState(true); // High accuracy enabled by default
+  const [selectedFiles, setSelectedFiles] = useState([])
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [isHighAccuracy, setIsHighAccuracy] = useState(true) // High accuracy enabled by default
   const [status, setStatus] = useState({
     pending: 0,
     processing: 0,
     complete: 0,
     error: 0
-  });
-  const queueServiceRef = useRef(null);
+  })
+  const queueServiceRef = useRef(null)
 
   useEffect(() => {
     // Initialize the queue service
-    queueServiceRef.current = new PDFQueueService('/workers/pdf-worker.js');
+    queueServiceRef.current = new PDFQueueService('/workers/pdf-worker.js')
 
     // Poll for status updates
     const interval = setInterval(() => {
       if (queueServiceRef.current) {
-        setStatus(queueServiceRef.current.getStatus());
+        setStatus(queueServiceRef.current.getStatus())
       }
-    }, 1000);
+    }, 1000)
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => clearInterval(interval)
+  }, [])
 
   const handleFilesSelected = (files) => {
-    setSelectedFiles(files);
-  };
+    setSelectedFiles(files)
+  }
 
   const handleProcessFiles = () => {
     if (queueServiceRef.current && selectedFiles.length > 0) {
-      setIsProcessing(true);
-      queueServiceRef.current.addPDFs(selectedFiles, isHighAccuracy);
+      setIsProcessing(true)
+      queueServiceRef.current.addPDFs(selectedFiles, isHighAccuracy)
     }
-  };
+  }
 
   const toggleHighAccuracy = (checked) => {
-    setIsHighAccuracy(checked);
-  };
+    setIsHighAccuracy(checked)
+  }
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -99,7 +99,7 @@ const PDFProcessor = () => {
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default PDFProcessor;
+export default PDFProcessor
