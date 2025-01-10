@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { User } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
-import { getUser, getUserDetails, getSubscription } from '@/utils/supabase/queries';
+import { getUser, getUserDetails, getSubscription } from '@/app/utils/supabase/queries';
 
 // Define types for your data
 interface UserDetails {
