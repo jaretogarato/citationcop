@@ -1,13 +1,13 @@
-import CustomerPortalForm from '@/components/ui/AccountForms/CustomerPortalForm';
-import EmailForm from '@/components/ui/AccountForms/EmailForm';
-import NameForm from '@/components/ui/AccountForms/NameForm';
+import CustomerPortalForm from '@/app/components/ui/AccountForms/CustomerPortalForm';
+import EmailForm from '@/app/components/ui/AccountForms/EmailForm';
+import NameForm from '@/app/components/ui/AccountForms/NameForm';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/utils/supabase/server';
+import { createClient } from '@/app/utils/supabase/server';
 import {
   getUserDetails,
   getSubscription,
   getUser
-} from '@/utils/supabase/queries';
+} from '@/app/utils/supabase/queries';
 import { UserDetailsResponse, UserDetails } from '@/app/types/user'; 
 
 export default async function Account() {
