@@ -1,12 +1,13 @@
 // Navbar.tsx
 'use client'
 
-import { useAuth } from '@/app/contexts/auth-contexts';
-import s from './Navbar.module.css';
-import Navlinks from './Navlinks';
+import { useAuth } from '@/app/contexts/auth-contexts'
+import s from './Navbar.module.css'
+import Navlinks from './Navlinks'
 
-export default function Navbar() {  // Removed async
-  const { user, isLoading } = useAuth();
+export default function Navbar() {
+  // Removed async
+  const { user, isLoading } = useAuth()
 
   return (
     <nav className={s.root}>
@@ -21,5 +22,5 @@ export default function Navbar() {  // Removed async
         )}
       </div>
     </nav>
-  );
+  )
 }

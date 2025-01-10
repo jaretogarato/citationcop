@@ -1,31 +1,31 @@
-'use client';
+'use client'
 
-import Button from '@/app/components/ui/Button';
-import Card from '@/app/components/ui/Card';
-import { updateEmail } from '@/app/utils/auth-helpers/server';
-import { handleRequest } from '@/app/utils/auth-helpers/client';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import Button from '@/app/components/ui/Button'
+import Card from '@/app/components/ui/Card'
+import { updateEmail } from '@/app/utils/auth-helpers/server'
+import { handleRequest } from '@/app/utils/auth-helpers/client'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 export default function EmailForm({
   userEmail
 }: {
-  userEmail: string | undefined;
+  userEmail: string | undefined
 }) {
-  const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter()
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    setIsSubmitting(true);
+    setIsSubmitting(true)
     // Check if the new email is the same as the old email
     if (e.currentTarget.newEmail.value === userEmail) {
-      e.preventDefault();
-      setIsSubmitting(false);
-      return;
+      e.preventDefault()
+      setIsSubmitting(false)
+      return
     }
-    handleRequest(e, updateEmail, router);
-    setIsSubmitting(false);
-  };
+    handleRequest(e, updateEmail, router)
+    setIsSubmitting(false)
+  }
 
   return (
     <Card
@@ -60,5 +60,5 @@ export default function EmailForm({
         </form>
       </div>
     </Card>
-  );
+  )
 }
