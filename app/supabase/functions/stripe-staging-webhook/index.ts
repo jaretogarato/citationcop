@@ -4,7 +4,7 @@
 
 // Setup type definitions for built-in Supabase Runtime APIs
 
-import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 
@@ -26,14 +26,16 @@ export const handler = async (req: Request) => {
     }
 
     const STRIPE_SECRET = Deno.env.get('STRIPE_SECRET')
-    const STRIPE_WEBHOOK_SIGNING_SECRET = Deno.env.get('STRIPE_WEBHOOK_SIGNING_SECRET')
+    const STRIPE_WEBHOOK_SIGNING_SECRET = Deno.env.get(
+      'STRIPE_WEBHOOK_SIGNING_SECRET'
+    )
     if (!STRIPE_SECRET || !STRIPE_WEBHOOK_SIGNING_SECRET) {
       return new Response('Missing environment variables', { status: 500 })
     }
 
     // Initialize Stripe
     const stripe = new Stripe(STRIPE_SECRET, {
-      apiVersion: '2023-10-16',
+      apiVersion: '2023-10-16'
     })
 
     // Get the raw body
@@ -48,7 +50,10 @@ export const handler = async (req: Request) => {
         STRIPE_WEBHOOK_SIGNING_SECRET
       )
     } catch (err: any) {
-      return new Response(`Webhook signature verification failed: ${err?.message || 'Unknown error'}`, { status: 400 })
+      return new Response(
+        `Webhook signature verification failed: ${err?.message || 'Unknown error'}`,
+        { status: 400 }
+      )
     }
 
     // Initialize Supabase client
@@ -58,10 +63,9 @@ export const handler = async (req: Request) => {
     )
 
     // Call the database function with the event data
-    const { data, error } = await supabaseClient.rpc(
-      'handle_stripe_webhook',
-      { stripe_event: JSON.stringify(event) }
-    )
+    const { data, error } = await supabaseClient.rpc('handle_stripe_webhook', {
+      stripe_event: JSON.stringify(event)
+    })
 
     if (error) {
       throw error
@@ -69,13 +73,14 @@ export const handler = async (req: Request) => {
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' },
-      status: 200,
+      status: 200
     })
   } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error'
     return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { 'Content-Type': 'application/json' },
-      status: 400,
+      status: 400
     })
   }
 }
