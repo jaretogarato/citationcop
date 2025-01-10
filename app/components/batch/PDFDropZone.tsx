@@ -61,8 +61,11 @@ export function PDFDropZone({
       return
     }
 
-    setFiles((prev) => [...prev, ...validFiles])
-    onFilesSelected(validFiles.map((f) => f.file))
+    setFiles((prev) => {
+      const newFiles = [...prev, ...validFiles]
+      onFilesSelected(newFiles.map((f) => f.file)) // Only call once with complete list
+      return newFiles
+    })
     setError(null)
   }
 
@@ -91,7 +94,11 @@ export function PDFDropZone({
   }
 
   const removeFile = (id: string) => {
-    setFiles((prev) => prev.filter((file) => file.id !== id))
+    setFiles((prev) => {
+      const newFiles = prev.filter((file) => file.id !== id)
+      onFilesSelected(newFiles.map((f) => f.file))
+      return newFiles
+    })
   }
 
   return (
