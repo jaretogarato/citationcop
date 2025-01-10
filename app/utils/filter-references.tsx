@@ -1,4 +1,4 @@
-import type { Reference } from "../app/types/reference";
+import type { Reference } from "@/app/types/reference";
 
 // Combine both validations
 export const validateReferences = (references: Reference[]): Reference[] => {
