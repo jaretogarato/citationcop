@@ -1,21 +1,21 @@
 // app/api/high-accuracy-check/route.ts
-import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { NextResponse } from 'next/server'
+import OpenAI from 'openai'
 
-const API_KEY = process.env.OPENAI_API_KEY_1;
-const openAI = new OpenAI({ apiKey: API_KEY });
+const API_KEY = process.env.OPENAI_API_KEY_1
+const openAI = new OpenAI({ apiKey: API_KEY })
 
 //const openAIInstances = API_KEYS.map((apiKey) => new OpenAI({ apiKey }));
 
 export async function POST(request: Request) {
   try {
-    const { reference, keyIndex } = await request.json();
+    const { reference, keyIndex } = await request.json()
 
     if (!reference) {
       return NextResponse.json(
         { error: 'Reference is required' },
         { status: 400 }
-      );
+      )
     }
 
     /*if (keyIndex >= openAIInstances.length) {
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
             );
         }*/
 
-    const startTime = Date.now();
+    const startTime = Date.now()
     const prompt = `You are a machine that validates parsed academic references by comparing them to their original raw text. You need to verify if the parsing was accurate and suggest corrections if needed.
 
         Raw Reference Text: "${reference.raw}"
@@ -59,38 +59,38 @@ export async function POST(request: Request) {
                 "date_of_access": "date of access if applicable",
                 "raw": "raw reference text for this specific reference"
             }
-        ]`;
+        ]`
 
     const response = await openAI.chat.completions.create({
       model: process.env.LLM_MODEL_ID || 'gpt-4o-mini',
       messages: [{ role: 'system', content: prompt }],
       temperature: 0.0
-    });
+    })
 
-    const content = response.choices[0]?.message?.content;
+    const content = response.choices[0]?.message?.content
     if (!content) {
-      throw new Error('No content received from LLM');
+      throw new Error('No content received from LLM')
     }
 
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    const jsonMatch = content.match(/\[[\s\S]*\]/)
     if (!jsonMatch) {
-      throw new Error('No JSON array found in response');
+      throw new Error('No JSON array found in response')
     }
 
-    const result = JSON.parse(jsonMatch[0]);
+    const result = JSON.parse(jsonMatch[0])
     console.log(
       `Reference processed in ${Date.now() - startTime}ms with key ${keyIndex}`
-    );
+    )
 
-    return NextResponse.json(result);
+    return NextResponse.json(result)
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error:', error)
     return NextResponse.json(
       {
         error: 'Processing failed',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    );
+    )
   }
 }
