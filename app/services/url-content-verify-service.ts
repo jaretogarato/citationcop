@@ -7,11 +7,26 @@ import type {
 export class URLContentVerifyService {
   private static BATCH_SIZE = 5 // Adjust batch size as needed
 
+  // Utility function to validate URLs
+  private isValidUrl(url: string): boolean {
+    try {
+      new URL(url) // Will throw if invalid
+      return true
+    } catch {
+      return false
+    }
+  }
+
+
   public async verifyReferencesWithUrls(
     references: Reference[]
   ): Promise<Reference[]> {
     // Step 1: Filter references that have URLs
-    const urlReferences = references.filter((ref) => ref.url)
+    //const urlReferences = references.filter((ref) => ref.url)
+
+    // Step 1: Filter references that have valid URLs
+    const urlReferences = references.filter((ref) => ref.url && this.isValidUrl(ref.url))
+
 
     // Step 2: Process references with URLs in batches
     const verifiedReferences: Reference[] = []
