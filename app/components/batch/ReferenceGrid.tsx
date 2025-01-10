@@ -1,5 +1,13 @@
 import React from 'react'
 import type { Reference, ReferenceStatus } from '@/app/types/reference'
+import {
+  Dialog,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger
+} from '@/app/components/ui/dialog'
+import GridReferenceDialogue from './GridReferenceDialogue'
+import { DialogContent } from '@radix-ui/react-dialog'
 
 const SQUARES_PER_ROW = 30
 
@@ -27,27 +35,35 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
     <div>
       <div className="flex flex-wrap gap-1">
         {references.map((ref, i) => (
-          <div
-            key={i}
-            className={`
-              w-4 h-4
-              ${statusColors[ref.status]}
-              hover:opacity-75 transition-opacity
-              cursor-pointer
-            `}
-            title={`${ref.title || 'Untitled Reference'}
-              From document: ${ref.sourceDocument || 'Unknown Document'}`}
-          />
+          <Dialog key={i}>
+            <DialogDescription></DialogDescription>{' '}
+            <DialogTrigger>
+              <div
+                className={`
+                  w-4 h-4
+                  ${statusColors[ref.status]}
+                  hover:opacity-75 transition-opacity
+                  cursor-pointer
+                `}
+              />
+            </DialogTrigger>
+            <DialogContent title="Reference display">
+              <DialogTitle></DialogTitle>
+              <GridReferenceDialogue reference={ref} />
+            </DialogContent>
+          </Dialog>
         ))}
       </div>
 
-      {/* Simple legend */}
+      {/* Legend */}
       <div className="mt-4 flex gap-4 items-center">
-        {Object.entries(statusColors).map(([status, colorClass]) => (
+        {Object.entries(statusDisplayNames).map(([status, displayName]) => (
           <div key={status} className="flex items-center gap-2">
-            <div className={`w-4 h-4 ${colorClass}`} />
+            <div
+              className={`w-4 h-4 ${statusColors[status as ReferenceStatus]}`}
+            />
             <span className="text-sm text-gray-200 capitalize">
-              {statusDisplayNames[status as ReferenceStatus]}
+              {displayName}
             </span>
           </div>
         ))}

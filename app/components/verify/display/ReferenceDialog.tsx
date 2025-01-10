@@ -68,12 +68,12 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
         pending: "text-indigo-300"
     }[status] || "text-gray-300");
 
-    const getStatusAccentColor = (status: ReferenceStatus): string => ({
+    /*const getStatusAccentColor = (status: ReferenceStatus): string => ({
         verified: "bg-emerald-400/10",
         unverified: "bg-rose-400/10",
         error: "bg-amber-400/10",
         pending: "bg-indigo-400/10"
-    }[status] || "bg-gray-400/10");
+    }[status] || "bg-gray-400/10");*/
 
     const getStatusIcon = (status: ReferenceStatus): JSX.Element | null => ({
         verified: <CheckCircle className="h-6 w-6 text-emerald-400" />,
