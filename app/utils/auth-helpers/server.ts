@@ -309,28 +309,91 @@ export async function updateName(formData: FormData) {
   // Get form data
   const fullName = String(formData.get('fullName')).trim();
 
+  // Create Supabase client
   const supabase = createClient();
-  const { error, data } = await supabase.auth.updateUser({
-    data: { full_name: fullName }
-  });
 
-  if (error) {
-    return getErrorRedirect(
-      '/account',
-      'Your name could not be updated.',
-      error.message
-    );
-  } else if (data.user) {
+  // Update auth.user_metadata and public.users
+  try {
+    // Update name in auth.user_metadata
+    const { error: authError, data } = await supabase.auth.updateUser({
+      data: { full_name: fullName },
+    });
+
+    if (authError) {
+      return getErrorRedirect(
+        '/account',
+        'Your name could not be updated in authentication metadata.',
+        authError.message
+      );
+    }
+
+    // Get the user ID from the updated user data
+    const userId = data?.user?.id;
+    if (!userId) {
+      return getErrorRedirect(
+        '/account',
+        'User ID could not be found.',
+        'The update operation failed.'
+      );
+    }
+
+    // Update name in the public.users table
+    const { error: usersError } = await supabase
+      .from('users')
+      .update({ full_name: fullName })
+      .eq('id', userId);
+
+    if (usersError) {
+      return getErrorRedirect(
+        '/account',
+        'Your name could not be updated in the users table.',
+        usersError.message
+      );
+    }
+
+    // If both updates are successful, return success redirect
     return getStatusRedirect(
       '/account',
       'Success!',
-      'Your name has been updated.'
+      'Your name has been updated in both locations.'
     );
-  } else {
+  } catch (error) {
+    console.error('Unexpected error updating name:', error);
     return getErrorRedirect(
       '/account',
-      'Hmm... Something went wrong.',
-      'Your name could not be updated.'
+      'Unexpected error occurred.',
+      error instanceof Error ? error.message : 'Unknown error'
     );
   }
 }
+
+//export async function updateName(formData: FormData) {
+//  // Get form data
+//  const fullName = String(formData.get('fullName')).trim();
+
+//  const supabase = createClient();
+//  const { error, data } = await supabase.auth.updateUser({
+//    data: { full_name: fullName }
+//  });
+//	//jgg
+
+//  if (error) {
+//    return getErrorRedirect(
+//      '/account',
+//      'Your name could not be updated.',
+//      error.message
+//    );
+//  } else if (data.user) {
+//    return getStatusRedirect(
+//      '/account',
+//      'Success!',
+//      'Your name has been updated.'
+//    );
+//  } else {
+//    return getErrorRedirect(
+//      '/account',
+//      'Hmm... Something went wrong.',
+//      'Your name could not be updated.'
+//    );
+//  }
+//}
