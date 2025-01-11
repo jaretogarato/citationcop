@@ -85,9 +85,9 @@ export async function POST(request: Request) {
     }
 
     const result = JSON.parse(jsonMatch[0])
-    console.log(
+    /*console.log(
       `Reference processed in ${Date.now() - startTime}ms with key ${keyIndex}`
-    )
+    )*/
 
     return NextResponse.json(result)
   } catch (error) {

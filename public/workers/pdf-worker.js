@@ -56,8 +56,6 @@
         throw new Error(`Parsing API failed: ${parseResponse.statusText}`);
       }
       const { text: extractedText } = await parseResponse.json();
-      console.log("Extracted text from parse-pdf endpoint:", extractedText);
-      console.log("\u{1F4E4} Sending to OpenAI...");
       const response = await fetch(this.openAIEndpoint, {
         method: "POST",
         headers: {
@@ -69,22 +67,6 @@
         throw new Error(`OpenAI API failed: ${response.statusText}`);
       }
       const { references } = await response.json();
-      console.log("\u{1F4E5} Received references from OpenAI:", references);
-      console.log("*** Detailed References ***");
-      references.forEach((ref, index) => {
-        console.log(`Reference #${index + 1}`);
-        console.log(`  Authors: ${ref.authors.join(", ")}`);
-        console.log(`  Title: ${ref.title}`);
-        console.log(`  Year: ${ref.year}`);
-        console.log(`  Journal: ${ref.journal}`);
-        console.log(`  DOI: ${ref.DOI}`);
-        console.log(`  Publisher: ${ref.publisher}`);
-        console.log(`  Volume: ${ref.volume}`);
-        console.log(`  Issue: ${ref.issue}`);
-        console.log(`  Pages: ${ref.pages}`);
-        console.log(`  URL: ${ref.url}`);
-        console.log(`  Raw: ${ref.raw}`);
-      });
       return references;
     }
   };
@@ -132,22 +114,14 @@
       let currentIndex = 0;
       while (currentIndex < references.length) {
         const batch = references.slice(currentIndex, currentIndex + BATCH_SIZE);
-        console.log(
-          `Processing batch ${currentIndex}-${currentIndex + batch.length}...`
-        );
         const results = await Promise.all(
           batch.map((ref) => this.processReference(ref))
         );
         processedRefs.push(...results);
-        console.log(
-          `Batch results (${currentIndex}-${currentIndex + batch.length}):`,
-          results
-        );
         onBatchComplete(results);
         currentIndex += BATCH_SIZE;
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-      console.log("All references processed:", processedRefs);
       return processedRefs;
     }
   };
@@ -192,16 +166,10 @@
       const unverifiedReferences = references.filter(
         (ref) => ref.status !== "verified"
       );
-      console.log(
-        `Skipping ${references.length - unverifiedReferences.length} already verified references.`
-      );
       while (currentIndex < unverifiedReferences.length) {
         const batch = unverifiedReferences.slice(
           currentIndex,
           currentIndex + BATCH_SIZE2
-        );
-        console.log(
-          `Processing verification batch: ${currentIndex}-${currentIndex + batch.length}`
         );
         const results = await Promise.all(
           batch.map((ref, index) => this.processReference(ref, index))
@@ -279,31 +247,6 @@
     }
   };
 
-  // app/utils/log-references.ts
-  var logReferences = (references) => {
-    console.log("\u{1F50D} References:");
-    references.forEach((reference, index) => {
-      console.log(`Reference #${index + 1}:`);
-      console.log(`  Title: ${reference.title}`);
-      console.log(`  Authors: ${reference.authors.join(", ")}`);
-      console.log(`  Status: ${reference.status}`);
-      console.log(`  Verification Source: ${reference.verification_source}`);
-      console.log(`  Message: ${reference.message}`);
-      console.log(`  Search Results:`);
-      if (reference.searchResults?.organic?.length) {
-        reference.searchResults.organic.forEach((result, i) => {
-          console.log(`    Result #${i + 1}:`);
-          console.log(`      Title: ${result.title}`);
-          console.log(`      Link: ${result.link}`);
-          console.log(`      Snippet: ${result.snippet}`);
-        });
-      } else {
-        console.log("    No organic search results found.");
-      }
-      console.log("---");
-    });
-  };
-
   // app/services/workers/pdf.worker.ts
   var referenceService = new GrobidReferenceService("/api/grobid/references");
   var pdfReferenceService = new PDFParseAndExtractReferenceService(
@@ -316,20 +259,19 @@
   self.onmessage = async (e) => {
     const { type, pdfId, file, highAccuracy } = e.data;
     if (type === "process") {
-      console.log(`\u{1F680} Worker starting to process PDF ${pdfId}`);
       try {
         const references = await referenceService.extractReferences(file);
         let parsedRefernces = references;
         if (references.length === 0) {
-          console.log(
-            "No references found via GROBID, falling back to PDF parsing..."
-          );
           parsedRefernces = await pdfReferenceService.parseAndExtractReferences(file);
-          console.log("\u{1F4E5} Received references from OpenAI:", parsedRefernces);
         } else if (highAccuracy) {
           console.log("\u{1F50D} High Accuracy mode enabled. Verifying references...");
           const checkedReferences = [];
           for (const reference of parsedRefernces) {
+            console.log("Checking reference:", {
+              id: reference.id,
+              title: reference.title
+            });
             const response = await fetch("/api/high-accuracy-check", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -337,18 +279,39 @@
             });
             if (!response.ok) {
               console.error("Error verifying reference:", reference);
+              reference.status = "error";
+              reference.message = "Verification failed";
+              checkedReferences.push(reference);
               continue;
             }
             const result = await response.json();
-            console.log("\u{1F50D} Verification result:", result);
-            checkedReferences.push(...result);
+            if (Array.isArray(result)) {
+              if (result.length === 1 && result[0].ok === true) {
+                checkedReferences.push({
+                  ...reference,
+                  status: "verified",
+                  message: "Reference verified correct"
+                });
+              } else {
+                result.forEach((correctedRef, index) => {
+                  checkedReferences.push({
+                    ...correctedRef,
+                    id: correctedRef.id || `${reference.id}-${index + 1}`,
+                    status: "verified",
+                    message: "Reference corrected/expanded"
+                  });
+                });
+              }
+            } else {
+              console.error("Unexpected response format:", result);
+              reference.status = "error";
+              reference.message = "Invalid verification response";
+              checkedReferences.push(reference);
+            }
           }
           parsedRefernces = checkedReferences;
         }
-        console.log("\u{1F9F9} Removing duplicate references...");
         parsedRefernces = removeDuplicates(parsedRefernces);
-        console.log("\u2705 Unique references:", parsedRefernces);
-        console.log("\u{1F50D} Starting batch processing for search...");
         const referencesWithSearch = await searchReferenceService.processBatch(
           parsedRefernces,
           (batchResults) => {
@@ -359,15 +322,9 @@
             });
           }
         );
-        console.log("\u2705 search complete.");
-        logReferences(referencesWithSearch);
-        console.log("\u{1F310} Verifying references with URLs...");
         const urlVerifiedreferences = await urlVerificationCheck.verifyReferencesWithUrls(
           referencesWithSearch
         );
-        console.log("\u2705 URL verification complete.");
-        logReferences(urlVerifiedreferences);
-        console.log("*** final verification ***");
         const verifiedReferences = await verifyReferenceService.processBatch(
           urlVerifiedreferences,
           (batchResults) => {
@@ -379,13 +336,11 @@
             });
           }
         );
-        logReferences(verifiedReferences);
         self.postMessage({
           type: "complete",
           pdfId,
           references: verifiedReferences
         });
-        console.log(`\u2705 Successfully processed PDF ${pdfId}`);
       } catch (error) {
         console.error("\u274C Error processing PDF:", error);
         self.postMessage({

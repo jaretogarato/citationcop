@@ -41,7 +41,7 @@ export function PDFDropZone({
   const handleFiles = (newFiles: File[]) => {
     const validFiles: BatchFileData[] = []
     const errors: string[] = []
-
+  
     for (const file of newFiles) {
       const error = validateFile(file)
       if (error) {
@@ -55,15 +55,26 @@ export function PDFDropZone({
         })
       }
     }
-
+  
     if (errors.length > 0) {
       setError(errors.join('\n'))
       return
     }
-
-    setFiles((prev) => [...prev, ...validFiles])
-    onFilesSelected(validFiles.map((f) => f.file))
+  
+    // First update the internal state
+    const updatedFiles = [...files, ...validFiles]
+    setFiles(updatedFiles)
+    
+    // Then notify parent with the complete list
+    onFilesSelected(updatedFiles.map((f) => f.file))
     setError(null)
+  }
+  
+  const removeFile = (id: string) => {
+    // Same pattern for removeFile
+    const updatedFiles = files.filter((file) => file.id !== id)
+    setFiles(updatedFiles)
+    onFilesSelected(updatedFiles.map((f) => f.file))
   }
 
   const handleDrag = (e: React.DragEvent) => {
@@ -90,10 +101,7 @@ export function PDFDropZone({
     if (selectedFiles.length > 0) handleFiles(selectedFiles)
   }
 
-  const removeFile = (id: string) => {
-    setFiles((prev) => prev.filter((file) => file.id !== id))
-  }
-
+  
   return (
     <div className="space-y-4">
       <div

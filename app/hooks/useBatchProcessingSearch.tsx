@@ -13,7 +13,7 @@ export function useBatchProcessingSearch() {
 
   const processReference = async (reference: Reference): Promise<Reference> => {
     const query = `${reference.title} ${reference.authors.join(' ')}`
-    console.log('Processing reference:', reference.id)
+    //console.log('Searchign reference:', reference.id)
 
     try {
       const response = await fetch('/api/serper', {
@@ -64,7 +64,7 @@ export function useBatchProcessingSearch() {
       onBatchComplete: (refs: Reference[]) => void
     ) => {
       if (processingRef.current) {
-        console.log('Already processing a batch, skipping')
+        //console.log('Already processing a batch, skipping')
         return
       }
 
@@ -79,9 +79,9 @@ export function useBatchProcessingSearch() {
         const endIndex = Math.min(startIndex + BATCH_SIZE, references.length)
         const currentBatch = references.slice(startIndex, endIndex)
 
-        console.log(
+        /*console.log(
           `Processing search batch ${startIndex}-${endIndex} of ${references.length}`
-        )
+        )*/
 
         // Process the current batch of references in parallel
         const results = await Promise.all(
@@ -103,10 +103,10 @@ export function useBatchProcessingSearch() {
           }, 100)
         } else {
           // Final batch complete
-          console.log(
+          /*console.log(
             'Search phase complete, passing refs:',
             accumulatedRefs.current.length
-          )
+          )*/
           onBatchComplete(accumulatedRefs.current)
           // Reset accumulated refs for next run
           accumulatedRefs.current = []

@@ -5,19 +5,22 @@ import { PDFQueueService } from '@/app/services/queue-service'
 import { FileText, CheckCircle, XCircle, Cog } from 'lucide-react'
 import { PDFDropZone } from './PDFDropZone'
 import { ModeSelector } from '@/app/components/ui/ModeSelector'
+import ReferenceGrid from '@/app/components/batch/ReferenceGrid'
+import type { Reference } from '@/app/types/reference'
 
 const PDFProcessor = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-  const [isHighAccuracy, setIsHighAccuracy] = useState(true) // High accuracy enabled by default
+  const [isHighAccuracy, setIsHighAccuracy] = useState(true) 
   const [status, setStatus] = useState({
     pending: 0,
     processing: 0,
     complete: 0,
     error: 0
   })
-  const [logMessages, setLogMessages] = useState<string[]>([]) // Log messages for UI
+  const [logMessages, setLogMessages] = useState<string[]>([]) 
   const queueServiceRef = useRef<PDFQueueService | null>(null)
+  const [references, setReferences] = useState<Reference[]>([])
 
   useEffect(() => {
     // Initialize the queue service
@@ -42,6 +45,16 @@ const PDFProcessor = () => {
               (ref, index) => `  ${index + 1}. ${JSON.stringify(ref, null, 2)}`
             )
           ])
+          //setReferences((prev) => [...prev, ...(message.references || [])])
+
+          setReferences((prev) => [
+            ...prev,
+            ...(message.references || []).map(ref => ({
+              ...ref,
+              sourceDocument: message.pdfId 
+            }))
+          ])
+
           updateProcessingState()
           break
 
@@ -109,7 +122,6 @@ const PDFProcessor = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 md:grid-cols-4">
-
         {[
           {
             icon: <FileText className="w-8 h-8 text-blue-500" />,
@@ -145,13 +157,19 @@ const PDFProcessor = () => {
             className={`flex items-center p-4 rounded-lg shadow-lg ${bg}`}
           >
             <div className="flex-shrink-0 mr-4">{icon}</div>
-            <div >
+            <div>
               <p className="text-lg font-semibold text-white">{label}</p>
               <p className="text-3xl font-bold text-white">{value}</p>
             </div>
           </div>
         ))}
       </div>
+
+      {references.length > 0 && (
+        <div className="mt-6 mb-6">
+          <ReferenceGrid references={references} />
+        </div>
+      )}
 
       <div className="mt-6 bg-gray-900 p-6 rounded-lg shadow-lg">
         <h3 className="text-lg font-semibold text-white mb-4">Logs</h3>

@@ -17,7 +17,6 @@ export class URLContentVerifyService {
     }
   }
 
-
   public async verifyReferencesWithUrls(
     references: Reference[]
   ): Promise<Reference[]> {

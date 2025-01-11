@@ -157,15 +157,15 @@ export default function GetReferences({ onComplete, maxReferences }: GetReferenc
       // Limit references early before expensive processing
       references = limitReferences(references);
 
-      console.log("Initial references from processor:", references)
+      //console.log("Initial references from processor:", references)
 
       // If no references found and it's a file upload, try fallback method
       if (references.length === 0 && activeTab === 'upload' && processor instanceof FileReferenceProcessor) {
         setProcessingStage('fallback')
-        console.log("No references found, trying fallback method...")
+        //console.log("No references found, trying fallback method...")
         references = await processor.fallbackProcess()
         references = limitReferences(references);
-        console.log("Fallback references:", references)
+        //console.log("Fallback references:", references)
       }
 
       references = validateReferences(references)
@@ -192,7 +192,7 @@ export default function GetReferences({ onComplete, maxReferences }: GetReferenc
 
       for (let i = 0; i < references.length; i += BATCH_SIZE) {
         const batchStartTime = Date.now()
-        console.log(`Starting batch ${i / BATCH_SIZE + 1}`)
+        //console.log(`Starting batch ${i / BATCH_SIZE + 1}`)
 
         const batch = references.slice(i, i + BATCH_SIZE)
 
@@ -214,7 +214,7 @@ export default function GetReferences({ onComplete, maxReferences }: GetReferenc
               const result = await response.json()
 
               const endTime = Date.now()
-              console.log(`Reference ${i + index + 1} took ${endTime - startTime}ms`)
+             // console.log(`Reference ${i + index + 1} took ${endTime - startTime}ms`)
 
               setProgress(prev => ({ ...prev, current: prev.current + 1 }))
 

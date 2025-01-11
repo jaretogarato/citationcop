@@ -47,7 +47,7 @@ export function useBatchProcessingVerify() {
 
       const result = await response.json()
 
-      console.log('Reference verified:', result.status, result.message)
+      //console.log('Reference verified:', result.status, result.message)
 
       return {
         ...reference,
@@ -74,7 +74,7 @@ export function useBatchProcessingVerify() {
       onBatchComplete: (data: VerificationData) => void
     ) => {
       if (processingRef.current) {
-        console.log('Already processing a batch, skipping')
+        //console.log('Already processing a batch, skipping')
         return
       }
 
@@ -92,9 +92,9 @@ export function useBatchProcessingVerify() {
         const endIndex = Math.min(startIndex + BATCH_SIZE, references.length)
         const currentBatch = references.slice(startIndex, endIndex)
 
-        console.log(
+        /*console.log(
           `Processing verify batch ${startIndex}-${endIndex} of ${references.length}`
-        )
+        )*/
 
         // Process the current batch of references in parallel
         const results = await Promise.all(

@@ -73,6 +73,7 @@ export interface Reference {
   PMID?: string | null
   ISBN?: string | null
   url?: string | null
+  sourceDocument?: string | null // Add this line
 
   // Publication details
   journal?: string | null
