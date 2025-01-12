@@ -247,11 +247,80 @@
     }
   };
 
+  // app/services/high-accuracy-service.ts
+  var HighAccuracyCheckService = class {
+    constructor(apiEndpoint = "/api/high-accuracy-check") {
+      this.apiEndpoint = apiEndpoint;
+    }
+    async verifyReference(reference) {
+      try {
+        const response = await fetch(this.apiEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reference })
+        });
+        if (!response.ok) {
+          console.error("Error verifying reference:", reference);
+          return [{
+            ...reference,
+            status: "error",
+            message: "Verification failed"
+          }];
+        }
+        const result = await response.json();
+        if (Array.isArray(result)) {
+          if (result.length === 1 && result[0].ok === true) {
+            return [{
+              ...reference,
+              status: "verified",
+              message: "Reference verified correct"
+            }];
+          } else {
+            return result.map((correctedRef, index) => ({
+              ...correctedRef,
+              id: correctedRef.id || `${reference.id}-${index + 1}`,
+              status: "verified",
+              message: "Reference corrected/expanded"
+            }));
+          }
+        }
+        console.error("Unexpected response format:", result);
+        return [{
+          ...reference,
+          status: "error",
+          message: "Invalid verification response"
+        }];
+      } catch (error) {
+        console.error("Error processing reference:", error);
+        return [{
+          ...reference,
+          status: "error",
+          message: error instanceof Error ? error.message : "Unknown error"
+        }];
+      }
+    }
+    async processBatch(references) {
+      const batchSize = 3;
+      const checkedReferences = [];
+      for (let i = 0; i < references.length; i += batchSize) {
+        const batch = references.slice(i, i + batchSize);
+        const batchPromises = batch.map((ref) => this.verifyReference(ref));
+        const batchResults = await Promise.all(batchPromises);
+        checkedReferences.push(...batchResults.flat());
+        console.log(`Processed batch ${i / batchSize + 1} of ${Math.ceil(references.length / batchSize)}`);
+      }
+      return checkedReferences;
+    }
+  };
+
   // app/services/workers/pdf.worker.ts
   var referenceService = new GrobidReferenceService("/api/grobid/references");
   var pdfReferenceService = new PDFParseAndExtractReferenceService(
     "/api/references/extract",
     "/api/parse-pdf"
+  );
+  var highAccuracyService = new HighAccuracyCheckService(
+    "/api/high-accuracy-check"
   );
   var searchReferenceService = new SearchReferenceService();
   var verifyReferenceService = new VerifyReferenceService();
@@ -262,7 +331,8 @@
       try {
         const references = await referenceService.extractReferences(file);
         let parsedReferences = references;
-        const noReferences = parsedReferences.length;
+        parsedReferences = removeDuplicates(parsedReferences);
+        let noReferences = parsedReferences.length;
         self.postMessage({
           type: "references",
           pdfId,
@@ -272,55 +342,23 @@
         if (references.length === 0) {
         } else if (highAccuracy) {
           console.log("\u{1F50D} High Accuracy mode enabled. Verifying references...");
-          const checkedReferences = [];
-          for (const reference of parsedReferences) {
-            console.log("Checking reference:", {
-              id: reference.id,
-              title: reference.title
-            });
-            const response = await fetch("/api/high-accuracy-check", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ reference })
-            });
-            if (!response.ok) {
-              console.error("Error verifying reference:", reference);
-              reference.status = "error";
-              reference.message = "Verification failed";
-              checkedReferences.push(reference);
-              continue;
-            }
-            const result = await response.json();
-            if (Array.isArray(result)) {
-              if (result.length === 1 && result[0].ok === true) {
-                checkedReferences.push({
-                  ...reference,
-                  status: "verified",
-                  message: "Reference verified correct"
-                });
-              } else {
-                result.forEach((correctedRef, index) => {
-                  checkedReferences.push({
-                    ...correctedRef,
-                    id: correctedRef.id || `${reference.id}-${index + 1}`,
-                    status: "verified",
-                    message: "Reference corrected/expanded"
-                  });
-                });
-              }
-            } else {
-              console.error("Unexpected response format:", result);
-              reference.status = "error";
-              reference.message = "Invalid verification response";
-              checkedReferences.push(reference);
-            }
-          }
-          parsedReferences = checkedReferences;
+          parsedReferences = await highAccuracyService.processBatch(parsedReferences);
+          let noReferences2 = parsedReferences.length;
+          self.postMessage({
+            type: "references",
+            pdfId,
+            noReferences: parsedReferences.length,
+            message: `After high-accuracy, ${noReferences2} found for ${pdfId}`
+          });
         }
-        parsedReferences = removeDuplicates(parsedReferences);
         const referencesWithSearch = await searchReferenceService.processBatch(
           parsedReferences,
           (batchResults) => {
+            self.postMessage({
+              type: "update",
+              pdfId,
+              message: `\u2705 search complete. for ${pdfId} `
+            });
           }
         );
         const urlVerifiedreferences = await urlVerificationCheck.verifyReferencesWithUrls(

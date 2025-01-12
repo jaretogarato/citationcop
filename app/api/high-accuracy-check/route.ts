@@ -58,7 +58,7 @@ export async function POST(request: Request) {
                 "conference": "conference name if applicable",
                 "url": "URL if available. Do NOT create a URL if it does not exist.",
                 "date_of_access": "date of access if applicable",
-                "raw": "raw reference text for this specific reference"
+                "raw": "raw reference text for this specific reference. ONLY include the parts that relate to this reference, not additional text"
             }
         ]`
 
@@ -79,9 +79,7 @@ export async function POST(request: Request) {
     }
 
     let result = JSON.parse(jsonMatch[0])
-    /*console.log(
-      `Reference processed in ${Date.now() - startTime}ms with key ${keyIndex}`
-    )*/
+  
     if (result.ok !== true) {
       result = result.map((ref: Reference) => {
         return {
@@ -90,6 +88,8 @@ export async function POST(request: Request) {
         }
       })
     }
+
+    console.log(result)
 
     return NextResponse.json(result)
   } catch (error) {

@@ -64,7 +64,7 @@ export async function POST(request: Request) {
                 "conference": "conference name if applicable",
                 "url": "URL if available. Do NOT create a URL if it does not exist.",
                 "date_of_access": "date of access if applicable",
-                "raw": "raw reference text for this specific reference"
+                "raw": "new raw reference text for JUST this specific reference"
             }
         ]`
 

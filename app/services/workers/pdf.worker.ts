@@ -6,6 +6,8 @@ import { PDFParseAndExtractReferenceService } from '@/app/services/pdf-parse-and
 import { SearchReferenceService } from '@/app/services/search-reference-service'
 import { VerifyReferenceService } from '../verify-reference-service'
 import { URLContentVerifyService } from '../url-content-verify-service'
+import { HighAccuracyCheckService } from '@/app/services/high-accuracy-service'
+
 //import { logReferences } from '@/app/utils/log-references'
 import type { Reference } from '@/app/types/reference'
 //import { logReferences } from '@/app/utils/log-references'
@@ -17,6 +19,9 @@ const referenceService = new GrobidReferenceService('/api/grobid/references')
 const pdfReferenceService = new PDFParseAndExtractReferenceService(
   '/api/references/extract',
   '/api/parse-pdf'
+)
+const highAccuracyService = new HighAccuracyCheckService(
+  '/api/high-accuracy-check'
 )
 const searchReferenceService = new SearchReferenceService()
 const verifyReferenceService = new VerifyReferenceService()
@@ -30,15 +35,18 @@ self.onmessage = async (e: MessageEvent) => {
     //console.log(`🚀 Worker starting to process PDF ${pdfId}`)
     try {
       // STEP 1: TRY TO GET REFERENCES FROM GROBID
-      
+
       const references: Reference[] =
         await referenceService.extractReferences(file)
 
       let parsedReferences: Reference[] = references
 
       // need a new service to check references. if they don't have a title and an author, then remove them
-      
-      const noReferences = parsedReferences.length
+
+      // STEP 2: REMOVE DUPLICATES
+      parsedReferences = removeDuplicates(parsedReferences)
+
+      let noReferences = parsedReferences.length
       self.postMessage({
         type: 'references',
         pdfId: pdfId,
@@ -54,68 +62,18 @@ self.onmessage = async (e: MessageEvent) => {
       } else if (highAccuracy) {
         // if HIGH-ACCURACY THEN DOUBLE-CHECK REFERENCES
         console.log('🔍 High Accuracy mode enabled. Verifying references...')
-        const checkedReferences: Reference[] = []
 
-        // TO DO -- MAKE THIS BE BATCHED !!! PARALLEL PLEASE !!
-        // CRITICAL
-        // ITS TOO SLOW OTHERWISE
+        parsedReferences =
+          await highAccuracyService.processBatch(parsedReferences)
 
-        for (const reference of parsedReferences) {
-          console.log('Checking reference:', {
-            id: reference.id,
-            title: reference.title
-          })
-
-          const response = await fetch('/api/high-accuracy-check', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reference })
-          })
-
-          if (!response.ok) {
-            console.error('Error verifying reference:', reference)
-            reference.status = 'error'
-            reference.message = 'Verification failed'
-            checkedReferences.push(reference)
-            continue
-          }
-
-          const result = await response.json()
-
-          // Handle the different possible responses:
-          if (Array.isArray(result)) {
-            if (result.length === 1 && result[0].ok === true) {
-              // Reference is verified correct
-              checkedReferences.push({
-                ...reference,
-                status: 'verified',
-                message: 'Reference verified correct'
-              })
-            } else {
-              // We got corrected/multiple references
-              result.forEach((correctedRef, index) => {
-                checkedReferences.push({
-                  ...correctedRef,
-                  id: correctedRef.id || `${reference.id}-${index + 1}`,
-                  status: 'verified',
-                  message: 'Reference corrected/expanded'
-                })
-              })
-            }
-          } else {
-            // Unexpected response format
-            console.error('Unexpected response format:', result)
-            reference.status = 'error'
-            reference.message = 'Invalid verification response'
-            checkedReferences.push(reference)
-          }
-        }
-
-        parsedReferences = checkedReferences
+        let noReferences = parsedReferences.length
+        self.postMessage({
+          type: 'references',
+          pdfId: pdfId,
+          noReferences: parsedReferences.length,
+          message: `After high-accuracy, ${noReferences} found for ${pdfId}`
+        })
       }
-
-      // STEP 2: REMOVE DUPLICATES
-      parsedReferences = removeDuplicates(parsedReferences)
 
       // STEP 3: BATCH PROCESS SEARCH CALLS
       //console.log('🔍 Starting batch processing for search...')
@@ -126,15 +84,13 @@ self.onmessage = async (e: MessageEvent) => {
         (batchResults) => {
           //logReferences(batchResults)
           // Send batch results to the main thread
-          /*self.postMessage({
-            type: 'search-update',
+          self.postMessage({
+            type: 'update',
             pdfId,
-            message: 'google searching...'
-          })*/
+            message: `✅ search complete. for ${pdfId} `
+          })
         }
       )
-      //console.log('✅ search complete.')
-      //logReferences(referencesWithSearch)
 
       // STEP 4: Verify references with URLs only
       //console.log('🌐 Verifying references with URLs...')
@@ -196,11 +152,11 @@ const removeDuplicates = (references: any[]): any[] => {
   return Array.from(uniqueSet.values())
 }
 
-
 const filterInvalidReferences = (references: Reference[]): Reference[] => {
-  return references.filter(ref => {
-    const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0;
-    const hasValidTitle = typeof ref.title === 'string' && ref.title.trim() !== '';
-    return hasValidAuthors && hasValidTitle;
-  });
-};
+  return references.filter((ref) => {
+    const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0
+    const hasValidTitle =
+      typeof ref.title === 'string' && ref.title.trim() !== ''
+    return hasValidAuthors && hasValidTitle
+  })
+}
