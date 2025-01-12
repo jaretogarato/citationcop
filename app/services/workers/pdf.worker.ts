@@ -30,13 +30,14 @@ self.onmessage = async (e: MessageEvent) => {
     //console.log(`🚀 Worker starting to process PDF ${pdfId}`)
     try {
       // STEP 1: TRY TO GET REFERENCES FROM GROBID
-      // STEP 1: TRY TO GET REFERENCES FROM GROBID
+      
       const references: Reference[] =
         await referenceService.extractReferences(file)
 
-      // Filter out invalid references
-      let parsedReferences: Reference[] = filterInvalidReferences(references)
+      let parsedReferences: Reference[] = references
 
+      // need a new service to check references. if they don't have a title and an author, then remove them
+      
       const noReferences = parsedReferences.length
       self.postMessage({
         type: 'references',
@@ -195,11 +196,11 @@ const removeDuplicates = (references: any[]): any[] => {
   return Array.from(uniqueSet.values())
 }
 
+
 const filterInvalidReferences = (references: Reference[]): Reference[] => {
-  return references.filter((ref) => {
-    const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0
-    const hasValidTitle =
-      typeof ref.title === 'string' && ref.title.trim() !== ''
-    return hasValidAuthors && hasValidTitle
-  })
-}
+  return references.filter(ref => {
+    const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0;
+    const hasValidTitle = typeof ref.title === 'string' && ref.title.trim() !== '';
+    return hasValidAuthors && hasValidTitle;
+  });
+};

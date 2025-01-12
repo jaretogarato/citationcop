@@ -67,10 +67,18 @@ export async function POST(req: NextRequest) {
     }
 
     const xml = await response.text()
-    const references: Reference[] = parseReferences(xml)
+    const allReferences: Reference[] = parseReferences(xml)
 
-    //console.log('Extracted references:', references)
-    return NextResponse.json({ references })
+    // Filter out invalid references
+    const validReferences = filterInvalidReferences(allReferences)
+
+    // Optionally log the filtering results
+    /* console.log(
+      `Filtered ${allReferences.length - validReferences.length} invalid references. ` +
+      `${validReferences.length} valid references remaining.`
+    ) */
+
+      return NextResponse.json({ references: validReferences })
   } catch (error) {
     console.error('Error processing document:', error)
     return NextResponse.json(
@@ -84,4 +92,13 @@ export async function POST(req: NextRequest) {
       { status: error instanceof GrobidError ? error.status : 500 }
     )
   }
+}
+
+const filterInvalidReferences = (references: Reference[]): Reference[] => {
+  return references.filter((ref) => {
+    const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0
+    const hasValidTitle =
+      typeof ref.title === 'string' && ref.title.trim() !== ''
+    return hasValidAuthors && hasValidTitle
+  })
 }
