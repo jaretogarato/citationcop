@@ -46,7 +46,7 @@ self.onmessage = async (e: MessageEvent) => {
       // STEP 2: REMOVE DUPLICATES
       parsedReferences = removeDuplicates(parsedReferences)
 
-      let noReferences = parsedReferences.length
+      let noReferences: number = parsedReferences.length
       self.postMessage({
         type: 'references',
         pdfId: pdfId,
@@ -54,13 +54,16 @@ self.onmessage = async (e: MessageEvent) => {
         message: `${noReferences} found for ${pdfId}`
       })
 
+      // as a test remove all the references in the references array
+      const testRef: Reference[] = []
+
       // STEP 1.5: IF NO REFERENCES FROM GROBID, Let the front end know.
-      if (references.length === 0) {
+      if (testRef.length === 0) {
         parsedReferences =
           await pdfReferenceService.parseAndExtractReferences(file)
         //console.log('📥 Received references from OpenAI:', parsedReferences)
         noReferences = parsedReferences.length
-        
+
         self.postMessage({
           type: 'references',
           pdfId: pdfId,
@@ -102,10 +105,10 @@ self.onmessage = async (e: MessageEvent) => {
 
       // STEP 4: Verify references with URLs only
       //console.log('🌐 Verifying references with URLs...')
-      const urlVerifiedreferences =
+      /*const urlVerifiedreferences =
         await urlVerificationCheck.verifyReferencesWithUrls(
           referencesWithSearch
-        )
+        )*/
       //console.log('✅ URL verification complete.')
       //logReferences(urlVerifiedreferences)
 
@@ -113,7 +116,7 @@ self.onmessage = async (e: MessageEvent) => {
       //console.log('*** final verification ***')
       const verifiedReferences: Reference[] =
         await verifyReferenceService.processBatch(
-          urlVerifiedreferences,
+          referencesWithSearch,
           (batchResults) => {
             self.postMessage({
               type: 'verification-update',

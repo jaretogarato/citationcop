@@ -1,9 +1,8 @@
 // app/api/references/extract/route.ts
 import OpenAI from 'openai'
 import { NextResponse } from 'next/server'
-import { filterInvalidReferences } from '@/app/utils/reference-helpers/reference-helpers'
 
-export const runtime = 'edge'
+export const runtime = 'edge' /// will have to switch to serverless when go pro.
 
 const openAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -20,7 +19,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 })
     }
 
-    const prompt = `Extract the references from the following text and provide them in the following JSON format:
+    const prompt = `Extract the references from the following document. The references should be in a references (or similar) section. Provide them in the following JSON format:
 
 {
   "references": [
@@ -43,7 +42,7 @@ export async function POST(request: Request) {
   ]
 }
 
-Do not include the the article itself as a reference. 
+Do not include the the article itself as a reference. It is OK to have 0 references found.
 
 Text:
 
@@ -54,7 +53,8 @@ References (in JSON format):`
     const response = await openAI.chat.completions.create({
       model: model,
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.0
+      temperature: 0,
+      response_format: { type: 'json_object' }
     })
 
     let content = response.choices[0]?.message?.content
@@ -88,11 +88,7 @@ References (in JSON format):`
       )
     }
     console.log('*** Extracted content :', parsedContent)
-
-    // filter duplicates
-    const filteredReferences = filterInvalidReferences(parsedContent)
-
-    return NextResponse.json(filteredReferences)
+    return NextResponse.json(parsedContent)
   } catch (error) {
     console.error('Error in reference extraction:', error)
     return NextResponse.json(

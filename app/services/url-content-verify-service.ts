@@ -20,12 +20,10 @@ export class URLContentVerifyService {
   public async verifyReferencesWithUrls(
     references: Reference[]
   ): Promise<Reference[]> {
-    // Step 1: Filter references that have URLs
-    //const urlReferences = references.filter((ref) => ref.url)
-
     // Step 1: Filter references that have valid URLs
-    const urlReferences = references.filter((ref) => ref.url && this.isValidUrl(ref.url))
-
+    const urlReferences = references.filter(
+      (ref) => ref.url && this.isValidUrl(ref.url)
+    )
 
     // Step 2: Process references with URLs in batches
     const verifiedReferences: Reference[] = []
@@ -63,22 +61,27 @@ export class URLContentVerifyService {
             console.error('Error verifying URL content:', error)
           }
 
-          return ref // Return unchanged if verification fails
+          return {
+            ...ref,
+            url_match: false,
+            message: 'URL verification failed'
+          }
         })
       )
 
       verifiedReferences.push(...batchResults)
       currentIndex += URLContentVerifyService.BATCH_SIZE
 
-      // Add a small delay between batches if needed
       await new Promise((resolve) => setTimeout(resolve, 100))
     }
 
-    // Step 3: Map verified results back to the original references
-    const finalResults = references.map(
-      (ref) => verifiedReferences.find((vRef) => vRef.id === ref.id) || ref
-    )
+    // Step 3: Create a Map of verified references for efficient lookup
+    const verifiedMap = new Map(verifiedReferences.map((ref) => [ref.id, ref]))
 
-    return finalResults
+    // Step 4: Map back to original references, preserving order and non-URL references
+    return references.map((ref) => {
+      const verifiedRef = verifiedMap.get(ref.id)
+      return verifiedRef ? { ...ref, ...verifiedRef } : ref
+    })
   }
 }

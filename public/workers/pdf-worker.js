@@ -202,7 +202,9 @@
       }
     }
     async verifyReferencesWithUrls(references) {
-      const urlReferences = references.filter((ref) => ref.url && this.isValidUrl(ref.url));
+      const urlReferences = references.filter(
+        (ref) => ref.url && this.isValidUrl(ref.url)
+      );
       const verifiedReferences = [];
       let currentIndex = 0;
       while (currentIndex < urlReferences.length) {
@@ -233,17 +235,22 @@
             } catch (error) {
               console.error("Error verifying URL content:", error);
             }
-            return ref;
+            return {
+              ...ref,
+              url_match: false,
+              message: "URL verification failed"
+            };
           })
         );
         verifiedReferences.push(...batchResults);
         currentIndex += _URLContentVerifyService.BATCH_SIZE;
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-      const finalResults = references.map(
-        (ref) => verifiedReferences.find((vRef) => vRef.id === ref.id) || ref
-      );
-      return finalResults;
+      const verifiedMap = new Map(verifiedReferences.map((ref) => [ref.id, ref]));
+      return references.map((ref) => {
+        const verifiedRef = verifiedMap.get(ref.id);
+        return verifiedRef ? { ...ref, ...verifiedRef } : ref;
+      });
     }
   };
 
@@ -339,7 +346,8 @@
           noRferences: noReferences,
           message: `${noReferences} found for ${pdfId}`
         });
-        if (references.length === 0) {
+        const testRef = [];
+        if (testRef.length === 0) {
           parsedReferences = await pdfReferenceService.parseAndExtractReferences(file);
           noReferences = parsedReferences.length;
           self.postMessage({
@@ -369,11 +377,8 @@
             });
           }
         );
-        const urlVerifiedreferences = await urlVerificationCheck.verifyReferencesWithUrls(
-          referencesWithSearch
-        );
         const verifiedReferences = await verifyReferenceService.processBatch(
-          urlVerifiedreferences,
+          referencesWithSearch,
           (batchResults) => {
             self.postMessage({
               type: "verification-update",

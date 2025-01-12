@@ -1,7 +1,7 @@
 import type {Reference} from '@/app/types/reference'
 
 // Helper function to check if two author lists are similar
-export const areAuthorsSimilar = (authors1: string[], authors2: string[]): boolean => {
+const areAuthorsSimilar = (authors1: string[], authors2: string[]): boolean => {
   if (Math.abs(authors1.length - authors2.length) > 1) return false
 
   // Normalize author names and sort them
