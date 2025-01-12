@@ -6,19 +6,7 @@ import { useState } from 'react'
 import { createStripePortal } from '@/app/utils/stripe/server'
 import Link from 'next/link'
 import Card from '@/app/components/ui/Card'
-import { Tables } from '@/types_db'
-
-type Subscription = Tables<'subscriptions'>
-type Price = Tables<'prices'>
-type Product = Tables<'products'>
-
-type SubscriptionWithPriceAndProduct = Subscription & {
-  prices:
-    | (Price & {
-        products: Product | null
-      })
-    | null
-}
+import type {  SubscriptionWithPriceAndProduct } from '@/app/types/supabase/subscription'
 
 interface Props {
   subscription: SubscriptionWithPriceAndProduct | null

@@ -5,14 +5,14 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/app/utils/supabase/server'
 import {
   getUserDetails,
-  getSubscription,
+  getSubscriptionWithPriceAndProduct,
   getUser
 } from '@/app/utils/supabase/queries'
-import { UserDetailsResponse, UserDetails } from '@/app/types/user'
+import { UserDetailsResponse, UserDetails } from '@/app/types/supabase/user'
 
 export default async function Account() {
   const supabase = createClient()
-
+  
   // Fetch data concurrently
   const [userResponse, userDetailsResponse, subscription]: [
     { user: any } | null,
@@ -21,7 +21,7 @@ export default async function Account() {
   ] = await Promise.all([
     getUser(supabase),
     getUserDetails(supabase),
-    getSubscription(supabase)
+    getSubscriptionWithPriceAndProduct(supabase)
   ])
 
   // Ensure `user` data is available, otherwise redirect to /signin
