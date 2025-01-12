@@ -74,17 +74,23 @@ export class PDFQueueService {
             })
           }
 
-    
           this.processNextItem(worker)
-          
+
           // update database with references
         }
         break
 
-      case 'search-update':
-        /*console.log(
-          `Received search update for PDF ${message.pdfId} : message ${message.message}`
-        )*/
+      case 'references':
+        console.log(`Message: ${message.message}`)
+        // Update state or UI with the batch results
+        if (this.updateListener) {
+          console.log("updating listener")
+          this.updateListener(message)
+        }
+        break
+
+      case 'update':
+        console.log(`${message.pdfId} : message ${message.message}`)
         // Update state or UI with the batch results
         if (this.updateListener) {
           this.updateListener(message)

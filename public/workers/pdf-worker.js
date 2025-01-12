@@ -261,13 +261,19 @@
     if (type === "process") {
       try {
         const references = await referenceService.extractReferences(file);
-        let parsedRefernces = references;
+        let parsedReferences = filterInvalidReferences(references);
+        const noReferences = parsedReferences.length;
+        self.postMessage({
+          type: "references",
+          pdfId,
+          noRferences: noReferences,
+          message: `${noReferences} found for ${pdfId}`
+        });
         if (references.length === 0) {
-          parsedRefernces = await pdfReferenceService.parseAndExtractReferences(file);
         } else if (highAccuracy) {
           console.log("\u{1F50D} High Accuracy mode enabled. Verifying references...");
           const checkedReferences = [];
-          for (const reference of parsedRefernces) {
+          for (const reference of parsedReferences) {
             console.log("Checking reference:", {
               id: reference.id,
               title: reference.title
@@ -309,17 +315,12 @@
               checkedReferences.push(reference);
             }
           }
-          parsedRefernces = checkedReferences;
+          parsedReferences = checkedReferences;
         }
-        parsedRefernces = removeDuplicates(parsedRefernces);
+        parsedReferences = removeDuplicates(parsedReferences);
         const referencesWithSearch = await searchReferenceService.processBatch(
-          parsedRefernces,
+          parsedReferences,
           (batchResults) => {
-            self.postMessage({
-              type: "search-update",
-              pdfId,
-              message: "google searching..."
-            });
           }
         );
         const urlVerifiedreferences = await urlVerificationCheck.verifyReferencesWithUrls(
@@ -360,5 +361,12 @@
       }
     });
     return Array.from(uniqueSet.values());
+  };
+  var filterInvalidReferences = (references) => {
+    return references.filter((ref) => {
+      const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0;
+      const hasValidTitle = typeof ref.title === "string" && ref.title.trim() !== "";
+      return hasValidAuthors && hasValidTitle;
+    });
   };
 })();

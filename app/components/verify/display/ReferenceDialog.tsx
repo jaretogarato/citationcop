@@ -218,6 +218,7 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
                         {renderField("Pages", reference.pages, <Book />)}
                         {renderField("Conference", reference.conference, <Building />)}
                         {renderField("Type", reference.type, <Info />)}
+                        {renderField("Raw", reference.raw, <Info />)}
                     </TabsContent>
 
                     <TabsContent value="verification" className="space-y-4 pr-4">

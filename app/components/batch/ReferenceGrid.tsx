@@ -81,8 +81,9 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                           hover:opacity-75 transition-opacity
                           cursor-pointer
                           animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4
+                          rounded-sm 
                         `}
-                      />
+                      /> 
                     </DialogTrigger>
                   </TooltipTrigger>
                   <TooltipContent 

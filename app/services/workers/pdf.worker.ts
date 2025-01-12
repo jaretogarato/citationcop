@@ -8,7 +8,7 @@ import { VerifyReferenceService } from '../verify-reference-service'
 import { URLContentVerifyService } from '../url-content-verify-service'
 //import { logReferences } from '@/app/utils/log-references'
 import type { Reference } from '@/app/types/reference'
-import { logReferences } from '@/app/utils/log-references'
+//import { logReferences } from '@/app/utils/log-references'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -30,100 +30,106 @@ self.onmessage = async (e: MessageEvent) => {
     //console.log(`🚀 Worker starting to process PDF ${pdfId}`)
     try {
       // STEP 1: TRY TO GET REFERENCES FROM GROBID
+      // STEP 1: TRY TO GET REFERENCES FROM GROBID
       const references: Reference[] =
         await referenceService.extractReferences(file)
 
-      let parsedRefernces: Reference[] = references
+      // Filter out invalid references
+      let parsedReferences: Reference[] = filterInvalidReferences(references)
 
-      // STEP 1.5: IF NO REFERENCES FROM GROBID, FALLBACK TO PDF PARSING
+      const noReferences = parsedReferences.length
+      self.postMessage({
+        type: 'references',
+        pdfId: pdfId,
+        noRferences: noReferences,
+        message: `${noReferences} found for ${pdfId}`
+      })
+
+      // STEP 1.5: IF NO REFERENCES FROM GROBID, Let the front end know.
       if (references.length === 0) {
-        /*console.log(
-          'No references found via GROBID, falling back to PDF parsing...'
-        )*/
-        parsedRefernces =
-          await pdfReferenceService.parseAndExtractReferences(file)
+        /*parsedRefernces =
+          await pdfReferenceService.parseAndExtractReferences(file)*/
         //console.log('📥 Received references from OpenAI:', parsedRefernces)
       } else if (highAccuracy) {
         // if HIGH-ACCURACY THEN DOUBLE-CHECK REFERENCES
         console.log('🔍 High Accuracy mode enabled. Verifying references...')
         const checkedReferences: Reference[] = []
-        
+
         // TO DO -- MAKE THIS BE BATCHED !!! PARALLEL PLEASE !!
         // CRITICAL
         // ITS TOO SLOW OTHERWISE
 
-        for (const reference of parsedRefernces) {
-            console.log('Checking reference:', {
-                id: reference.id,
-                title: reference.title
-            })
-            
-            const response = await fetch('/api/high-accuracy-check', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reference })
-            })
-        
-            if (!response.ok) {
-                console.error('Error verifying reference:', reference)
-                reference.status = 'error'
-                reference.message = 'Verification failed'
-                checkedReferences.push(reference)
-                continue
-            }
-        
-            const result = await response.json()
-            
-            // Handle the different possible responses:
-            if (Array.isArray(result)) {
-                if (result.length === 1 && result[0].ok === true) {
-                    // Reference is verified correct
-                    checkedReferences.push({
-                        ...reference,
-                        status: 'verified',
-                        message: 'Reference verified correct'
-                    })
-                } else {
-                    // We got corrected/multiple references
-                    result.forEach((correctedRef, index) => {
-                        checkedReferences.push({
-                            ...correctedRef,
-                            id: correctedRef.id || `${reference.id}-${index + 1}`,
-                            status: 'verified',
-                            message: 'Reference corrected/expanded'
-                        })
-                    })
-                }
+        for (const reference of parsedReferences) {
+          console.log('Checking reference:', {
+            id: reference.id,
+            title: reference.title
+          })
+
+          const response = await fetch('/api/high-accuracy-check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reference })
+          })
+
+          if (!response.ok) {
+            console.error('Error verifying reference:', reference)
+            reference.status = 'error'
+            reference.message = 'Verification failed'
+            checkedReferences.push(reference)
+            continue
+          }
+
+          const result = await response.json()
+
+          // Handle the different possible responses:
+          if (Array.isArray(result)) {
+            if (result.length === 1 && result[0].ok === true) {
+              // Reference is verified correct
+              checkedReferences.push({
+                ...reference,
+                status: 'verified',
+                message: 'Reference verified correct'
+              })
             } else {
-                // Unexpected response format
-                console.error('Unexpected response format:', result)
-                reference.status = 'error'
-                reference.message = 'Invalid verification response'
-                checkedReferences.push(reference)
+              // We got corrected/multiple references
+              result.forEach((correctedRef, index) => {
+                checkedReferences.push({
+                  ...correctedRef,
+                  id: correctedRef.id || `${reference.id}-${index + 1}`,
+                  status: 'verified',
+                  message: 'Reference corrected/expanded'
+                })
+              })
             }
+          } else {
+            // Unexpected response format
+            console.error('Unexpected response format:', result)
+            reference.status = 'error'
+            reference.message = 'Invalid verification response'
+            checkedReferences.push(reference)
+          }
         }
 
-        parsedRefernces = checkedReferences
+        parsedReferences = checkedReferences
       }
 
       // STEP 2: REMOVE DUPLICATES
-      parsedRefernces = removeDuplicates(parsedRefernces)
+      parsedReferences = removeDuplicates(parsedReferences)
 
       // STEP 3: BATCH PROCESS SEARCH CALLS
       //console.log('🔍 Starting batch processing for search...')
 
       // this is the model for sending an update back to UI through the postMessage and into the queue...
       const referencesWithSearch = await searchReferenceService.processBatch(
-        parsedRefernces,
+        parsedReferences,
         (batchResults) => {
           //logReferences(batchResults)
-
           // Send batch results to the main thread
-          self.postMessage({
+          /*self.postMessage({
             type: 'search-update',
             pdfId,
             message: 'google searching...'
-          })
+          })*/
         }
       )
       //console.log('✅ search complete.')
@@ -187,4 +193,13 @@ const removeDuplicates = (references: any[]): any[] => {
   })
 
   return Array.from(uniqueSet.values())
+}
+
+const filterInvalidReferences = (references: Reference[]): Reference[] => {
+  return references.filter((ref) => {
+    const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0
+    const hasValidTitle =
+      typeof ref.title === 'string' && ref.title.trim() !== ''
+    return hasValidAuthors && hasValidTitle
+  })
 }

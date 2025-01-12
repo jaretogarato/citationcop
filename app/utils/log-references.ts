@@ -7,7 +7,7 @@ import type { Reference } from '@/app/types/reference'
 export const logReferences = (references: Reference[]): void => {
   console.log('🔍 References:')
   references.forEach((reference, index) => {
-    console.log(`Reference #${index + 1}:`)
+    console.log(`** Reference #${index + 1}:`)
     console.log(`  Title: ${reference.title}`)
     console.log(`  Authors: ${reference.authors.join(', ')}`)
     console.log(`  Status: ${reference.status}`)
@@ -23,9 +23,9 @@ export const logReferences = (references: Reference[]): void => {
         console.log(`      Snippet: ${result.snippet}`)
       })
     } else {
-      console.log('    No organic search results found.')
+      //console.log('    No organic search results found.')
     }
 
-    console.log('---')
+    //console.log('---')
   })
 }
