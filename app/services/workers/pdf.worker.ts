@@ -56,9 +56,17 @@ self.onmessage = async (e: MessageEvent) => {
 
       // STEP 1.5: IF NO REFERENCES FROM GROBID, Let the front end know.
       if (references.length === 0) {
-        /*parsedRefernces =
-          await pdfReferenceService.parseAndExtractReferences(file)*/
-        //console.log('📥 Received references from OpenAI:', parsedRefernces)
+        parsedReferences =
+          await pdfReferenceService.parseAndExtractReferences(file)
+        //console.log('📥 Received references from OpenAI:', parsedReferences)
+        noReferences = parsedReferences.length
+        
+        self.postMessage({
+          type: 'references',
+          pdfId: pdfId,
+          noReferences: parsedReferences.length,
+          message: `After second reference check, ${noReferences} found for ${pdfId}`
+        })
       } else if (highAccuracy) {
         // if HIGH-ACCURACY THEN DOUBLE-CHECK REFERENCES
         console.log('🔍 High Accuracy mode enabled. Verifying references...')

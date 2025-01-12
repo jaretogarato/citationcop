@@ -340,6 +340,14 @@
           message: `${noReferences} found for ${pdfId}`
         });
         if (references.length === 0) {
+          parsedReferences = await pdfReferenceService.parseAndExtractReferences(file);
+          noReferences = parsedReferences.length;
+          self.postMessage({
+            type: "references",
+            pdfId,
+            noReferences: parsedReferences.length,
+            message: `After second reference check, ${noReferences} found for ${pdfId}`
+          });
         } else if (highAccuracy) {
           console.log("\u{1F50D} High Accuracy mode enabled. Verifying references...");
           parsedReferences = await highAccuracyService.processBatch(parsedReferences);

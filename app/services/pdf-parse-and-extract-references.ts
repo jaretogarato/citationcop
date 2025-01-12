@@ -1,4 +1,5 @@
 import type { Reference } from '@/app/types/reference'
+import { filterInvalidReferences } from '@/app/utils/reference-helpers/reference-helpers'
 
 export class PDFParseAndExtractReferenceService {
   private openAIEndpoint: string
@@ -52,7 +53,6 @@ export class PDFParseAndExtractReferenceService {
     const { references }: { references: Reference[] } = await response.json()
     //console.log('📥 Received references from OpenAI:', references)
 
-    
     return references
   }
 }

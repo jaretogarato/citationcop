@@ -1,23 +1,23 @@
 // app/api/references/extract/route.ts
-import OpenAI from 'openai';
-import { NextResponse } from 'next/server';
+import OpenAI from 'openai'
+import { NextResponse } from 'next/server'
+import { filterInvalidReferences } from '@/app/utils/reference-helpers/reference-helpers'
 
-
-export const runtime = 'edge';
+export const runtime = 'edge'
 
 const openAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
-});
+})
 
 const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
 
 export async function POST(request: Request) {
   try {
     //console.log('*** Extracting references request received. In edge Function *** ');
-    const { text } = await request.json();
+    const { text } = await request.json()
 
     if (!text) {
-      return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Text is required' }, { status: 400 })
     }
 
     const prompt = `Extract the references from the following text and provide them in the following JSON format:
@@ -49,7 +49,7 @@ Text:
 
 ${text}
 
-References (in JSON format):`;
+References (in JSON format):`
 
     const response = await openAI.chat.completions.create({
       model: model,
@@ -57,43 +57,47 @@ References (in JSON format):`;
       temperature: 0.0
     })
 
-    let content = response.choices[0]?.message?.content;
+    let content = response.choices[0]?.message?.content
 
     if (!content) {
       return NextResponse.json(
         { error: 'No content received from LLM' },
         { status: 500 }
-      );
+      )
     }
 
     // Extract JSON content
-    const jsonStartIndex = content.indexOf('{');
-    const jsonEndIndex = content.lastIndexOf('}');
+    const jsonStartIndex = content.indexOf('{')
+    const jsonEndIndex = content.lastIndexOf('}')
 
     if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-      content = content.slice(jsonStartIndex, jsonEndIndex + 1);
+      content = content.slice(jsonStartIndex, jsonEndIndex + 1)
     } else {
       return NextResponse.json(
         { error: 'Response does not contain recognizable JSON structure' },
         { status: 500 }
-      );
+      )
     }
 
-    const parsedContent = JSON.parse(content);
+    const parsedContent = JSON.parse(content)
 
     if (!parsedContent.references || !Array.isArray(parsedContent.references)) {
       return NextResponse.json(
         { error: 'Parsed JSON does not contain a references array' },
         { status: 500 }
-      );
+      )
     }
-    console.log('*** Extracted content :', parsedContent);
-    return NextResponse.json(parsedContent);
+    console.log('*** Extracted content :', parsedContent)
+
+    // filter duplicates
+    const filteredReferences = filterInvalidReferences(parsedContent)
+
+    return NextResponse.json(filteredReferences)
   } catch (error) {
-    console.error('Error in reference extraction:', error);
+    console.error('Error in reference extraction:', error)
     return NextResponse.json(
       { error: 'Failed to extract references' },
       { status: 500 }
-    );
+    )
   }
 }
