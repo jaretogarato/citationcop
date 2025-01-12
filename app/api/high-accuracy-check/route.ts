@@ -1,6 +1,7 @@
 // app/api/high-accuracy-check/route.ts
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import type { Reference } from '@/app/types/reference'
 
 const API_KEY = process.env.OPENAI_API_KEY_1
 const openAI = new OpenAI({ apiKey: API_KEY })
@@ -77,10 +78,18 @@ export async function POST(request: Request) {
       throw new Error('No JSON array found in response')
     }
 
-    const result = JSON.parse(jsonMatch[0])
-   /*console.log(
+    let result = JSON.parse(jsonMatch[0])
+    /*console.log(
       `Reference processed in ${Date.now() - startTime}ms with key ${keyIndex}`
     )*/
+    if (result.ok !== true) {
+      result = result.map((ref: Reference) => {
+        return {
+          ...ref,
+          title: ref.title?.replace(/[.,;:]+$/, '').trim()
+        }
+      })
+    }
 
     return NextResponse.json(result)
   } catch (error) {

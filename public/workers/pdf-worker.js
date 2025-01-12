@@ -261,7 +261,7 @@
     if (type === "process") {
       try {
         const references = await referenceService.extractReferences(file);
-        let parsedReferences = filterInvalidReferences(references);
+        let parsedReferences = references;
         const noReferences = parsedReferences.length;
         self.postMessage({
           type: "references",
@@ -361,12 +361,5 @@
       }
     });
     return Array.from(uniqueSet.values());
-  };
-  var filterInvalidReferences = (references) => {
-    return references.filter((ref) => {
-      const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0;
-      const hasValidTitle = typeof ref.title === "string" && ref.title.trim() !== "";
-      return hasValidAuthors && hasValidTitle;
-    });
   };
 })();
