@@ -2,7 +2,10 @@
 
 import { WorkerMessage } from '../types'
 //import { GrobidReferenceService } from '../grobid-reference-service'
-import { PDFParseAndExtractReferenceService } from '@/app/services/pdf-parse-and-extract-references'
+//import { PDFParseAndExtractReferenceService } from '@/app/services/pdf-parse-and-extract-references'
+
+import { PDFTextExtractionService } from '@/app/services/pdf-text-extraction-service'
+import { ReferenceExtractionService } from '@/app/services/reference-extraction-service'
 import { SearchReferenceService } from '@/app/services/search-reference-service'
 import { VerifyReferenceService } from '../verify-reference-service'
 //import { URLContentVerifyService } from '../url-content-verify-service'
@@ -14,14 +17,11 @@ declare const self: DedicatedWorkerGlobalScope
 
 // Initialize services
 //const referenceService = new GrobidReferenceService('/api/grobid/references')
-const pdfReferenceService = new PDFParseAndExtractReferenceService(
+
+const pdfTextExtractionService = new PDFTextExtractionService()
+const refExtractionService = new ReferenceExtractionService(
   '/api/references/extract'
 )
-
-//const highAccuracyService = new HighAccuracyCheckService(
-//  '/api/high-accuracy-check'
-//)
-
 const searchReferenceService = new SearchReferenceService()
 const verifyReferenceService = new VerifyReferenceService()
 //const urlVerificationCheck = new URLContentVerifyService()
@@ -40,9 +40,26 @@ self.onmessage = async (e: MessageEvent) => {
       })
       // No Grobid, no problem
       // STEP 1
+
+      self.postMessage({
+        type: 'update',
+        pdfId,
+        message: `Parsing pdf: ${pdfId} `,
+      })
+      let pdfText = await pdfTextExtractionService.extractText(file)
+
+      console.log("pdfTEXT: ", pdfText)
+
+      self.postMessage({
+        type: 'update',
+        pdfId,
+        message: `Extracting references: ${pdfId} `,
+      })
       let parsedReferences =
-        await pdfReferenceService.parseAndExtractReferences(file)
-      //console.log('📥 Received references from OpenAI:', parsedReferences)
+        await refExtractionService.extractReferences(pdfText)
+
+      console.log('📥 Received references from OpenAI:', parsedReferences)
+
       let noReferences = parsedReferences.length
 
       self.postMessage({

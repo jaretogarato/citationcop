@@ -50,45 +50,6 @@
     }
   });
 
-  // app/utils/reference-helpers/reference-helpers.ts
-  var areAuthorsSimilar = (authors1, authors2) => {
-    if (Math.abs(authors1.length - authors2.length) > 1) return false;
-    const normalizeAndSort = (authors) => authors.map((a) => a.toLowerCase().trim()).sort();
-    const set1 = new Set(normalizeAndSort(authors1));
-    const set2 = new Set(normalizeAndSort(authors2));
-    let matches = 0;
-    for (const author of set1) {
-      if (set2.has(author)) matches++;
-    }
-    const threshold = Math.min(set1.size, set2.size) * 0.7;
-    return matches >= threshold;
-  };
-  var filterInvalidReferences = (references) => {
-    console.log("references into filter: ", references);
-    const validRefs = references.filter((ref) => {
-      const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0;
-      const hasValidTitle = typeof ref.title === "string" && ref.title.trim() !== "";
-      return hasValidAuthors && hasValidTitle;
-    });
-    const uniqueRefs = [];
-    for (const ref of validRefs) {
-      const normalizedTitle = ref.title.toLowerCase().trim();
-      let isDuplicate = false;
-      for (const existingRef of uniqueRefs) {
-        const existingTitle = existingRef.title.toLowerCase().trim();
-        if (normalizedTitle === existingTitle && areAuthorsSimilar(existingRef.authors, ref.authors)) {
-          isDuplicate = true;
-          break;
-        }
-      }
-      if (!isDuplicate) {
-        uniqueRefs.push(ref);
-      }
-    }
-    console.log("references out filter: ", uniqueRefs);
-    return uniqueRefs;
-  };
-
   // node_modules/pdfjs-dist/build/pdf.mjs
   var __webpack_require__ = {};
   (() => {
@@ -20251,110 +20212,153 @@
   var __webpack_exports__shadow = __webpack_exports__.shadow;
   var __webpack_exports__version = __webpack_exports__.version;
 
-  // app/services/pdf-parse-and-extract-references.ts
+  // app/services/pdf-text-extraction-service.ts
   __webpack_exports__GlobalWorkerOptions.workerSrc = "/pdf.worker.js";
   var pdfWorker = new __webpack_exports__PDFWorker();
-  var PDFParseAndExtractReferenceService = class {
-    openAIEndpoint;
-    constructor(openAIEndpoint) {
-      this.openAIEndpoint = openAIEndpoint;
-    }
-    async parsePDF(arrayBuffer) {
+  var PDFTextExtractionService = class {
+    async extractText(file) {
       try {
+        const arrayBuffer = await file.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
         const pdf = await __webpack_exports__getDocument({
           data: uint8Array,
           worker: pdfWorker
         }).promise;
-        let extractedText = [];
-        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
-          const page = await pdf.getPage(pageNumber);
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items.filter((item) => "transform" in item).map((item) => ({
-            text: item.str,
-            x: item.transform[4],
-            y: item.transform[5],
-            fontSize: item.height
-          }));
-          extractedText.push(...pageText);
+        let fullText = "";
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          try {
+            const page = await pdf.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            if (!textContent?.items?.length) continue;
+            const pageText = this.processPage(
+              textContent,
+              page.getViewport({ scale: 1 }).height
+            );
+            if (pageText) {
+              if (fullText) fullText += "\n\n";
+              fullText += pageText;
+            }
+          } catch (error) {
+            console.warn(`Error processing page ${pageNum}:`, error);
+            continue;
+          }
         }
-        return this.cleanText(extractedText);
+        return this.cleanOutput(fullText);
       } catch (error) {
         console.error("Error parsing PDF:", error);
         throw new Error("Failed to parse PDF");
       }
     }
-    cleanText(extractedText) {
-      let lines = extractedText.sort((a, b) => a.y - b.y || a.x - b.x).map((item) => item.text);
-      lines = lines.filter((line) => !this.isBoilerplateText(line));
-      lines = lines.filter(
-        (line) => this.isPotentialReference(line) || this.isAmbiguous(line)
-      );
-      return lines.join("\n");
-    }
-    isBoilerplateText(line) {
-      const boilerplatePatterns = [
-        /^Abstract$/i,
-        /^Introduction$/i,
-        /^Methodology$/i,
-        /^Results$/i,
-        /^Discussion$/i,
-        /^Conclusion$/i,
-        /^Table of Contents$/i,
-        /^Appendix$/i,
-        /^Page \d+$/i,
-        /^\d+$/,
-        /^\s*Figure \d+/i,
-        /^\s*Table \d+/i
-      ];
-      return boilerplatePatterns.some((pattern) => pattern.test(line.trim()));
-    }
-    isPotentialReference(line) {
-      const hasYear = /\b(19|20)\d{2}\b/.test(line);
-      const hasAuthors = /([A-Z][a-z]+[\s,]+){1,}/.test(line) || /[A-Z][a-z]+\s+and\s+[A-Z][a-z]+/.test(line);
-      const hasDOI = /doi\.org|DOI:/i.test(line);
-      const hasURL = /http|www\./i.test(line);
-      const hasVolume = /Vol\.|Volume|\b\d+\(\d+\)/.test(line);
-      const hasPages = /pp\.|pages|[\d]+[-–]\d+/.test(line);
-      const hasJournal = /Journal|Proceedings|Conference|Trans\.|Symposium/i.test(
-        line
-      );
-      const hasCitation = /^\[\d+\]/.test(line) || /\(\d{4}\)/.test(line);
-      const referenceIndicators = [
-        hasYear,
-        hasAuthors,
-        hasDOI,
-        hasURL,
-        hasVolume,
-        hasPages,
-        hasJournal,
-        hasCitation
-      ].filter(Boolean).length;
-      return referenceIndicators >= 2;
-    }
-    isAmbiguous(line) {
-      return line.trim().length > 30 && !this.isBoilerplateText(line);
-    }
-    async parseAndExtractReferences(file) {
+    processPage(textContent, pageHeight) {
       try {
-        const arrayBuffer = await file.arrayBuffer();
-        const parsedText = await this.parsePDF(arrayBuffer);
+        const lines = this.groupIntoLines(textContent.items, pageHeight);
+        lines.sort((a, b) => b.y - a.y);
+        return lines.map((line) => line.text).join("\n");
+      } catch (error) {
+        console.warn("Error processing page:", error);
+        return "";
+      }
+    }
+    groupIntoLines(items, pageHeight) {
+      const lines = /* @__PURE__ */ new Map();
+      const yPositions = /* @__PURE__ */ new Set();
+      for (const item of items) {
+        if (!("transform" in item)) continue;
+        const y = Math.round(item.transform[5]);
+        const text = this.cleanText(item.str);
+        if (!text || y < pageHeight * 0.1 || y > pageHeight * 0.9) continue;
+        yPositions.add(y);
+        if (!lines.has(y)) {
+          lines.set(y, []);
+        }
+        lines.get(y)?.push(text);
+      }
+      const result = [];
+      let lineIndex = 0;
+      for (const y of Array.from(yPositions)) {
+        const texts = lines.get(y);
+        if (texts) {
+          result.push({
+            text: texts.join(" "),
+            y,
+            lineIndex: lineIndex++
+          });
+        }
+      }
+      return result;
+    }
+    cleanText(text) {
+      if (!text) return "";
+      return text.replace(/[\u0000-\u001F\u007F-\u009F]/g, "").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/­/g, "").replace(/\s+/g, " ").trim();
+    }
+    cleanOutput(text) {
+      if (!text) return "";
+      return text.replace(/\n{3,}/g, "\n\n").replace(/\s+/g, " ").trim();
+    }
+  };
+
+  // app/utils/reference-helpers/reference-helpers.ts
+  var areAuthorsSimilar = (authors1, authors2) => {
+    if (Math.abs(authors1.length - authors2.length) > 1) return false;
+    const normalizeAndSort = (authors) => authors.map((a) => a.toLowerCase().trim()).sort();
+    const set1 = new Set(normalizeAndSort(authors1));
+    const set2 = new Set(normalizeAndSort(authors2));
+    let matches = 0;
+    for (const author of set1) {
+      if (set2.has(author)) matches++;
+    }
+    const threshold = Math.min(set1.size, set2.size) * 0.7;
+    return matches >= threshold;
+  };
+  var filterInvalidReferences = (references) => {
+    console.log("references into filter: ", references);
+    const validRefs = references.filter((ref) => {
+      const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0;
+      const hasValidTitle = typeof ref.title === "string" && ref.title.trim() !== "";
+      return hasValidAuthors && hasValidTitle;
+    });
+    const uniqueRefs = [];
+    for (const ref of validRefs) {
+      const normalizedTitle = ref.title.toLowerCase().trim();
+      let isDuplicate = false;
+      for (const existingRef of uniqueRefs) {
+        const existingTitle = existingRef.title.toLowerCase().trim();
+        if (normalizedTitle === existingTitle && areAuthorsSimilar(existingRef.authors, ref.authors)) {
+          isDuplicate = true;
+          break;
+        }
+      }
+      if (!isDuplicate) {
+        uniqueRefs.push(ref);
+      }
+    }
+    console.log("references out filter: ", uniqueRefs);
+    return uniqueRefs;
+  };
+
+  // app/services/reference-extraction-service.ts
+  var ReferenceExtractionService = class {
+    openAIEndpoint;
+    constructor(openAIEndpoint) {
+      this.openAIEndpoint = openAIEndpoint;
+    }
+    async extractReferences(text) {
+      try {
         const response = await fetch(this.openAIEndpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ text: parsedText })
+          body: JSON.stringify({ text })
         });
         if (!response.ok) {
           throw new Error(`OpenAI API failed: ${response.statusText}`);
         }
         const { references } = await response.json();
         console.log("\u{1F4E5} Received references from OpenAI:", references);
-        const filteredReferences = filterInvalidReferences(references);
-        return filteredReferences;
+        return filterInvalidReferences(references);
       } catch (error) {
-        console.error("Error in parseAndExtractReferences:", error);
+        console.error("Error in extractReferences:", error);
         throw error;
       }
     }
@@ -20484,7 +20488,8 @@
   };
 
   // app/services/workers/verification.worker.ts
-  var pdfReferenceService = new PDFParseAndExtractReferenceService(
+  var pdfTextExtractionService = new PDFTextExtractionService();
+  var refExtractionService = new ReferenceExtractionService(
     "/api/references/extract"
   );
   var searchReferenceService = new SearchReferenceService();
@@ -20498,7 +20503,20 @@
           pdfId,
           message: `Worker launched for : ${pdfId}`
         });
-        let parsedReferences = await pdfReferenceService.parseAndExtractReferences(file);
+        self.postMessage({
+          type: "update",
+          pdfId,
+          message: `Parsing pdf: ${pdfId} `
+        });
+        let pdfText = await pdfTextExtractionService.extractText(file);
+        console.log("pdfTEXT: ", pdfText);
+        self.postMessage({
+          type: "update",
+          pdfId,
+          message: `Extracting references: ${pdfId} `
+        });
+        let parsedReferences = await refExtractionService.extractReferences(pdfText);
+        console.log("\u{1F4E5} Received references from OpenAI:", parsedReferences);
         let noReferences = parsedReferences.length;
         self.postMessage({
           type: "references",
