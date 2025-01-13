@@ -12,25 +12,15 @@ import { createClient } from '@supabase/supabase-js'
 import {
   getUser,
   getUserDetails,
-  getSubscription
+  getSubscriptionWithPriceAndProduct
 } from '@/app/utils/supabase/queries'
-
-// Define types for your data
-interface UserDetails {
-  id: string
-  // ... add other user detail fields
-}
-
-interface Subscription {
-  id: string
-  status: string
-  // ... add other subscription fields
-}
+import type { SubscriptionWithPriceAndProduct } from '@/app/types/supabase/subscription'
+import type { UserDetails } from '@/app/types/supabase/user'
 
 interface AuthContextData {
   user: User | null
   userDetails: UserDetails | null
-  subscription: Subscription | null
+  subscription: SubscriptionWithPriceAndProduct | null
   isLoading: boolean
   refreshAuth: () => Promise<void>
 }
@@ -45,7 +35,7 @@ const AuthContext = createContext<AuthContextData | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null)
-  const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [subscription, setSubscription] = useState<SubscriptionWithPriceAndProduct | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const loadAuthData = async () => {
@@ -56,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (currentUser) {
         const [details, subs] = await Promise.all([
           getUserDetails(supabase),
-          getSubscription(supabase)
+          getSubscriptionWithPriceAndProduct(supabase)
         ])
 
         setUser(currentUser)

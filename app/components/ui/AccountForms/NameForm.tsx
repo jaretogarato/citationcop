@@ -6,10 +6,10 @@ import { updateName } from '@/app/utils/auth-helpers/server'
 import { handleRequest } from '@/app/utils/auth-helpers/client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { UserDetails } from '@/app/types/user' // Importing the UserDetails type
+import { UserDetails } from '@/app/types/supabase/user' 
 
 type NameFormProps = {
-  userName: UserDetails['full_name'] // Type `userName` using UserDetails type for consistency
+  userName: UserDetails['full_name'] 
 }
 
 export default function NameForm({ userName }: NameFormProps) {
@@ -63,7 +63,7 @@ export default function NameForm({ userName }: NameFormProps) {
             type="text"
             name="fullName"
             className="w-1/2 p-3 rounded-md bg-zinc-800"
-            defaultValue={userName}
+            defaultValue={userName ?? ''}
             placeholder="Your name"
             maxLength={64}
           />

@@ -1,23 +1,22 @@
 // utils/supabase/queries.ts
-import type {
-  SupabaseClient,
-  User as SupabaseUser
-} from '@supabase/supabase-js';
-import type { Tables } from 'types_db';
+import { cache } from 'react'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { 
+  ProductWithPrices,
+  SubscriptionWithPriceAndProduct
+} from '@/app/types/supabase/subscription'
 
-
-type Product = Tables<'products'>;
-type Price = Tables<'prices'>;
-interface ProductWithPrices extends Product {
-  prices: Price[];
-}
-
-import { cache } from 'react';
-import {
+import type { GetUserResponse,
   UserDetailsResponse,
-  GetUserResponse,
-  UserDetails
-} from '@/app/types/user'; // Importing shared types
+  UserDetails } from '@/app/types/supabase/user'
+
+// Type for database query error responses
+interface DatabaseError {
+  message: string
+  code: string
+  details: string | null
+  hint: string
+}
 
 export const getUser = cache(
   async (supabase: SupabaseClient): Promise<GetUserResponse> => {
@@ -25,14 +24,12 @@ export const getUser = cache(
       const {
         data: { user },
         error
-      } = await supabase.auth.getUser();
+      } = await supabase.auth.getUser()
 
-      // If there's an auth error indicating no session/user
       if (error?.status === 401) {
-        return { user: null, error: null };
+        return { user: null, error: null }
       }
 
-      // If there's any other type of error
       if (error) {
         return {
           user: null,
@@ -41,16 +38,14 @@ export const getUser = cache(
             status: error.status,
             name: error.name
           }
-        };
+        }
       }
 
-      // Successful case with user
-      return { user, error: null };
+      return { user, error: null }
     } catch (error) {
-      // Unexpected errors (network issues, etc)
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error occurred';
-      console.error('Error getting user:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      console.error('Error getting user:', error)
+      
       return {
         user: null,
         error: {
@@ -58,96 +53,93 @@ export const getUser = cache(
           name: error instanceof Error ? error.name : 'UnknownError',
           status: 500
         }
-      };
+      }
     }
   }
-);
+)
 
 export const getUserDetails = cache(
   async (supabase: SupabaseClient): Promise<UserDetailsResponse> => {
     try {
-      const { data, error } = await supabase.from('users').select('*').single();
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .single()
 
-      // Handle "no rows returned" case (PGRST116)
       if (error?.code === 'PGRST116') {
-        return {
-          data: null,
-          error: null
-        };
+        return { data: null, error: null }
       }
 
-      // Handle other database errors
       if (error) {
-        return {
-          data: null,
-          error: {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint
-          }
-        };
+        const dbError: DatabaseError = {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        }
+        return { data: null, error: dbError }
       }
 
-      // Successful case with user details
       return {
         data: data as UserDetails,
         error: null
-      };
+      }
     } catch (error) {
-      // Handle unexpected errors (network issues, etc)
-      console.error('Error getting user details:', error);
-      return {
-        data: null,
-        error: {
-          message:
-            error instanceof Error ? error.message : 'Unknown error occurred',
-          code: 'UNEXPECTED_ERROR',
-          details: null,
-          hint: 'This might be a network or server issue'
-        }
-      };
+      console.error('Error getting user details:', error)
+      
+      const dbError: DatabaseError = {
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        code: 'UNEXPECTED_ERROR',
+        details: null,
+        hint: 'This might be a network or server issue'
+      }
+      
+      return { data: null, error: dbError }
     }
   }
-);
+)
 
-export const getSubscription = cache(async (supabase: SupabaseClient) => {
-  try {
-    const { data, error } = await supabase
-      .from('subscriptions')
-      .select('*, prices(*, products(*))')
-      .in('status', ['trialing', 'active'])
-      .maybeSingle();
-    if (error) throw error;
-    return data;
-  } catch (error) {
-    console.error('Error getting subscription:', error);
-    return null;
-  }
-});
+export const getSubscriptionWithPriceAndProduct = cache(
+  async (supabase: SupabaseClient): Promise<SubscriptionWithPriceAndProduct | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*, prices(*, products(*))')
+        .in('status', ['trialing', 'active'])
+        .maybeSingle()
 
-export const getProducts = cache(async (supabase: SupabaseClient) => {
-  try {
-    const { data, error } = await supabase
-      .from('products')
-      .select(`
-        *,
-        prices (
-          *
-        )
-      `)
-      .eq('active', true)
-      .eq('prices.active', true);  // Only get active prices
-
-    //console.log('Raw database response:', data);
-
-    if (error) {
-      console.error('Database error:', error);
-      throw error;
+      if (error) throw error
+      return data as SubscriptionWithPriceAndProduct
+    } catch (error) {
+      console.error('Error getting subscription:', error)
+      return null
     }
-    return data;
-  } catch (error) {
-    console.error('Error getting products:', error);
-    return null;
   }
-});
+)
+
+export const getProductsAndPrices = cache(
+  async (supabase: SupabaseClient): Promise<ProductWithPrices[] | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          prices (
+            *
+          )
+        `)
+        .eq('active', true)
+        .eq('prices.active', true)
+
+      if (error) {
+        console.error('Database error:', error)
+        throw error
+      }
+
+      return data as ProductWithPrices[]
+    } catch (error) {
+      console.error('Error getting products:', error)
+      return null
+    }
+  }
+)
