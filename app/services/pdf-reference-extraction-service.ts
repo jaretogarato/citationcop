@@ -18,7 +18,7 @@ export class PDFReferenceExtractionService {
    * If you're in a browser context where you have a `File` from an <input> element,
    * call this method with that File to parse references.
    */
-  public async parseReferencesFromFile(file: File): Promise<String> {
+  public async parseReferencesFromFile(file: File): Promise<string> {
     // 1. Convert File to ArrayBuffer
     const arrayBuffer = await file.arrayBuffer()
 

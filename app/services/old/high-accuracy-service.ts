@@ -6,7 +6,7 @@ export class HighAccuracyCheckService {
   constructor(private apiEndpoint: string = '/api/high-accuracy-check') {}
 
   private async verifyReference(reference: Reference): Promise<Reference[]> {
-    try {
+    try { 
       const response = await fetch(this.apiEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

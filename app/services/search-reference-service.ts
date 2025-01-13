@@ -4,7 +4,7 @@ import type {
   GoogleSearchResult
 } from '@/app/types/reference'
 
-const BATCH_SIZE = 5
+const BATCH_SIZE = 3
 
 export class SearchReferenceService {
   private async processReference(reference: Reference): Promise<Reference> {
@@ -87,7 +87,7 @@ export class SearchReferenceService {
       currentIndex += BATCH_SIZE
 
       // Add a small delay between batches for throttling
-      await new Promise((resolve) => setTimeout(resolve, 100))
+      await new Promise((resolve) => setTimeout(resolve, 250))
     }
 
     //console.log('All references processed:', processedRefs)

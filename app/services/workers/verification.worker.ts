@@ -1,30 +1,22 @@
 /// <reference lib="webworker" />
 
 import { WorkerMessage } from '../types'
-//import { GrobidReferenceService } from '../grobid-reference-service'
-//import { PDFParseAndExtractReferenceService } from '@/app/services/pdf-parse-and-extract-references'
 
-/*(import { PDFTextExtractionService } from '@/app/services/pdf-text-extraction-service'
-import { ReferenceExtractionService } from '@/app/services/reference-extraction-service'*/
+import { ReferenceExtractionService } from '@/app/services/reference-extraction-service'
 import { PDFReferenceExtractionService } from '@/app/services/pdf-reference-extraction-service'
 import { SearchReferenceService } from '@/app/services/search-reference-service'
 import { VerifyReferenceService } from '../verify-reference-service'
-//import { URLContentVerifyService } from '../url-content-verify-service'
-//import { HighAccuracyCheckService } from '@/app/services/high-accuracy-service'
 import type { Reference } from '@/app/types/reference'
-import { logSimpleReferences } from '@/app/utils/reference-helpers/log-references'
+//import { logSimpleReferences } from '@/app/utils/reference-helpers/log-references'
 
 declare const self: DedicatedWorkerGlobalScope
 
 // Initialize services
-//const referenceService = new GrobidReferenceService('/api/grobid/references')
-
-//const pdfTextExtractionService = new PDFTextExtractionService()
 
 const pdfRefExtractService = new PDFReferenceExtractionService()
-//const refExtractionService = new ReferenceExtractionService(
-//  '/api/references/extract'
-//)
+const refExtractionService = new ReferenceExtractionService(
+  '/api/references/extract'
+)
 const searchReferenceService = new SearchReferenceService()
 const verifyReferenceService = new VerifyReferenceService()
 //const urlVerificationCheck = new URLContentVerifyService()
@@ -50,34 +42,50 @@ self.onmessage = async (e: MessageEvent) => {
         message: `Parsing pdf: ${pdfId} `
       })
 
-      const parsedText =
-        await pdfRefExtractService.parseReferencesFromFile(file)
-      console.log('Parsed references:', parsedText)
+      const pdfText = await pdfRefExtractService.parseReferencesFromFile(file)
 
-      //console.log("pdfTEXT: ", text)
+      console.log('Parsed references:', pdfText)
 
-      //let parsedReferences =
-      //  await refExtractionService.extractReferences(pdfText)
+      if (pdfText === '') {
+        console.log(`No references found in PDF ${pdfId}. Skipping processing.`);
+        self.postMessage({
+          type: 'update',
+          pdfId,
+          message: `No references found for ${pdfId}.`
+        });
+        self.postMessage({
+          type: 'complete',
+          pdfId,
+          noReferences: 0,
+          message: `Processing complete for ${pdfId}.`
+        });
+        return;
+      }
 
-      //console.log('📥 Received references from OpenAI:', parsedReferences)
+      //console.log("pdfTEXT: ", pdfText)
 
-      //let noReferences = parsedReferences.length
+      let parsedReferences =
+        await refExtractionService.extractReferences(pdfText)
+
+      console.log('📥 Received references from OpenAI:', parsedReferences)
+
+      let noReferences = parsedReferences.length
 
       self.postMessage({
         type: 'references',
         pdfId: pdfId,
-        noReferences: 2,
-        message: `SV found ${2} for ${pdfId}`
+        noReferences: noReferences,
+        message: `SV found ${noReferences} for ${pdfId}`
       })
 
       // STEP 2: BATCH PROCESS SEARCH CALLS
       //console.log('🔍 Starting batch processing for search...')
 
-      //console.log("before search")
+      console.log('before search')
       //logSimpleReferences(parsedReferences)
       // this is the model for sending an update back to UI through the postMessage and into the queue...
 
-      /*const referencesWithSearch = await searchReferenceService.processBatch(
+      const referencesWithSearch = await searchReferenceService.processBatch(
         parsedReferences,
         (batchResults) => {
           //logReferences(batchResults)
@@ -88,23 +96,23 @@ self.onmessage = async (e: MessageEvent) => {
             message: `✅ search complete. for ${pdfId} `
           })
         }
-      )*/
+      )
 
       //console.log('***** AFTER search ******')
       //logSimpleReferences(referencesWithSearch)
 
-      // STEP 4: Verify references with URLs only
+      //STEP 4: Verify references with URLs only
       //console.log('🌐 Verifying references with URLs...')
-      /*const urlVerifiedreferences =
-        await urlVerificationCheck.verifyReferencesWithUrls(
-          referencesWithSearch
-        )*/
+      //const urlVerifiedreferences =
+      //  await urlVerificationCheck.verifyReferencesWithUrls(
+      //   referencesWithSearch
+      //)
       //console.log('✅ URL verification complete.')
       //logReferences(urlVerifiedreferences)
 
       // STEP 5: FINAL VERIFICATION
       //console.log('*** final verification ***')
-      /*const verifiedReferences: Reference[] =
+      const verifiedReferences: Reference[] =
         await verifyReferenceService.processBatch(
           referencesWithSearch,
           (batchResults) => {
@@ -116,11 +124,11 @@ self.onmessage = async (e: MessageEvent) => {
             })
           }
         )
-*/
+
       // print them out for a check
       console.log('****   MESSAGES After verification  ***')
       //logSimpleReferences(verifiedReferences)
-      const verifiedReferences: Reference[] = []
+
       // Send completion message with references back to the main thread
       self.postMessage({
         type: 'complete',

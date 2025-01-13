@@ -50,6 +50,73 @@
     }
   });
 
+  // app/utils/reference-helpers/reference-helpers.ts
+  var areAuthorsSimilar = (authors1, authors2) => {
+    if (Math.abs(authors1.length - authors2.length) > 1) return false;
+    const normalizeAndSort = (authors) => authors.map((a) => a.toLowerCase().trim()).sort();
+    const set1 = new Set(normalizeAndSort(authors1));
+    const set2 = new Set(normalizeAndSort(authors2));
+    let matches = 0;
+    for (const author of set1) {
+      if (set2.has(author)) matches++;
+    }
+    const threshold = Math.min(set1.size, set2.size) * 0.7;
+    return matches >= threshold;
+  };
+  var filterInvalidReferences = (references) => {
+    console.log("references into filter: ", references);
+    const validRefs = references.filter((ref) => {
+      const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0;
+      const hasValidTitle = typeof ref.title === "string" && ref.title.trim() !== "";
+      return hasValidAuthors && hasValidTitle;
+    });
+    const uniqueRefs = [];
+    for (const ref of validRefs) {
+      const normalizedTitle = ref.title.toLowerCase().trim();
+      let isDuplicate = false;
+      for (const existingRef of uniqueRefs) {
+        const existingTitle = existingRef.title.toLowerCase().trim();
+        if (normalizedTitle === existingTitle && areAuthorsSimilar(existingRef.authors, ref.authors)) {
+          isDuplicate = true;
+          break;
+        }
+      }
+      if (!isDuplicate) {
+        uniqueRefs.push(ref);
+      }
+    }
+    console.log("references out filter: ", uniqueRefs);
+    return uniqueRefs;
+  };
+
+  // app/services/reference-extraction-service.ts
+  var ReferenceExtractionService = class {
+    openAIEndpoint;
+    constructor(openAIEndpoint) {
+      this.openAIEndpoint = openAIEndpoint;
+    }
+    async extractReferences(text) {
+      try {
+        const response = await fetch(this.openAIEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ text })
+        });
+        if (!response.ok) {
+          throw new Error(`OpenAI API failed: ${response.statusText}`);
+        }
+        const { references } = await response.json();
+        console.log("\u{1F4E5} Received references from OpenAI:", references);
+        return filterInvalidReferences(references);
+      } catch (error) {
+        console.error("Error in extractReferences:", error);
+        throw error;
+      }
+    }
+  };
+
   // node_modules/pdfjs-dist/build/pdf.mjs
   var __webpack_require__ = {};
   (() => {
@@ -20235,6 +20302,10 @@
     async parseReferencesFromPdfBuffer(pdfBuffer) {
       const doc = await __webpack_exports__getDocument({ data: pdfBuffer }).promise;
       const refLines = await this.getRefLines(doc);
+      if (refLines.length === 0) {
+        console.log("No references or bibliography section found in the PDF.");
+        return "";
+      }
       const mergedRefs = this.mergeSameRef(refLines);
       return mergedRefs.map((line) => line.text).join("\n");
     }
@@ -20430,6 +20501,10 @@
             foundReferences = true;
             break;
           }
+          if (!foundReferences) {
+            console.log("No References or Bibliography section found.");
+            return [];
+          }
           collectedLines.push(line);
         }
       }
@@ -20458,7 +20533,7 @@
   };
 
   // app/services/search-reference-service.ts
-  var BATCH_SIZE = 5;
+  var BATCH_SIZE = 3;
   var SearchReferenceService = class {
     async processReference(reference) {
       const query = `${reference.title} ${reference.authors.join(" ")}`;
@@ -20506,7 +20581,7 @@
         processedRefs.push(...results);
         onBatchComplete(results);
         currentIndex += BATCH_SIZE;
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 250));
       }
       return processedRefs;
     }
@@ -20569,6 +20644,9 @@
 
   // app/services/workers/verification.worker.ts
   var pdfRefExtractService = new PDFReferenceExtractionService();
+  var refExtractionService = new ReferenceExtractionService(
+    "/api/references/extract"
+  );
   var searchReferenceService = new SearchReferenceService();
   var verifyReferenceService = new VerifyReferenceService();
   self.onmessage = async (e) => {
@@ -20585,16 +20663,55 @@
           pdfId,
           message: `Parsing pdf: ${pdfId} `
         });
-        const parsedText = await pdfRefExtractService.parseReferencesFromFile(file);
-        console.log("Parsed references:", parsedText);
+        const pdfText = await pdfRefExtractService.parseReferencesFromFile(file);
+        console.log("Parsed references:", pdfText);
+        if (pdfText === "") {
+          console.log(`No references found in PDF ${pdfId}. Skipping processing.`);
+          self.postMessage({
+            type: "update",
+            pdfId,
+            message: `No references found for ${pdfId}.`
+          });
+          self.postMessage({
+            type: "complete",
+            pdfId,
+            noReferences: 0,
+            message: `Processing complete for ${pdfId}.`
+          });
+          return;
+        }
+        let parsedReferences = await refExtractionService.extractReferences(pdfText);
+        console.log("\u{1F4E5} Received references from OpenAI:", parsedReferences);
+        let noReferences = parsedReferences.length;
         self.postMessage({
           type: "references",
           pdfId,
-          noReferences: 2,
-          message: `SV found ${2} for ${pdfId}`
+          noReferences,
+          message: `SV found ${noReferences} for ${pdfId}`
         });
+        console.log("before search");
+        const referencesWithSearch = await searchReferenceService.processBatch(
+          parsedReferences,
+          (batchResults) => {
+            self.postMessage({
+              type: "update",
+              pdfId,
+              message: `\u2705 search complete. for ${pdfId} `
+            });
+          }
+        );
+        const verifiedReferences = await verifyReferenceService.processBatch(
+          referencesWithSearch,
+          (batchResults) => {
+            self.postMessage({
+              type: "verification-update",
+              pdfId,
+              message: "Verifying references...",
+              batchResults
+            });
+          }
+        );
         console.log("****   MESSAGES After verification  ***");
-        const verifiedReferences = [];
         self.postMessage({
           type: "complete",
           pdfId,
