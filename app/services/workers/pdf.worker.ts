@@ -1,14 +1,14 @@
 /// <reference lib="webworker" />
 
 import { WorkerMessage } from '../types'
-import { GrobidReferenceService } from '../grobid-reference-service'
+//import { GrobidReferenceService } from '../grobid-reference-service'
 import { PDFParseAndExtractReferenceService } from '@/app/services/pdf-parse-and-extract-references'
 import { SearchReferenceService } from '@/app/services/search-reference-service'
 import { VerifyReferenceService } from '../verify-reference-service'
 import { URLContentVerifyService } from '../url-content-verify-service'
-import { HighAccuracyCheckService } from '@/app/services/high-accuracy-service'
+//import { HighAccuracyCheckService } from '@/app/services/high-accuracy-service'
 import type { Reference } from '@/app/types/reference'
-import { logReferences } from '@/app/utils/reference-helpers/log-references'
+import { logSimpleReferences } from '@/app/utils/reference-helpers/log-references'
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -50,8 +50,8 @@ self.onmessage = async (e: MessageEvent) => {
       // STEP 2: BATCH PROCESS SEARCH CALLS
       //console.log('🔍 Starting batch processing for search...')
 
-      console.log("before search")
-      logReferences(parsedReferences)
+      //console.log("before search")
+      //logSimpleReferences(parsedReferences)
       // this is the model for sending an update back to UI through the postMessage and into the queue...
       const referencesWithSearch = await searchReferenceService.processBatch(
         parsedReferences,
@@ -67,7 +67,7 @@ self.onmessage = async (e: MessageEvent) => {
       )
 
       console.log("***** AFTER search ******")
-      logReferences(referencesWithSearch)
+      logSimpleReferences(referencesWithSearch)
 
       // STEP 4: Verify references with URLs only
       //console.log('🌐 Verifying references with URLs...')
@@ -94,7 +94,8 @@ self.onmessage = async (e: MessageEvent) => {
         )
 
       // print them out for a check
-      //logReferences(verifiedReferences)
+      console.log("****   MESSAGES After verification  ***")
+      logSimpleReferences(verifiedReferences)
 
       // Send completion message with references back to the main thread
       self.postMessage({
