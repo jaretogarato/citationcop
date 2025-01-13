@@ -20212,155 +20212,404 @@
   var __webpack_exports__shadow = __webpack_exports__.shadow;
   var __webpack_exports__version = __webpack_exports__.version;
 
-  // app/services/pdf-text-extraction-service.ts
-  __webpack_exports__GlobalWorkerOptions.workerSrc = "/pdf.worker.js";
-  var pdfWorker = new __webpack_exports__PDFWorker();
-  var PDFTextExtractionService = class {
-    async extractText(file) {
+  // app/utils/reference-helpers/utils.ts
+  var Utils = class {
+    /**
+     * Regex patterns for extracting DOIs, arXiv IDs, and URLs.
+     */
+    regex = {
+      DOI: /10\.\d{4,9}\/[-\._;()\/:A-Za-z0-9><]+[^\.\]]/,
+      arXiv: /arXiv[\.:](\d+\.\d+)/,
+      URL: /https?:\/\/[^\s.]+/
+    };
+    /**
+     * Extract identifiers (DOI, arXiv) from a line of text.
+     */
+    getIdentifiers(text) {
+      const targets = [
+        { key: "DOI", ignoreSpace: true, regex: this.regex.DOI },
+        { key: "arXiv", ignoreSpace: true, regex: this.regex.arXiv }
+      ];
+      const identifiers = {};
+      for (const target of targets) {
+        const source = target.ignoreSpace ? text.replace(/\s+/g, "") : text;
+        const res = source.match(target.regex);
+        if (res) {
+          identifiers[target.key] = res.slice(-1)[0];
+        }
+      }
+      return identifiers;
+    }
+    /**
+     * Extract a URL from text if it matches the `URL` regex.
+     */
+    extractURL(text) {
+      const res = text.match(this.regex.URL);
+      return res ? res.slice(-1)[0] : void 0;
+    }
+    /**
+     * "Main" reference text parser. Attempts to extract:
+     *  - year
+     *  - authors
+     *  - title
+     *  - publicationVenue (if relevant)
+     *
+     * This is all heuristic-based, so feel free to simplify if it's too customized.
+     */
+    parseRefText(text) {
       try {
-        const arrayBuffer = await file.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        const pdf = await __webpack_exports__getDocument({
-          data: uint8Array,
-          worker: pdfWorker
-        }).promise;
-        let fullText = "";
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-          try {
-            const page = await pdf.getPage(pageNum);
-            const textContent = await page.getTextContent();
-            if (!textContent?.items?.length) continue;
-            const pageText = this.processPage(
-              textContent,
-              page.getViewport({ scale: 1 }).height
-            );
-            if (pageText) {
-              if (fullText) fullText += "\n\n";
-              fullText += pageText;
-            }
-          } catch (error) {
-            console.warn(`Error processing page ${pageNum}:`, error);
-            continue;
+        let input = text;
+        input = input.replace(/^\[\d+?\]/, "").replace(/\s+/g, " ");
+        let title;
+        let titleMatch;
+        const quoteMatch = input.match(/\u201c(.+)\u201d/);
+        if (quoteMatch) {
+          [titleMatch, title] = quoteMatch;
+          if (title.endsWith(",")) {
+            title = title.slice(0, -1);
+          }
+        } else {
+          const chunks = input.indexOf(". ") !== -1 && input.match(/\.\s/g)?.length >= 2 ? input.split(". ") : input.split(".");
+          const sorted = chunks.sort((a, b) => b.length - a.length).map((s) => {
+            let count = 0;
+            [/[A-Z]\./g, /[,\.\-\(\)\:]/g, /\d/g].forEach((regex) => {
+              const res = s.match(regex);
+              count += res ? res.length : 0;
+            });
+            return [count / s.length, s];
+          }).filter((val) => val[1].match(/\s+/g)?.length >= 3).sort((a, b) => a[0] - b[0]);
+          title = sorted[0] && sorted[0][1] || input;
+          titleMatch = title;
+          if (/\[[A-Z]\]$/.test(title)) {
+            title = title.replace(/\[[A-Z]\]$/, "");
           }
         }
-        return this.cleanOutput(fullText);
-      } catch (error) {
-        console.error("Error parsing PDF:", error);
-        throw new Error("Failed to parse PDF");
-      }
-    }
-    processPage(textContent, pageHeight) {
-      try {
-        const lines = this.groupIntoLines(textContent.items, pageHeight);
-        lines.sort((a, b) => b.y - a.y);
-        return lines.map((line) => line.text).join("\n");
-      } catch (error) {
-        console.warn("Error processing page:", error);
-        return "";
-      }
-    }
-    groupIntoLines(items, pageHeight) {
-      const lines = /* @__PURE__ */ new Map();
-      const yPositions = /* @__PURE__ */ new Set();
-      for (const item of items) {
-        if (!("transform" in item)) continue;
-        const y = Math.round(item.transform[5]);
-        const text = this.cleanText(item.str);
-        if (!text || y < pageHeight * 0.1 || y > pageHeight * 0.9) continue;
-        yPositions.add(y);
-        if (!lines.has(y)) {
-          lines.set(y, []);
+        title = title.trim();
+        const splitByTitle = input.split(titleMatch);
+        const authorInfo = (splitByTitle[0] || "").trim();
+        let publicationVenue = "";
+        if (splitByTitle[1]) {
+          const matchVenue = splitByTitle[1].match(/[^.\s].+[^\.]/);
+          publicationVenue = matchVenue ? matchVenue[0].split(/[,\d]/)[0].trim() : "";
         }
-        lines.get(y)?.push(text);
-      }
-      const result = [];
-      let lineIndex = 0;
-      for (const y of Array.from(yPositions)) {
-        const texts = lines.get(y);
-        if (texts) {
-          result.push({
-            text: texts.join(" "),
-            y,
-            lineIndex: lineIndex++
-          });
-        }
-      }
-      return result;
-    }
-    cleanText(text) {
-      if (!text) return "";
-      return text.replace(/[\u0000-\u001F\u007F-\u009F]/g, "").replace(/[\u200B-\u200D\uFEFF]/g, "").replace(/­/g, "").replace(/\s+/g, " ").trim();
-    }
-    cleanOutput(text) {
-      if (!text) return "";
-      return text.replace(/\n{3,}/g, "\n\n").replace(/\s+/g, " ").trim();
-    }
-  };
-
-  // app/utils/reference-helpers/reference-helpers.ts
-  var areAuthorsSimilar = (authors1, authors2) => {
-    if (Math.abs(authors1.length - authors2.length) > 1) return false;
-    const normalizeAndSort = (authors) => authors.map((a) => a.toLowerCase().trim()).sort();
-    const set1 = new Set(normalizeAndSort(authors1));
-    const set2 = new Set(normalizeAndSort(authors2));
-    let matches = 0;
-    for (const author of set1) {
-      if (set2.has(author)) matches++;
-    }
-    const threshold = Math.min(set1.size, set2.size) * 0.7;
-    return matches >= threshold;
-  };
-  var filterInvalidReferences = (references) => {
-    console.log("references into filter: ", references);
-    const validRefs = references.filter((ref) => {
-      const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0;
-      const hasValidTitle = typeof ref.title === "string" && ref.title.trim() !== "";
-      return hasValidAuthors && hasValidTitle;
-    });
-    const uniqueRefs = [];
-    for (const ref of validRefs) {
-      const normalizedTitle = ref.title.toLowerCase().trim();
-      let isDuplicate = false;
-      for (const existingRef of uniqueRefs) {
-        const existingTitle = existingRef.title.toLowerCase().trim();
-        if (normalizedTitle === existingTitle && areAuthorsSimilar(existingRef.authors, ref.authors)) {
-          isDuplicate = true;
-          break;
-        }
-      }
-      if (!isDuplicate) {
-        uniqueRefs.push(ref);
-      }
-    }
-    console.log("references out filter: ", uniqueRefs);
-    return uniqueRefs;
-  };
-
-  // app/services/reference-extraction-service.ts
-  var ReferenceExtractionService = class {
-    openAIEndpoint;
-    constructor(openAIEndpoint) {
-      this.openAIEndpoint = openAIEndpoint;
-    }
-    async extractReferences(text) {
-      try {
-        const response = await fetch(this.openAIEndpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ text })
+        let finalAuthors = authorInfo.includes("et al.") ? [authorInfo.split("et al.")[0].trim() + " et al."] : [authorInfo.trim()];
+        const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
+        const yearMatches = text.match(/[^\d]\d{4}[^\d-]/g)?.map((s) => s.match(/\d+/)[0]);
+        let possibleYear = yearMatches?.find((yr) => {
+          return Number(yr) <= currentYear + 1;
         });
-        if (!response.ok) {
-          throw new Error(`OpenAI API failed: ${response.statusText}`);
+        if (possibleYear) {
+          finalAuthors = finalAuthors.map(
+            (a) => a.replace(possibleYear + ".", "").replace(possibleYear, "").trim()
+          );
         }
-        const { references } = await response.json();
-        console.log("\u{1F4E5} Received references from OpenAI:", references);
-        return filterInvalidReferences(references);
-      } catch (error) {
-        console.error("Error in extractReferences:", error);
-        throw error;
+        return {
+          year: possibleYear,
+          title,
+          authors: finalAuthors,
+          publicationVenue
+        };
+      } catch {
+        return { title: text };
       }
+    }
+    /**
+     * An alternative approach to parsing text. The original code called this `_parseRefText`.
+     * It tries to detect year, authors, and title in a different, simpler manner.
+     */
+    _parseRefText(text) {
+      let year;
+      const _years = text.match(/[^\d]?(\d{4})[^\d]?/g);
+      if (_years) {
+        const validYears = _years.map((chunk) => Number(chunk.match(/\d{4}/)[0])).filter((y) => y > 1900 && y < (/* @__PURE__ */ new Date()).getFullYear());
+        if (validYears.length > 0) {
+          year = String(validYears[0]);
+        }
+      }
+      if (!year) {
+        year = "";
+      }
+      if (this.isChinese(text)) {
+        const parts = text.replace(/\[.+?\]/g, "").replace(/\s+/g, " ").split(/[\.,\uff0c\uff0e\uff3b\[\]]/).map((e) => e.trim()).filter((e) => e);
+        let authors = [];
+        let titles = [];
+        for (let part of parts) {
+          if (part.length >= 2 && part.length <= 3) {
+            authors.push(part);
+          } else {
+            titles.push(part);
+          }
+        }
+        let title = titles.sort((a, b) => b.length - a.length)[0] || text;
+        return { title, authors, year };
+      } else {
+        let authors = [];
+        let stripped = text.replace(/[\u4e00-\u9fa5]/g, "");
+        const authorRegexs = [/[A-Za-z,\.\s]+?\.?[\.,;]/g, /[A-Z][a-z]+ et al.,/];
+        authorRegexs.forEach((regex) => {
+          stripped.match(regex)?.forEach((author) => {
+            authors.push(author.slice(0, -1));
+          });
+        });
+        let title = stripped.split(/[,\.]\s/g).filter((e) => !e.includes("http")).sort((a, b) => b.length - a.length)[0] || text;
+        return { title, authors, year };
+      }
+    }
+    /**
+     * Build a URL from extracted identifiers if possible
+     */
+    identifiers2URL(identifiers) {
+      if (!identifiers) return void 0;
+      if (identifiers.DOI) {
+        return `https://doi.org/${identifiers.DOI}`;
+      }
+      if (identifiers.arXiv) {
+        return `https://arxiv.org/abs/${identifiers.arXiv}`;
+      }
+      return void 0;
+    }
+    /**
+     * The main "entry point" used in PDFParser to parse each reference line.
+     */
+    refText2Info(text) {
+      const identifiers = this.getIdentifiers(text);
+      const potentialURL = this.extractURL(text) || this.identifiers2URL(identifiers);
+      const parsed = this.parseRefText(text);
+      return {
+        identifiers,
+        url: potentialURL,
+        authors: parsed.authors || [],
+        title: parsed.title,
+        year: parsed.year,
+        text,
+        // store the raw text
+        type: identifiers?.arXiv ? "preprint" : "journalArticle"
+      };
+    }
+    /**
+     * Check if a text is primarily Chinese (at least 50% Chinese characters).
+     */
+    isChinese(text) {
+      const stripped = text.replace(/\s+/g, "");
+      const matches = stripped.match(/[\u4E00-\u9FA5]/g);
+      const count = matches ? matches.length : 0;
+      return count / stripped.length > 0.5;
+    }
+    /**
+     * Check if the entire string is a valid DOI. 
+     * This was used in the original code to confirm if a line is purely a DOI.
+     */
+    isDOI(text) {
+      if (!text) return false;
+      const res = text.match(this.regex.DOI);
+      if (!res) return false;
+      return res[0] === text && // exclude certain substrings
+      !/(cnki|issn)/i.test(text);
+    }
+    /**
+     * Quick check if there's an arXiv ID in the text.
+     */
+    matchArXiv(text) {
+      const res = text.match(this.regex.arXiv);
+      if (res != null && res.length >= 2) {
+        return res[1];
+      }
+      return false;
+    }
+  };
+
+  // app/utils/reference-helpers/pdf-parser.ts
+  var PDFParser = class {
+    refRegex;
+    // same as before
+    utils;
+    constructor(utils) {
+      this.utils = utils || new Utils();
+      this.refRegex = [
+        [/^\(\d+\)\s?/],
+        [/^\[\d{0,3}\].+?[\,\.\uff0c\uff0e]?/],
+        [/^\uff3b\d{0,3}\uff3d.+?[\,\.\uff0c\uff0e]?/],
+        [/^\d+[\,\.\uff0c\uff0e]/],
+        [/^\d+[^\d\w]+?[\,\.\uff0c\uff0e]?/],
+        [/^\[.+?\].+?[\,\.\uff0c\uff0e]?/],
+        [/^\d+\s+/],
+        [
+          /^[A-Z]\w.+?\(\d+[a-z]?\)/,
+          /^[A-Z][A-Za-z]+[\,\.\uff0c\uff0e]?/,
+          /^.+?,.+.,/,
+          /^[\u4e00-\u9fa5]{1,4}[\,\.\uff0c\uff0e]?/
+        ]
+      ];
+    }
+    /**
+     * Main entry point: loads the PDF, scans from the bottom for “References” heading,
+     * merges lines, and returns an array of references.
+     */
+    async parseReferencesFromPdfBuffer(pdfBuffer) {
+      const doc = await __webpack_exports__getDocument({ data: pdfBuffer }).promise;
+      const refLines = await this.getRefLines(doc);
+      const mergedRefLines = this.mergeSameRef(refLines);
+      const references = mergedRefLines.map((line) => {
+        const parsedInfo = this.utils.refText2Info(line.text);
+        return { ...line, ...parsedInfo };
+      });
+      return references;
+    }
+    /**
+     * Grabs lines from pages (scanning from last to first),
+     * looks for a heading matching “References/Bibliography/参考文献”,
+     * and once found, collects lines to return as potential references.
+     */
+    async getRefLines(doc) {
+      const numPages = doc.numPages;
+      let refPart = [];
+      let foundHeading = false;
+      for (let pageIndex = numPages; pageIndex >= 1 && !foundHeading; pageIndex--) {
+        const page = await doc.getPage(pageIndex);
+        const textContent = await page.getTextContent();
+        const pageItems = textContent.items.map((item) => ({
+          str: item.str,
+          height: item.transform[3],
+          width: item.width,
+          transform: item.transform,
+          url: item.url
+        }));
+        const pageLines = this.mergeSameLine(pageItems);
+        const bottomUp = [...pageLines].reverse();
+        for (let i = 0; i < bottomUp.length; i++) {
+          const line = bottomUp[i];
+          if (this.isRefHeading(line.text)) {
+            console.log("Found heading - stopping collection");
+            foundHeading = true;
+            break;
+          }
+          refPart.push(line);
+        }
+      }
+      if (!foundHeading) {
+        return [];
+      }
+      return refPart.reverse();
+    }
+    /**
+     * Check if a line is a heading for references.
+     * Could be “References”, “Bibliography”, or the Chinese “参考文献”.
+     */
+    isRefHeading(text) {
+      let s = text.trim().toLowerCase();
+      s = s.replace(/[.,:\-–;!]+$/g, "");
+      s = s.replace(/^[.,:\-–;!]+/g, "");
+      return s === "references" || s === "bibliography" || /参考文献/i.test(s);
+    }
+    /**
+     * Merge PDF items with similar Y coords => lines
+     */
+    mergeSameLine(items) {
+      if (!items.length) return [];
+      const toLine = (item) => {
+        let x = Number(item.transform[4].toFixed(1));
+        let y = Number(item.transform[5].toFixed(1));
+        let w = item.width;
+        if (w < 0) {
+          x += w;
+          w = -w;
+        }
+        return {
+          x,
+          y,
+          width: w,
+          height: item.height,
+          text: item.str,
+          url: item.url,
+          _height: [item.height]
+        };
+      };
+      const lines = [toLine(items[0])];
+      for (let i = 1; i < items.length; i++) {
+        const current = toLine(items[i]);
+        const prevLine = lines[lines.length - 1];
+        const sameLine = current.y === prevLine.y || current.y >= prevLine.y && current.y < prevLine.y + prevLine.height || current.y + current.height > prevLine.y && current.y + current.height <= prevLine.y + prevLine.height;
+        if (sameLine) {
+          prevLine.text += " " + current.text;
+          prevLine.width += current.width;
+          prevLine.url = prevLine.url || current.url;
+          prevLine._height.push(current.height);
+        } else {
+          prevLine.height = Math.max(...prevLine._height);
+          lines.push(current);
+        }
+      }
+      lines[lines.length - 1].height = Math.max(
+        ...lines[lines.length - 1]._height
+      );
+      return lines;
+    }
+    /**
+     * Merge lines that share the same reference type (based on refRegex)
+     * into a single “reference” line.
+     */
+    mergeSameRef(refLines) {
+      if (!refLines.length) return [];
+      const lines = [...refLines];
+      const out = [];
+      let currentRef = null;
+      let currentRefType = null;
+      for (const line of lines) {
+        const lineType = this.getRefType(line.text);
+        if (!currentRef) {
+          currentRef = { ...line };
+          currentRefType = lineType;
+          continue;
+        }
+        if (lineType !== -1 && lineType === currentRefType) {
+          out.push(currentRef);
+          currentRef = { ...line };
+        } else {
+          let prevText = currentRef.text.replace(/-$/, "");
+          currentRef.text = `${prevText}${prevText.endsWith("-") ? "" : " "}${line.text}`;
+          if (line.url) {
+            currentRef.url = currentRef.url || line.url;
+          }
+        }
+      }
+      if (currentRef) out.push(currentRef);
+      return out;
+    }
+    /**
+     * Decide which “type” of reference line it is (based on refRegex sets).
+     */
+    getRefType(text) {
+      for (let i = 0; i < this.refRegex.length; i++) {
+        const patternSet = this.refRegex[i];
+        const matches = patternSet.some((regex) => {
+          const raw = text.trim();
+          return regex.test(raw) || regex.test(raw.replace(/\s+/g, ""));
+        });
+        if (matches) {
+          return i;
+        }
+      }
+      return -1;
+    }
+  };
+  var pdf_parser_default = PDFParser;
+
+  // app/services/pdf-reference-extraction-service.ts
+  __webpack_exports__GlobalWorkerOptions.workerSrc = "/pdf.worker.js";
+  var PDFReferenceExtractionService = class {
+    // pdf-reference-service.ts
+    parser;
+    constructor() {
+      this.parser = new pdf_parser_default();
+    }
+    /**
+     * If you're in a browser context where you have a `File` from an <input> element,
+     * call this method with that File to parse references.
+     */
+    async parseReferencesFromFile(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      console.log("calling parser");
+      return this.parser.parseReferencesFromPdfBuffer(arrayBuffer);
     }
   };
 
@@ -20474,24 +20723,8 @@
     }
   };
 
-  // app/utils/reference-helpers/log-references.ts
-  var logSimpleReferences = (references) => {
-    console.log("\u{1F50D} References -----------");
-    references.forEach((reference, index) => {
-      console.log(`** Reference #${index + 1}:`);
-      console.log(`  Title: ${reference.title}`);
-      console.log(`  Authors: ${reference.authors.join(", ")}`);
-      console.log(`  Status: ${reference.status}`);
-      console.log(`  Verification Source: ${reference.verification_source}`);
-      console.log(`  Message: ${reference.message}`);
-    });
-  };
-
   // app/services/workers/verification.worker.ts
-  var pdfTextExtractionService = new PDFTextExtractionService();
-  var refExtractionService = new ReferenceExtractionService(
-    "/api/references/extract"
-  );
+  var pdfRefExtractService = new PDFReferenceExtractionService();
   var searchReferenceService = new SearchReferenceService();
   var verifyReferenceService = new VerifyReferenceService();
   self.onmessage = async (e) => {
@@ -20508,15 +20741,19 @@
           pdfId,
           message: `Parsing pdf: ${pdfId} `
         });
-        let pdfText = await pdfTextExtractionService.extractText(file);
-        console.log("pdfTEXT: ", pdfText);
-        self.postMessage({
-          type: "update",
-          pdfId,
-          message: `Extracting references: ${pdfId} `
+        const parsedReferences = await pdfRefExtractService.parseReferencesFromFile(file);
+        console.log("Parsed references:", parsedReferences);
+        console.log("===== Parsed References =====");
+        parsedReferences.forEach((ref, index) => {
+          console.log(`Reference #${index + 1}:`);
+          console.log("  Text:", ref.text);
+          console.log("  Title:", ref.title);
+          console.log("  Authors:", ref.authors?.join(", "));
+          console.log("  Year:", ref.year);
+          console.log("  DOI:", ref.identifiers?.DOI);
+          console.log("  arXiv:", ref.identifiers?.arXiv);
+          console.log("----------------------");
         });
-        let parsedReferences = await refExtractionService.extractReferences(pdfText);
-        console.log("\u{1F4E5} Received references from OpenAI:", parsedReferences);
         let noReferences = parsedReferences.length;
         self.postMessage({
           type: "references",
@@ -20524,31 +20761,8 @@
           noReferences: parsedReferences.length,
           message: `SV found ${noReferences} for ${pdfId}`
         });
-        const referencesWithSearch = await searchReferenceService.processBatch(
-          parsedReferences,
-          (batchResults) => {
-            self.postMessage({
-              type: "update",
-              pdfId,
-              message: `\u2705 search complete. for ${pdfId} `
-            });
-          }
-        );
-        console.log("***** AFTER search ******");
-        logSimpleReferences(referencesWithSearch);
-        const verifiedReferences = await verifyReferenceService.processBatch(
-          referencesWithSearch,
-          (batchResults) => {
-            self.postMessage({
-              type: "verification-update",
-              pdfId,
-              message: "Verifying references...",
-              batchResults
-            });
-          }
-        );
         console.log("****   MESSAGES After verification  ***");
-        logSimpleReferences(verifiedReferences);
+        const verifiedReferences = [];
         self.postMessage({
           type: "complete",
           pdfId,
