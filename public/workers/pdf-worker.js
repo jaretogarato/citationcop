@@ -20212,259 +20212,83 @@
   var __webpack_exports__shadow = __webpack_exports__.shadow;
   var __webpack_exports__version = __webpack_exports__.version;
 
-  // app/utils/reference-helpers/utils.ts
-  var Utils = class {
-    /**
-     * Regex patterns for extracting DOIs, arXiv IDs, and URLs.
-     */
-    regex = {
-      DOI: /10\.\d{4,9}\/[-\._;()\/:A-Za-z0-9><]+[^\.\]]/,
-      arXiv: /arXiv[\.:](\d+\.\d+)/,
-      URL: /https?:\/\/[^\s.]+/
-    };
-    /**
-     * Extract identifiers (DOI, arXiv) from a line of text.
-     */
-    getIdentifiers(text) {
-      const targets = [
-        { key: "DOI", ignoreSpace: true, regex: this.regex.DOI },
-        { key: "arXiv", ignoreSpace: true, regex: this.regex.arXiv }
-      ];
-      const identifiers = {};
-      for (const target of targets) {
-        const source = target.ignoreSpace ? text.replace(/\s+/g, "") : text;
-        const res = source.match(target.regex);
-        if (res) {
-          identifiers[target.key] = res.slice(-1)[0];
-        }
-      }
-      return identifiers;
-    }
-    /**
-     * Extract a URL from text if it matches the `URL` regex.
-     */
-    extractURL(text) {
-      const res = text.match(this.regex.URL);
-      return res ? res.slice(-1)[0] : void 0;
-    }
-    /**
-     * "Main" reference text parser. Attempts to extract:
-     *  - year
-     *  - authors
-     *  - title
-     *  - publicationVenue (if relevant)
-     *
-     * This is all heuristic-based, so feel free to simplify if it's too customized.
-     */
-    parseRefText(text) {
-      try {
-        let input = text;
-        input = input.replace(/^\[\d+?\]/, "").replace(/\s+/g, " ");
-        let title;
-        let titleMatch;
-        const quoteMatch = input.match(/\u201c(.+)\u201d/);
-        if (quoteMatch) {
-          [titleMatch, title] = quoteMatch;
-          if (title.endsWith(",")) {
-            title = title.slice(0, -1);
-          }
-        } else {
-          const chunks = input.indexOf(". ") !== -1 && input.match(/\.\s/g)?.length >= 2 ? input.split(". ") : input.split(".");
-          const sorted = chunks.sort((a, b) => b.length - a.length).map((s) => {
-            let count = 0;
-            [/[A-Z]\./g, /[,\.\-\(\)\:]/g, /\d/g].forEach((regex) => {
-              const res = s.match(regex);
-              count += res ? res.length : 0;
-            });
-            return [count / s.length, s];
-          }).filter((val) => val[1].match(/\s+/g)?.length >= 3).sort((a, b) => a[0] - b[0]);
-          title = sorted[0] && sorted[0][1] || input;
-          titleMatch = title;
-          if (/\[[A-Z]\]$/.test(title)) {
-            title = title.replace(/\[[A-Z]\]$/, "");
-          }
-        }
-        title = title.trim();
-        const splitByTitle = input.split(titleMatch);
-        const authorInfo = (splitByTitle[0] || "").trim();
-        let publicationVenue = "";
-        if (splitByTitle[1]) {
-          const matchVenue = splitByTitle[1].match(/[^.\s].+[^\.]/);
-          publicationVenue = matchVenue ? matchVenue[0].split(/[,\d]/)[0].trim() : "";
-        }
-        let finalAuthors = authorInfo.includes("et al.") ? [authorInfo.split("et al.")[0].trim() + " et al."] : [authorInfo.trim()];
-        const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
-        const yearMatches = text.match(/[^\d]\d{4}[^\d-]/g)?.map((s) => s.match(/\d+/)[0]);
-        let possibleYear = yearMatches?.find((yr) => {
-          return Number(yr) <= currentYear + 1;
-        });
-        if (possibleYear) {
-          finalAuthors = finalAuthors.map(
-            (a) => a.replace(possibleYear + ".", "").replace(possibleYear, "").trim()
-          );
-        }
-        return {
-          year: possibleYear,
-          title,
-          authors: finalAuthors,
-          publicationVenue
-        };
-      } catch {
-        return { title: text };
-      }
-    }
-    /**
-     * An alternative approach to parsing text. The original code called this `_parseRefText`.
-     * It tries to detect year, authors, and title in a different, simpler manner.
-     */
-    _parseRefText(text) {
-      let year;
-      const _years = text.match(/[^\d]?(\d{4})[^\d]?/g);
-      if (_years) {
-        const validYears = _years.map((chunk) => Number(chunk.match(/\d{4}/)[0])).filter((y) => y > 1900 && y < (/* @__PURE__ */ new Date()).getFullYear());
-        if (validYears.length > 0) {
-          year = String(validYears[0]);
-        }
-      }
-      if (!year) {
-        year = "";
-      }
-      if (this.isChinese(text)) {
-        const parts = text.replace(/\[.+?\]/g, "").replace(/\s+/g, " ").split(/[\.,\uff0c\uff0e\uff3b\[\]]/).map((e) => e.trim()).filter((e) => e);
-        let authors = [];
-        let titles = [];
-        for (let part of parts) {
-          if (part.length >= 2 && part.length <= 3) {
-            authors.push(part);
-          } else {
-            titles.push(part);
-          }
-        }
-        let title = titles.sort((a, b) => b.length - a.length)[0] || text;
-        return { title, authors, year };
-      } else {
-        let authors = [];
-        let stripped = text.replace(/[\u4e00-\u9fa5]/g, "");
-        const authorRegexs = [/[A-Za-z,\.\s]+?\.?[\.,;]/g, /[A-Z][a-z]+ et al.,/];
-        authorRegexs.forEach((regex) => {
-          stripped.match(regex)?.forEach((author) => {
-            authors.push(author.slice(0, -1));
-          });
-        });
-        let title = stripped.split(/[,\.]\s/g).filter((e) => !e.includes("http")).sort((a, b) => b.length - a.length)[0] || text;
-        return { title, authors, year };
-      }
-    }
-    /**
-     * Build a URL from extracted identifiers if possible
-     */
-    identifiers2URL(identifiers) {
-      if (!identifiers) return void 0;
-      if (identifiers.DOI) {
-        return `https://doi.org/${identifiers.DOI}`;
-      }
-      if (identifiers.arXiv) {
-        return `https://arxiv.org/abs/${identifiers.arXiv}`;
-      }
-      return void 0;
-    }
-    /**
-     * The main "entry point" used in PDFParser to parse each reference line.
-     */
-    refText2Info(text) {
-      const identifiers = this.getIdentifiers(text);
-      const potentialURL = this.extractURL(text) || this.identifiers2URL(identifiers);
-      const parsed = this.parseRefText(text);
-      return {
-        identifiers,
-        url: potentialURL,
-        authors: parsed.authors || [],
-        title: parsed.title,
-        year: parsed.year,
-        text,
-        // store the raw text
-        type: identifiers?.arXiv ? "preprint" : "journalArticle"
-      };
-    }
-    /**
-     * Check if a text is primarily Chinese (at least 50% Chinese characters).
-     */
-    isChinese(text) {
-      const stripped = text.replace(/\s+/g, "");
-      const matches = stripped.match(/[\u4E00-\u9FA5]/g);
-      const count = matches ? matches.length : 0;
-      return count / stripped.length > 0.5;
-    }
-    /**
-     * Check if the entire string is a valid DOI. 
-     * This was used in the original code to confirm if a line is purely a DOI.
-     */
-    isDOI(text) {
-      if (!text) return false;
-      const res = text.match(this.regex.DOI);
-      if (!res) return false;
-      return res[0] === text && // exclude certain substrings
-      !/(cnki|issn)/i.test(text);
-    }
-    /**
-     * Quick check if there's an arXiv ID in the text.
-     */
-    matchArXiv(text) {
-      const res = text.match(this.regex.arXiv);
-      if (res != null && res.length >= 2) {
-        return res[1];
-      }
-      return false;
-    }
-  };
-
   // app/utils/reference-helpers/pdf-parser.ts
   var PDFParser = class {
-    refRegex;
-    // same as before
-    utils;
-    constructor(utils) {
-      this.utils = utils || new Utils();
-      this.refRegex = [
-        [/^\(\d+\)\s?/],
-        [/^\[\d{0,3}\].+?[\,\.\uff0c\uff0e]?/],
-        [/^\uff3b\d{0,3}\uff3d.+?[\,\.\uff0c\uff0e]?/],
-        [/^\d+[\,\.\uff0c\uff0e]/],
-        [/^\d+[^\d\w]+?[\,\.\uff0c\uff0e]?/],
-        [/^\[.+?\].+?[\,\.\uff0c\uff0e]?/],
-        [/^\d+\s+/],
-        [
-          /^[A-Z]\w.+?\(\d+[a-z]?\)/,
-          /^[A-Z][A-Za-z]+[\,\.\uff0c\uff0e]?/,
-          /^.+?,.+.,/,
-          /^[\u4e00-\u9fa5]{1,4}[\,\.\uff0c\uff0e]?/
-        ]
-      ];
-    }
+    refRegex = [
+      [/^\(\d+\)\s?/],
+      [/^\[\d{0,3}\].+?[\,\.\uff0c\uff0e]?/],
+      [/^\uff3b\d{0,3}\uff3d.+?[\,\.\uff0c\uff0e]?/],
+      [/^\d+[\,\.\uff0c\uff0e]/],
+      [/^\d+[^\d\w]+?[\,\.\uff0c\uff0e]?/],
+      [/^\[.+?\].+?[\,\.\uff0c\uff0e]?/],
+      [/^\d+\s+/],
+      [
+        /^[A-Z]\w.+?\(\d+[a-z]?\)/,
+        /^[A-Z][A-Za-z]+[\,\.\uff0c\uff0e]?/,
+        /^.+?,.+.,/,
+        /^[\u4e00-\u9fa5]{1,4}[\,\.\uff0c\uff0e]?/
+      ]
+    ];
     /**
-     * Main entry point: loads the PDF, scans from the bottom for “References” heading,
-     * merges lines, and returns an array of references.
+     * Main entry point: loads the PDF and extracts references
      */
     async parseReferencesFromPdfBuffer(pdfBuffer) {
       const doc = await __webpack_exports__getDocument({ data: pdfBuffer }).promise;
       const refLines = await this.getRefLines(doc);
-      const mergedRefLines = this.mergeSameRef(refLines);
-      const references = mergedRefLines.map((line) => {
-        const parsedInfo = this.utils.refText2Info(line.text);
-        return { ...line, ...parsedInfo };
-      });
-      return references;
+      const mergedRefs = this.mergeSameRef(refLines);
+      return mergedRefs.map((line) => line.text).join("\n");
     }
     /**
-     * Grabs lines from pages (scanning from last to first),
-     * looks for a heading matching “References/Bibliography/参考文献”,
-     * and once found, collects lines to return as potential references.
+     * Find consistent y-positions that likely represent headers/footers
+     */
+    async findHeaderPositions(doc) {
+      const headerPositions = /* @__PURE__ */ new Map();
+      const pagesToAnalyze = Math.min(3, doc.numPages);
+      const yPositions = {};
+      for (let pageNum = 1; pageNum <= pagesToAnalyze; pageNum++) {
+        const page = await doc.getPage(pageNum);
+        const content = await page.getTextContent();
+        yPositions[pageNum] = /* @__PURE__ */ new Set();
+        for (const item of content.items) {
+          const y = Math.round(item.transform[5]);
+          yPositions[pageNum].add(y);
+        }
+      }
+      const commonPositions = /* @__PURE__ */ new Set();
+      Object.values(yPositions).forEach((positions) => {
+        positions.forEach((y) => {
+          let appearances = 0;
+          Object.values(yPositions).forEach((otherPositions) => {
+            if ([y - 1, y, y + 1].some((py) => otherPositions.has(py))) {
+              appearances++;
+            }
+          });
+          if (appearances >= 2) {
+            commonPositions.add(y);
+          }
+        });
+      });
+      for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+        headerPositions.set(pageNum, commonPositions);
+      }
+      return headerPositions;
+    }
+    /**
+     * Check if a position matches a header position (within tolerance)
+     */
+    isHeaderPosition(y, pageNum, headerPositions) {
+      const positions = headerPositions.get(pageNum);
+      if (!positions) return false;
+      return Array.from(positions).some((headerY) => Math.abs(headerY - y) <= 5);
+    }
+    /**
+     * Find references section and collect references
      */
     async getRefLines(doc) {
       const numPages = doc.numPages;
-      let refPart = [];
-      let foundHeading = false;
-      for (let pageIndex = numPages; pageIndex >= 1 && !foundHeading; pageIndex--) {
+      const collectedLines = [];
+      let foundReferences = false;
+      for (let pageIndex = numPages; pageIndex >= 1 && !foundReferences; pageIndex--) {
         const page = await doc.getPage(pageIndex);
         const textContent = await page.getTextContent();
         const pageItems = textContent.items.map((item) => ({
@@ -20475,25 +20299,20 @@
           url: item.url
         }));
         const pageLines = this.mergeSameLine(pageItems);
-        const bottomUp = [...pageLines].reverse();
-        for (let i = 0; i < bottomUp.length; i++) {
-          const line = bottomUp[i];
-          if (this.isRefHeading(line.text)) {
-            console.log("Found heading - stopping collection");
-            foundHeading = true;
+        for (let i = pageLines.length - 1; i >= 0; i--) {
+          const line = pageLines[i];
+          const text = line.text.trim();
+          if (this.isRefHeading(text)) {
+            foundReferences = true;
             break;
           }
-          refPart.push(line);
+          collectedLines.push(line);
         }
       }
-      if (!foundHeading) {
-        return [];
-      }
-      return refPart.reverse();
+      return collectedLines.reverse();
     }
     /**
-     * Check if a line is a heading for references.
-     * Could be “References”, “Bibliography”, or the Chinese “参考文献”.
+     * Check if text is a reference section heading
      */
     isRefHeading(text) {
       let s = text.trim().toLowerCase();
@@ -20502,7 +20321,7 @@
       return s === "references" || s === "bibliography" || /参考文献/i.test(s);
     }
     /**
-     * Merge PDF items with similar Y coords => lines
+     * Merge PDF items with similar Y coordinates into lines
      */
     mergeSameLine(items) {
       if (!items.length) return [];
@@ -20545,8 +20364,7 @@
       return lines;
     }
     /**
-     * Merge lines that share the same reference type (based on refRegex)
-     * into a single “reference” line.
+     * Merge lines that belong to the same reference
      */
     mergeSameRef(refLines) {
       if (!refLines.length) return [];
@@ -20576,7 +20394,7 @@
       return out;
     }
     /**
-     * Decide which “type” of reference line it is (based on refRegex sets).
+     * Determine reference type based on patterns
      */
     getRefType(text) {
       for (let i = 0; i < this.refRegex.length; i++) {
@@ -20585,9 +20403,7 @@
           const raw = text.trim();
           return regex.test(raw) || regex.test(raw.replace(/\s+/g, ""));
         });
-        if (matches) {
-          return i;
-        }
+        if (matches) return i;
       }
       return -1;
     }
@@ -20741,25 +20557,13 @@
           pdfId,
           message: `Parsing pdf: ${pdfId} `
         });
-        const parsedReferences = await pdfRefExtractService.parseReferencesFromFile(file);
-        console.log("Parsed references:", parsedReferences);
-        console.log("===== Parsed References =====");
-        parsedReferences.forEach((ref, index) => {
-          console.log(`Reference #${index + 1}:`);
-          console.log("  Text:", ref.text);
-          console.log("  Title:", ref.title);
-          console.log("  Authors:", ref.authors?.join(", "));
-          console.log("  Year:", ref.year);
-          console.log("  DOI:", ref.identifiers?.DOI);
-          console.log("  arXiv:", ref.identifiers?.arXiv);
-          console.log("----------------------");
-        });
-        let noReferences = parsedReferences.length;
+        const parsedText = await pdfRefExtractService.parseReferencesFromFile(file);
+        console.log("Parsed references:", parsedText);
         self.postMessage({
           type: "references",
           pdfId,
-          noReferences: parsedReferences.length,
-          message: `SV found ${noReferences} for ${pdfId}`
+          noReferences: 2,
+          message: `SV found ${2} for ${pdfId}`
         });
         console.log("****   MESSAGES After verification  ***");
         const verifiedReferences = [];

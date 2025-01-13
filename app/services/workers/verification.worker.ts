@@ -50,21 +50,9 @@ self.onmessage = async (e: MessageEvent) => {
         message: `Parsing pdf: ${pdfId} `
       })
 
-      const parsedReferences =
+      const parsedText =
         await pdfRefExtractService.parseReferencesFromFile(file)
-      console.log('Parsed references:', parsedReferences)
-
-      console.log('===== Parsed References =====')
-      parsedReferences.forEach((ref, index) => {
-        console.log(`Reference #${index + 1}:`)
-        console.log('  Text:', ref.text)
-        console.log('  Title:', ref.title)
-        console.log('  Authors:', ref.authors?.join(', '))
-        console.log('  Year:', ref.year)
-        console.log('  DOI:', ref.identifiers?.DOI)
-        console.log('  arXiv:', ref.identifiers?.arXiv)
-        console.log('----------------------')
-      })
+      console.log('Parsed references:', parsedText)
 
       //console.log("pdfTEXT: ", text)
 
@@ -73,13 +61,13 @@ self.onmessage = async (e: MessageEvent) => {
 
       //console.log('📥 Received references from OpenAI:', parsedReferences)
 
-      let noReferences = parsedReferences.length
+      //let noReferences = parsedReferences.length
 
       self.postMessage({
         type: 'references',
         pdfId: pdfId,
-        noReferences: parsedReferences.length,
-        message: `SV found ${noReferences} for ${pdfId}`
+        noReferences: 2,
+        message: `SV found ${2} for ${pdfId}`
       })
 
       // STEP 2: BATCH PROCESS SEARCH CALLS
