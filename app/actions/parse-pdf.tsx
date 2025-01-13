@@ -1,116 +1,123 @@
-// /actions/parse-pdf.tsx
 'use server'
 
-import PDFParser from "pdf2json"
+import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist'
+import { TextItem } from 'pdfjs-dist/types/src/display/api'
 
-export async function parsePDF(binaryData: number[]): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const pdfParser = new PDFParser()
+// Disable the worker for server-side usage
+GlobalWorkerOptions.workerSrc = ''
 
-        pdfParser.on("pdfParser_dataReady", (pdfData) => {
-            let extractedText = pdfData.Pages?.map((page: any) =>
-                page.Texts.map((textObj: any) => decodeURIComponent(textObj.R[0].T)).join(" ")
-            ).join("\n")
+export async function parsePDF(binaryData: Uint8Array): Promise<string> {
+  try {
+    const pdf = await getDocument({ data: binaryData }).promise
 
-            extractedText = cleanText(extractedText)
-            
-            //console.log("Cleaned text from PDF:", extractedText)
-            resolve(extractedText)
-        })
+    let extractedText: {
+      text: string
+      x: number
+      y: number
+      fontSize: number
+    }[] = []
 
-        pdfParser.on("pdfParser_dataError", (errData) => {
-            console.error("PDF parsing error:", errData)
-            reject("Failed to parse PDF")
-        })
+    // Extract text from all pages
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const page = await pdf.getPage(pageNumber)
+      const textContent = await page.getTextContent()
 
-        const buffer = Buffer.from(binaryData)
-        pdfParser.parseBuffer(buffer)
-    })
-}
+      // Extract text from items
+      const pageText = textContent.items
+        .filter((item): item is TextItem => 'transform' in item) // Type guard for TextItem
+        .map((item) => ({
+          text: item.str,
+          x: item.transform[4], // x-coordinate
+          y: item.transform[5], // y-coordinate
+          fontSize: item.height // Approximate font size
+        }))
 
-function cleanText(text: string): string {
-    // First pass: basic cleaning
-    let lines = text
-        .split('\n')
-        .map(line => {
-            return line
-                .replace(/\s+/g, ' ')
-                .replace(/ﬁ/g, 'fi')
-                .replace(/ﬂ/g, 'fl')
-                .replace(/ﬀ/g, 'ff')
-                .replace(/œ/g, 'oe')
-                .replace(/[\x00-\x1F\x7F-\x9F]/g, '')
-                .trim()
-        })
-        .filter(line => line.length > 30 && line.length < 500) // Minimum length for citations
-
-    // Remove common paper sections and headers
-    lines = lines.filter(line => !isBoilerplateText(line))
-
-    // Keep lines that look like references
-    lines = lines.filter(line => {
-        // Enhanced patterns for references
-        const hasYear = /\b(19|20)\d{2}\b/.test(line)
-        const hasAuthors = /([A-Z][a-z]+[\s,]+){1,}/.test(line) || // Multiple capitalized words
-                         /[A-Z][a-z]+\s+and\s+[A-Z][a-z]+/.test(line) || // Author "and" Author
-                         /[A-Z][a-z]+,\s*[A-Z]\./.test(line) // Last, F.
-        const hasDOI = /doi\.org|DOI:/i.test(line)
-        const hasURL = /http|www\./i.test(line)
-        const hasVolume = /Vol\.|Volume|\b\d+\(\d+\)/.test(line)
-        const hasPages = /pp\.|pages|[\d]+[-–]\d+/.test(line)
-        const hasPublisher = /Press|Publishers|Publishing|University/i.test(line)
-        const hasJournal = /Journal|Proceedings|Conference|Trans\.|Symposium/i.test(line)
-        const hasCitation = /^\[\d+\]/.test(line) || /\(\d{4}\)/.test(line)
-        
-        const referenceIndicators = [
-            hasYear,
-            hasAuthors,
-            hasDOI,
-            hasURL,
-            hasVolume,
-            hasPages,
-            hasPublisher,
-            hasJournal,
-            hasCitation
-        ].filter(Boolean).length
-
-        // More strict requirements: must have more indicators or specific combinations
-        return (referenceIndicators >= 3) || // Must match at least 3 patterns
-               (hasAuthors && hasYear && (hasJournal || hasPublisher)) // Or must have crucial citation elements
-    })
-
-    // If we filtered too aggressively, try a more lenient approach
-    if (lines.length < 5) {
-        lines = text.split('\n')
-            .filter(line => line.trim().length > 30)
-            .filter(line => {
-                const hasYear = /\b(19|20)\d{2}\b/.test(line)
-                const hasAuthors = /([A-Z][a-z]+[\s,]+){1,}/.test(line)
-                return hasYear && hasAuthors
-            })
+      extractedText.push(...pageText)
     }
 
-    return lines.join('\n')
+    // Clean and filter the text
+    const cleanedText = cleanText(extractedText)
+
+    console.log('Extracted and cleaned text:', cleanedText)
+
+    return cleanedText
+  } catch (error) {
+    console.error('Error parsing PDF:', error)
+    throw new Error('Failed to parse PDF')
+  }
 }
 
-function isBoilerplateText(line: string): boolean {
-    const boilerplatePatterns = [
-        /^Abstract/i,
-        /^Introduction/i,
-        /^Methodology/i,
-        /^Results/i,
-        /^Discussion/i,
-        /^Conclusion/i,
-        /^References$/i,
-        /^Bibliography$/i,
-        /^Table of Contents/i,
-        /^Chapter \d+/i,
-        /^Figure \d+/i,
-        /^Appendix/i,
-        /^\d+\s+[A-Z][A-Z\s]+$/,  // Page headers
-        /^Page \d+$/i,
-        /^\d+$/  // Page numbers
-    ]
+// Function to clean and filter extracted text
+function cleanText(
+  extractedText: Array<{ text: string; x: number; y: number; fontSize: number }>
+): string {
+  let lines = extractedText
+    .sort((a, b) => a.y - b.y || a.x - b.x) // Sort by layout order
+    .map((item) => item.text)
 
-    return boilerplatePatterns.some(pattern => pattern.test(line.trim()))
+  // Remove boilerplate content
+  lines = lines.filter((line) => !isBoilerplateText(line))
+
+  // Retain lines that might be references or ambiguous
+  lines = lines.filter(
+    (line) => isPotentialReference(line) || isAmbiguous(line)
+  )
+
+  return lines.join('\n')
+}
+
+// Function to check if a line is boilerplate
+function isBoilerplateText(line: string): boolean {
+  const boilerplatePatterns = [
+    /^Abstract$/i,
+    /^Introduction$/i,
+    /^Methodology$/i,
+    /^Results$/i,
+    /^Discussion$/i,
+    /^Conclusion$/i,
+    /^Table of Contents$/i,
+    /^Appendix$/i,
+    /^Page \d+$/i,
+    /^\d+$/, // Page numbers
+    /^\s*Figure \d+/i, // Figure references
+    /^\s*Table \d+/i // Table references
+  ]
+
+  return boilerplatePatterns.some((pattern) => pattern.test(line.trim()))
+}
+
+// Function to check if a line is a potential reference
+function isPotentialReference(line: string): boolean {
+  const hasYear = /\b(19|20)\d{2}\b/.test(line)
+  const hasAuthors =
+    /([A-Z][a-z]+[\s,]+){1,}/.test(line) ||
+    /[A-Z][a-z]+\s+and\s+[A-Z][a-z]+/.test(line)
+  const hasDOI = /doi\.org|DOI:/i.test(line)
+  const hasURL = /http|www\./i.test(line)
+  const hasVolume = /Vol\.|Volume|\b\d+\(\d+\)/.test(line)
+  const hasPages = /pp\.|pages|[\d]+[-–]\d+/.test(line)
+  const hasJournal = /Journal|Proceedings|Conference|Trans\.|Symposium/i.test(
+    line
+  )
+  const hasCitation = /^\[\d+\]/.test(line) || /\(\d{4}\)/.test(line)
+
+  const referenceIndicators = [
+    hasYear,
+    hasAuthors,
+    hasDOI,
+    hasURL,
+    hasVolume,
+    hasPages,
+    hasJournal,
+    hasCitation
+  ].filter(Boolean).length
+
+  // Include if it matches at least 2 patterns
+  return referenceIndicators >= 2
+}
+
+// Function to check if a line is ambiguous
+function isAmbiguous(line: string): boolean {
+  // Include lines that aren't boilerplate but don't fully match reference patterns
+  return line.trim().length > 30 && !isBoilerplateText(line)
 }

@@ -5,7 +5,7 @@ import { WorkerMessage } from '../types'
 import { PDFParseAndExtractReferenceService } from '@/app/services/pdf-parse-and-extract-references'
 import { SearchReferenceService } from '@/app/services/search-reference-service'
 import { VerifyReferenceService } from '../verify-reference-service'
-import { URLContentVerifyService } from '../url-content-verify-service'
+//import { URLContentVerifyService } from '../url-content-verify-service'
 //import { HighAccuracyCheckService } from '@/app/services/high-accuracy-service'
 import type { Reference } from '@/app/types/reference'
 import { logSimpleReferences } from '@/app/utils/reference-helpers/log-references'
@@ -15,16 +15,16 @@ declare const self: DedicatedWorkerGlobalScope
 // Initialize services
 //const referenceService = new GrobidReferenceService('/api/grobid/references')
 const pdfReferenceService = new PDFParseAndExtractReferenceService(
-  '/api/references/extract',
-  '/api/parse-pdf'
+  '/api/references/extract'
 )
+
 //const highAccuracyService = new HighAccuracyCheckService(
 //  '/api/high-accuracy-check'
 //)
 
 const searchReferenceService = new SearchReferenceService()
 const verifyReferenceService = new VerifyReferenceService()
-const urlVerificationCheck = new URLContentVerifyService()
+//const urlVerificationCheck = new URLContentVerifyService()
 
 // Listen for messages
 self.onmessage = async (e: MessageEvent) => {
@@ -33,6 +33,11 @@ self.onmessage = async (e: MessageEvent) => {
   if (type === 'process') {
     //console.log(`🚀 Worker starting to process PDF ${pdfId}`)
     try {
+      self.postMessage({
+        type: 'update',
+        pdfId: pdfId,
+        message: `Worker launched for : ${pdfId}`
+      })
       // No Grobid, no problem
       // STEP 1
       let parsedReferences =
@@ -44,7 +49,7 @@ self.onmessage = async (e: MessageEvent) => {
         type: 'references',
         pdfId: pdfId,
         noReferences: parsedReferences.length,
-        message: `After second reference check, ${noReferences} found for ${pdfId}`
+        message: `SV found ${noReferences} for ${pdfId}`
       })
 
       // STEP 2: BATCH PROCESS SEARCH CALLS
@@ -57,7 +62,7 @@ self.onmessage = async (e: MessageEvent) => {
         parsedReferences,
         (batchResults) => {
           //logReferences(batchResults)
-        
+
           self.postMessage({
             type: 'update',
             pdfId,
@@ -66,7 +71,7 @@ self.onmessage = async (e: MessageEvent) => {
         }
       )
 
-      console.log("***** AFTER search ******")
+      console.log('***** AFTER search ******')
       logSimpleReferences(referencesWithSearch)
 
       // STEP 4: Verify references with URLs only
@@ -94,7 +99,7 @@ self.onmessage = async (e: MessageEvent) => {
         )
 
       // print them out for a check
-      console.log("****   MESSAGES After verification  ***")
+      console.log('****   MESSAGES After verification  ***')
       logSimpleReferences(verifiedReferences)
 
       // Send completion message with references back to the main thread
@@ -115,4 +120,3 @@ self.onmessage = async (e: MessageEvent) => {
     }
   }
 }
-

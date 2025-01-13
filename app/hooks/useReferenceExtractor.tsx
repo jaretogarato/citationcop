@@ -1,6 +1,6 @@
 // hooks/useReferenceProcessor.ts
 import { useState } from 'react'
-import { parsePDF } from '@/app/actions/parse-pdf'
+import { parsePDF } from '@/app/actions/parse-pdf-old'
 import type { Reference, ReferenceStatus } from '@/app/types/reference'
 import { validateReferences } from '@/app/utils/reference-helpers/filter-references'
 

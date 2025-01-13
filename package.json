@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "build:worker": "esbuild app/services/workers/pdf.worker.ts --bundle --outfile=public/workers/pdf-worker.js --format=iife",
+    "build:worker": "esbuild app/services/workers/verification.worker.ts --bundle --outfile=public/workers/pdf-worker.js --format=iife",
     "dev": "npm run build:worker && next dev --turbo",
     "build": "npm run build:worker && next build",
     "start": "next start",
@@ -47,10 +47,12 @@
     "openai": "^4.71.1",
     "pdf-lib": "^1.17.1",
     "pdf2json": "^3.1.4",
+    "pdfjs-dist": "^4.8.69",
     "puppeteer": "^23.9.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-merge-refs": "^2.1.1",
+    "stream": "^0.0.3",
     "stripe": "^14.25.0",
     "tailwind-merge": "^2.3.0",
     "tailwindcss": "^3.4.4",
@@ -60,6 +62,7 @@
   "devDependencies": {
     "@types/formidable": "^3.4.5",
     "@types/node": "^20.17.6",
+    "@types/pdfjs-dist": "^2.10.377",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.19",
