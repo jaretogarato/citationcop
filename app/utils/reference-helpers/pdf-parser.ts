@@ -1,7 +1,5 @@
 import { getDocument } from 'pdfjs-dist'
-import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist'
-
-import Utils from './utils'
+import type { PDFDocumentProxy } from 'pdfjs-dist'
 
 // --------------------------------------------------
 // 1. Basic line & reference info types
@@ -76,113 +74,6 @@ export class PDFParser {
 
     // Convert to formatted text
     return mergedRefs.map((line) => line.text).join('\n')
-  }
-
-  /**
-   * Find consistent y-positions that likely represent headers/footers
-   */
-  private async findHeaderPositions(
-    doc: PDFDocumentProxy
-  ): Promise<Map<number, Set<number>>> {
-    const headerPositions = new Map<number, Set<number>>()
-    const pagesToAnalyze = Math.min(3, doc.numPages)
-    const yPositions: { [pageNum: number]: Set<number> } = {}
-
-    // Collect y-positions from first few pages
-    for (let pageNum = 1; pageNum <= pagesToAnalyze; pageNum++) {
-      const page = await doc.getPage(pageNum)
-      const content = await page.getTextContent()
-      yPositions[pageNum] = new Set()
-
-      for (const item of content.items as any[]) {
-        const y = Math.round(item.transform[5])
-        yPositions[pageNum].add(y)
-      }
-    }
-
-    // Find positions that appear on multiple pages
-    const commonPositions = new Set<number>()
-    Object.values(yPositions).forEach((positions) => {
-      positions.forEach((y) => {
-        let appearances = 0
-        Object.values(yPositions).forEach((otherPositions) => {
-          if ([y - 1, y, y + 1].some((py) => otherPositions.has(py))) {
-            appearances++
-          }
-        })
-        if (appearances >= 2) {
-          commonPositions.add(y)
-        }
-      })
-    })
-
-    // Apply to all pages
-    for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
-      headerPositions.set(pageNum, commonPositions)
-    }
-
-    return headerPositions
-  }
-
-  /**
-   * Check if a position matches a header position (within tolerance)
-   */
-  private isHeaderPosition(
-    y: number,
-    pageNum: number,
-    headerPositions: Map<number, Set<number>>
-  ): boolean {
-    const positions = headerPositions.get(pageNum)
-    if (!positions) return false
-    return Array.from(positions).some((headerY) => Math.abs(headerY - y) <= 5)
-  }
-
-  /**
-   * Find references section and collect references
-   */
-  private async getRefLines(doc: PDFDocumentProxy): Promise<PDFLine[]> {
-    const numPages = doc.numPages
-    const collectedLines: PDFLine[] = []
-    let foundReferences = false
-
-    // Start from the last page and work upwards
-    for (
-      let pageIndex = numPages;
-      pageIndex >= 1 && !foundReferences;
-      pageIndex--
-    ) {
-      const page = await doc.getPage(pageIndex)
-      const textContent = await page.getTextContent()
-
-      // Convert items to lines
-      const pageItems: PDFItem[] = textContent.items.map((item: any) => ({
-        str: item.str,
-        height: item.transform[3],
-        width: item.width,
-        transform: item.transform,
-        url: item.url
-      }))
-
-      const pageLines = this.mergeSameLine(pageItems)
-
-      // Process lines from the page (bottom to top)
-      for (let i = pageLines.length - 1; i >= 0; i--) {
-        const line = pageLines[i]
-        const text = line.text.trim()
-
-        // Check if the line contains the "References" heading
-        if (this.isRefHeading(text)) {
-          foundReferences = true
-          break
-        }
-
-        // Collect the line if "References" has not been found yet
-        collectedLines.push(line)
-      }
-    }
-
-    // Reverse the collected lines to maintain reading order
-    return collectedLines.reverse()
   }
 
   /**
@@ -298,6 +189,150 @@ export class PDFParser {
       if (matches) return i
     }
     return -1
+  }
+
+  /**
+   * Detects header and footer positions and filters repeated text across pages.
+   */
+  private async detectHeaderFooterPositions(
+    doc: PDFDocumentProxy
+  ): Promise<{ headers: Set<number>; footers: Set<number> }> {
+    const pagesToAnalyze = Math.min(3, doc.numPages - 1) // Analyze up to 3 pages, skipping the first
+    const yPositions: { headers: number[]; footers: number[] } = {
+      headers: [],
+      footers: []
+    }
+    const textContentByPage: { headers: string[]; footers: string[] } = {
+      headers: [],
+      footers: []
+    }
+    const tolerance = 5 // Allowable deviation in `y` positions
+
+    // Analyze pages starting from the second for headers
+    for (
+      let pageIndex = 2;
+      pageIndex < 2 + pagesToAnalyze && pageIndex <= doc.numPages;
+      pageIndex++
+    ) {
+      const page = await doc.getPage(pageIndex)
+      const textContent = await page.getTextContent()
+
+      textContent.items.forEach((item: any) => {
+        const y = Math.round(item.transform[5]) // Vertical position
+        const text = item.str.trim()
+
+        // Collect header content
+        if (y < doc.numPages * 0.2) {
+          // Text close to the top
+          yPositions.headers.push(y)
+          textContentByPage.headers.push(text)
+        }
+
+        // Collect footer content
+        if (y > doc.numPages * 0.8) {
+          // Text close to the bottom
+          yPositions.footers.push(y)
+          textContentByPage.footers.push(text)
+        }
+      })
+    }
+
+    // Filter consistent header/footer positions
+    const findCommonPositions = (positions: number[], texts: string[]) => {
+      const positionCounts = positions.reduce(
+        (acc, y) => {
+          acc[y] = (acc[y] || 0) + 1
+          return acc
+        },
+        {} as { [key: number]: number }
+      )
+
+      const textCounts = texts.reduce(
+        (acc, text) => {
+          acc[text] = (acc[text] || 0) + 1
+          return acc
+        },
+        {} as { [key: string]: number }
+      )
+
+      // Return positions that repeat and match consistent text patterns
+      return new Set(
+        Object.keys(positionCounts)
+          .filter((y) => positionCounts[+y] >= 2 && textCounts[texts[+y]] >= 2)
+          .map((y) => +y)
+      )
+    }
+
+    return {
+      headers: findCommonPositions(
+        yPositions.headers,
+        textContentByPage.headers
+      ),
+      footers: findCommonPositions(
+        yPositions.footers,
+        textContentByPage.footers
+      )
+    }
+  }
+
+  /**
+   * Filters out headers and footers and focuses on body content.
+   */
+  private async getRefLines(doc: PDFDocumentProxy): Promise<PDFLine[]> {
+    const { headers, footers } = await this.detectHeaderFooterPositions(doc)
+    const numPages = doc.numPages
+    const collectedLines: PDFLine[] = []
+    let foundReferences = false
+
+    for (
+      let pageIndex = numPages;
+      pageIndex >= 1 && !foundReferences;
+      pageIndex--
+    ) {
+      const page = await doc.getPage(pageIndex)
+      const textContent = await page.getTextContent()
+
+      const pageItems: PDFItem[] = textContent.items.map((item: any) => ({
+        str: item.str,
+        height: item.transform[3],
+        width: item.width,
+        transform: item.transform,
+        url: item.url
+      }))
+
+      const filteredItems = pageItems.filter((item) => {
+        const y = Math.round(item.transform[5])
+        const isHeader = [...headers].some(
+          (headerY) => Math.abs(y - headerY) <= 0.2
+        )
+        const isFooter = [...footers].some(
+          (footerY) => Math.abs(y - footerY) <= 0.2
+        )
+
+        // Exclude headers/footers
+        return !isHeader && !isFooter
+      })
+
+      const pageLines = this.mergeSameLine(filteredItems)
+
+      // Process lines from the page (bottom to top)
+      for (let i = pageLines.length - 1; i >= 0; i--) {
+        const line = pageLines[i]
+        const text = line.text.trim()
+
+        // Check if the line contains the "References" heading
+        if (this.isRefHeading(text)) {
+          foundReferences = true
+          break
+        }
+
+        // Collect the line if "References" has not been found yet
+        collectedLines.push(line)
+      }
+    }
+
+    // Reverse the collected lines to maintain reading order
+    return collectedLines.reverse()
   }
 }
 

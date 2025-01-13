@@ -20239,79 +20239,6 @@
       return mergedRefs.map((line) => line.text).join("\n");
     }
     /**
-     * Find consistent y-positions that likely represent headers/footers
-     */
-    async findHeaderPositions(doc) {
-      const headerPositions = /* @__PURE__ */ new Map();
-      const pagesToAnalyze = Math.min(3, doc.numPages);
-      const yPositions = {};
-      for (let pageNum = 1; pageNum <= pagesToAnalyze; pageNum++) {
-        const page = await doc.getPage(pageNum);
-        const content = await page.getTextContent();
-        yPositions[pageNum] = /* @__PURE__ */ new Set();
-        for (const item of content.items) {
-          const y = Math.round(item.transform[5]);
-          yPositions[pageNum].add(y);
-        }
-      }
-      const commonPositions = /* @__PURE__ */ new Set();
-      Object.values(yPositions).forEach((positions) => {
-        positions.forEach((y) => {
-          let appearances = 0;
-          Object.values(yPositions).forEach((otherPositions) => {
-            if ([y - 1, y, y + 1].some((py) => otherPositions.has(py))) {
-              appearances++;
-            }
-          });
-          if (appearances >= 2) {
-            commonPositions.add(y);
-          }
-        });
-      });
-      for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
-        headerPositions.set(pageNum, commonPositions);
-      }
-      return headerPositions;
-    }
-    /**
-     * Check if a position matches a header position (within tolerance)
-     */
-    isHeaderPosition(y, pageNum, headerPositions) {
-      const positions = headerPositions.get(pageNum);
-      if (!positions) return false;
-      return Array.from(positions).some((headerY) => Math.abs(headerY - y) <= 5);
-    }
-    /**
-     * Find references section and collect references
-     */
-    async getRefLines(doc) {
-      const numPages = doc.numPages;
-      const collectedLines = [];
-      let foundReferences = false;
-      for (let pageIndex = numPages; pageIndex >= 1 && !foundReferences; pageIndex--) {
-        const page = await doc.getPage(pageIndex);
-        const textContent = await page.getTextContent();
-        const pageItems = textContent.items.map((item) => ({
-          str: item.str,
-          height: item.transform[3],
-          width: item.width,
-          transform: item.transform,
-          url: item.url
-        }));
-        const pageLines = this.mergeSameLine(pageItems);
-        for (let i = pageLines.length - 1; i >= 0; i--) {
-          const line = pageLines[i];
-          const text = line.text.trim();
-          if (this.isRefHeading(text)) {
-            foundReferences = true;
-            break;
-          }
-          collectedLines.push(line);
-        }
-      }
-      return collectedLines.reverse();
-    }
-    /**
      * Check if text is a reference section heading
      */
     isRefHeading(text) {
@@ -20406,6 +20333,107 @@
         if (matches) return i;
       }
       return -1;
+    }
+    /**
+     * Detects header and footer positions and filters repeated text across pages.
+     */
+    async detectHeaderFooterPositions(doc) {
+      const pagesToAnalyze = Math.min(3, doc.numPages - 1);
+      const yPositions = {
+        headers: [],
+        footers: []
+      };
+      const textContentByPage = {
+        headers: [],
+        footers: []
+      };
+      const tolerance = 5;
+      for (let pageIndex = 2; pageIndex < 2 + pagesToAnalyze && pageIndex <= doc.numPages; pageIndex++) {
+        const page = await doc.getPage(pageIndex);
+        const textContent = await page.getTextContent();
+        textContent.items.forEach((item) => {
+          const y = Math.round(item.transform[5]);
+          const text = item.str.trim();
+          if (y < doc.numPages * 0.2) {
+            yPositions.headers.push(y);
+            textContentByPage.headers.push(text);
+          }
+          if (y > doc.numPages * 0.8) {
+            yPositions.footers.push(y);
+            textContentByPage.footers.push(text);
+          }
+        });
+      }
+      const findCommonPositions = (positions, texts) => {
+        const positionCounts = positions.reduce(
+          (acc, y) => {
+            acc[y] = (acc[y] || 0) + 1;
+            return acc;
+          },
+          {}
+        );
+        const textCounts = texts.reduce(
+          (acc, text) => {
+            acc[text] = (acc[text] || 0) + 1;
+            return acc;
+          },
+          {}
+        );
+        return new Set(
+          Object.keys(positionCounts).filter((y) => positionCounts[+y] >= 2 && textCounts[texts[+y]] >= 2).map((y) => +y)
+        );
+      };
+      return {
+        headers: findCommonPositions(
+          yPositions.headers,
+          textContentByPage.headers
+        ),
+        footers: findCommonPositions(
+          yPositions.footers,
+          textContentByPage.footers
+        )
+      };
+    }
+    /**
+     * Filters out headers and footers and focuses on body content.
+     */
+    async getRefLines(doc) {
+      const { headers, footers } = await this.detectHeaderFooterPositions(doc);
+      const numPages = doc.numPages;
+      const collectedLines = [];
+      let foundReferences = false;
+      for (let pageIndex = numPages; pageIndex >= 1 && !foundReferences; pageIndex--) {
+        const page = await doc.getPage(pageIndex);
+        const textContent = await page.getTextContent();
+        const pageItems = textContent.items.map((item) => ({
+          str: item.str,
+          height: item.transform[3],
+          width: item.width,
+          transform: item.transform,
+          url: item.url
+        }));
+        const filteredItems = pageItems.filter((item) => {
+          const y = Math.round(item.transform[5]);
+          const isHeader = [...headers].some(
+            (headerY) => Math.abs(y - headerY) <= 0.2
+          );
+          const isFooter = [...footers].some(
+            (footerY) => Math.abs(y - footerY) <= 0.2
+          );
+          return !isHeader && !isFooter;
+        });
+        const pageLines = this.mergeSameLine(filteredItems);
+        for (let i = pageLines.length - 1; i >= 0; i--) {
+          const line = pageLines[i];
+          const text = line.text.trim();
+          if (this.isRefHeading(text)) {
+            foundReferences = true;
+            break;
+          }
+          collectedLines.push(line);
+        }
+      }
+      return collectedLines.reverse();
     }
   };
   var pdf_parser_default = PDFParser;
