@@ -7,7 +7,7 @@ export interface QueueItem {
   id: string
   file: File
   status: QueueItemStatus
-  highAccuracy: boolean
+  //highAccuracy?: boolean
   references?: Reference[]
   error?: string
 }

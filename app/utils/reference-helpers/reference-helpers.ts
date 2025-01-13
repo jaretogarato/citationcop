@@ -1,4 +1,4 @@
-import type {Reference} from '@/app/types/reference'
+import type { Reference } from '@/app/types/reference'
 
 // Helper function to check if two author lists are similar
 const areAuthorsSimilar = (authors1: string[], authors2: string[]): boolean => {
@@ -23,7 +23,12 @@ const areAuthorsSimilar = (authors1: string[], authors2: string[]): boolean => {
 }
 
 // Helper function to filter invalid references and remove duplicates
-export const filterInvalidReferences = (references: Reference[]): Reference[] => {
+export const filterInvalidReferences = (
+  references: Reference[]
+): Reference[] => {
+
+
+  console.log("references into filter: ", references)
   // First, filter out references without valid authors and titles
   const validRefs = references.filter((ref) => {
     const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0
@@ -33,13 +38,13 @@ export const filterInvalidReferences = (references: Reference[]): Reference[] =>
   })
 
   // Then, remove duplicates while considering similar authors
-  const uniqueRefs = new Map<number, Reference>()
+  const uniqueRefs: Reference[] = []
 
   for (const ref of validRefs) {
     const normalizedTitle = ref.title.toLowerCase().trim()
 
     let isDuplicate = false
-    for (const existingRef of uniqueRefs.values()) {
+    for (const existingRef of uniqueRefs) {
       const existingTitle = existingRef.title.toLowerCase().trim()
 
       if (
@@ -52,9 +57,11 @@ export const filterInvalidReferences = (references: Reference[]): Reference[] =>
     }
 
     if (!isDuplicate) {
-      uniqueRefs.set(ref.id, ref)
+      uniqueRefs.push(ref)
     }
   }
 
-  return Array.from(uniqueRefs.values())
+
+  console.log("references out filter: ", uniqueRefs)
+  return uniqueRefs
 }

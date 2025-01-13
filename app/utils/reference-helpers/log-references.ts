@@ -13,9 +13,9 @@ export const logReferences = (references: Reference[]): void => {
     console.log(`  Status: ${reference.status}`)
     console.log(`  Verification Source: ${reference.verification_source}`)
     console.log(`  Message: ${reference.message}`)
-    console.log(`  Search Results:`)
+    //console.log(`  Search Results:`)
 
-    if (reference.searchResults?.organic?.length) {
+   /* if (reference.searchResults?.organic?.length) {
       reference.searchResults.organic.forEach((result, i) => {
         console.log(`    Result #${i + 1}:`)
         console.log(`      Title: ${result.title}`)
@@ -24,7 +24,7 @@ export const logReferences = (references: Reference[]): void => {
       })
     } else {
       //console.log('    No organic search results found.')
-    }
+    }*/
 
     //console.log('---')
   })

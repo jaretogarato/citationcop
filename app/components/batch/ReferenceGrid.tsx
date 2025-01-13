@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useState, useEffect } from 'react'
 import type { Reference, ReferenceStatus } from '@/app/types/reference'
 import {
@@ -36,29 +38,20 @@ interface ReferenceGridProps {
 }
 
 const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
-  const [visibleReferences, setVisibleReferences] = useState<Reference[]>([])
-  const [lastProcessedLength, setLastProcessedLength] = useState(0)
+  const [visibleCount, setVisibleCount] = useState(0)
 
   useEffect(() => {
-    if (references.length > lastProcessedLength) {
-      const newRefs = references.slice(lastProcessedLength)
-      const timeouts: NodeJS.Timeout[] = []
-      
-      newRefs.forEach((ref, index) => {
-        const timeout = setTimeout(() => {
-          setVisibleReferences(prev => [...prev, ref])
-          
-          if (index === newRefs.length - 1) {
-            setLastProcessedLength(references.length)
-          }
-        }, index * ANIMATION_DELAY)
-        
-        timeouts.push(timeout)
-      })
+    setVisibleCount(0) // Reset count when references change
+    
+    const timeout = setTimeout(() => {
+      setVisibleCount(references.length)
+    }, ANIMATION_DELAY)
+    
+    return () => clearTimeout(timeout)
+  }, [references])
 
-      return () => timeouts.forEach(timeout => clearTimeout(timeout))
-    }
-  }, [references, lastProcessedLength])
+  // Only show the first n references based on visibleCount
+  const visibleReferences = references.slice(0, visibleCount)
 
   return (
     <div>

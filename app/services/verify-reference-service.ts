@@ -46,44 +46,38 @@ export class VerifyReferenceService {
     references: Reference[],
     onBatchComplete: (refs: Reference[]) => void
   ): Promise<Reference[]> {
-    const processedRefs: Reference[] = []
-    let currentIndex = 0
+    // Create a copy of the input array
+    const result = [...references]
 
-    // Filter out references that are already verified
-    const unverifiedReferences = references.filter(
-      (ref) => ref.status !== 'verified'
-    )
+    // Track unverified references with their original indices
+    const unverifiedRefs = references
+      .map((ref, index) => ({ ref, originalIndex: index }))
+      .filter(({ ref }) => ref.status !== 'verified')
 
-    /*console.log(
-      `Skipping ${references.length - unverifiedReferences.length} already verified references.`
-    )*/
+    for (let i = 0; i < unverifiedRefs.length; i += BATCH_SIZE) {
+      // Get the current batch
+      const currentBatch = unverifiedRefs.slice(i, i + BATCH_SIZE)
 
-    while (currentIndex < unverifiedReferences.length) {
-      const batch = unverifiedReferences.slice(
-        currentIndex,
-        currentIndex + BATCH_SIZE
-      )
-      /*console.log(
-        `Processing verification batch: ${currentIndex}-${currentIndex + batch.length}`
-      )*/
-
-      const results = await Promise.all(
-        batch.map((ref, index) => this.processReference(ref, index))
+      // Process the batch
+      const processedResults = await Promise.all(
+        currentBatch.map(({ ref }, batchIndex) =>
+          this.processReference(ref, batchIndex)
+        )
       )
 
-      processedRefs.push(...results)
-      onBatchComplete(results)
-      currentIndex += BATCH_SIZE
+      // Put the processed results back in their original positions
+      processedResults.forEach((processedRef, batchIndex) => {
+        const originalIndex = currentBatch[batchIndex].originalIndex
+        result[originalIndex] = processedRef
+      })
 
+      // Call the batch complete callback
+      onBatchComplete(processedResults)
+
+      // Add delay between batches
       await new Promise((resolve) => setTimeout(resolve, 100))
     }
 
-    // Reconstruct the full list in the original order
-    return references.map((ref) => {
-      const processedRef = processedRefs.find(
-        (processed) => processed.id === ref.id
-      )
-      return processedRef || ref
-    })
+    return result
   }
 }

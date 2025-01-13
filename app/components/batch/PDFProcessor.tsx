@@ -11,7 +11,7 @@ import type { Reference } from '@/app/types/reference'
 const PDFProcessor = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-  const [isHighAccuracy, setIsHighAccuracy] = useState(true)
+  //const [isHighAccuracy, setIsHighAccuracy] = useState(true)
   const [status, setStatus] = useState({
     pending: 0,
     processing: 0,
@@ -88,13 +88,13 @@ const PDFProcessor = () => {
   const handleProcessFiles = () => {
     if (queueServiceRef.current && selectedFiles.length > 0) {
       setIsProcessing(true)
-      queueServiceRef.current.addPDFs(selectedFiles, isHighAccuracy)
+      queueServiceRef.current.addPDFs(selectedFiles)
     }
   }
 
-  const toggleHighAccuracy = (checked: boolean) => {
+  /*const toggleHighAccuracy = (checked: boolean) => {
     setIsHighAccuracy(checked)
-  }
+  }*/
 
   const updateProcessingState = () => {
     if (queueServiceRef.current) {
@@ -113,13 +113,13 @@ const PDFProcessor = () => {
         />
       </div>
 
-      <div className="mb-6">
+     {/*} <div className="mb-6">
         <ModeSelector
-          isHighAccuracy={isHighAccuracy}
+          //isHighAccuracy={isHighAccuracy}
           onToggle={toggleHighAccuracy}
           disabled={isProcessing}
         />
-      </div>
+      </div>*/}
 
       <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 md:grid-cols-4">
         {[
