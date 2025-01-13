@@ -69,12 +69,6 @@ export class PDFParser {
     // Get raw reference lines from PDF
     const refLines = await this.getRefLines(doc)
 
-    // If no references were found, return an empty string or a message
-    if (refLines.length === 0) {
-      console.log('No references or bibliography section found in the PDF.')
-      return '' // Or you could return a specific message like "No references found."
-    }
-
     // Merge the lines into proper references
     const mergedRefs = this.mergeSameRef(refLines)
 
@@ -332,11 +326,8 @@ export class PDFParser {
           break
         }
 
-        // If no references section was found, return an empty array
-        if (!foundReferences) {
-          console.log('No References or Bibliography section found.')
-          return []
-        }
+    
+
         // Collect the line if "References" has not been found yet
         collectedLines.push(line)
       }

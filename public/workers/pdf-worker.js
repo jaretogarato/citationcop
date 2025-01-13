@@ -20302,10 +20302,6 @@
     async parseReferencesFromPdfBuffer(pdfBuffer) {
       const doc = await __webpack_exports__getDocument({ data: pdfBuffer }).promise;
       const refLines = await this.getRefLines(doc);
-      if (refLines.length === 0) {
-        console.log("No references or bibliography section found in the PDF.");
-        return "";
-      }
       const mergedRefs = this.mergeSameRef(refLines);
       return mergedRefs.map((line) => line.text).join("\n");
     }
@@ -20500,10 +20496,6 @@
           if (this.isRefHeading(text)) {
             foundReferences = true;
             break;
-          }
-          if (!foundReferences) {
-            console.log("No References or Bibliography section found.");
-            return [];
           }
           collectedLines.push(line);
         }
