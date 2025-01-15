@@ -1,5 +1,5 @@
 import type { Reference } from '@/app/types/reference'
-import { filterInvalidReferences } from '../utils/reference-helpers/reference-helpers'
+import { filterInvalidReferences } from '../../utils/reference-helpers/reference-helpers'
 import { getDocument, PDFWorker, GlobalWorkerOptions } from 'pdfjs-dist'
 import type { TextItem } from 'pdfjs-dist/types/src/display/api'
 GlobalWorkerOptions.workerSrc = '/pdf.worker.js'

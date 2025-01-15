@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "build:worker": "esbuild app/services/workers/verification.worker.ts --bundle --outfile=public/workers/pdf-worker.js --format=iife",
+    "build:worker": "esbuild app/services/workers/verification.worker.ts --bundle --outfile=public/workers/verification-worker.js --format=iife",
     "dev": "npm run build:worker && next dev --turbo",
     "build": "npm run build:worker && next build",
     "start": "next start",

@@ -3,7 +3,7 @@
 import { WorkerMessage } from '../types'
 
 import { ReferenceExtractionService } from '@/app/services/reference-extraction-service'
-import { PDFReferenceExtractionService } from '@/app/services/pdf-reference-extraction-service'
+import { PDFReferenceExtractionService } from '@/app/services/old/pdf-reference-extraction-service'
 import { SearchReferenceService } from '@/app/services/search-reference-service'
 import { VerifyReferenceService } from '../verify-reference-service'
 import type { Reference } from '@/app/types/reference'
@@ -47,19 +47,19 @@ self.onmessage = async (e: MessageEvent) => {
       console.log('Parsed references:', pdfText)
 
       if (pdfText === '') {
-        console.log(`No references found in PDF ${pdfId}. Skipping processing.`);
+        console.log(`No references found in PDF ${pdfId}. Skipping processing.`)
         self.postMessage({
           type: 'update',
           pdfId,
           message: `No references found for ${pdfId}.`
-        });
+        })
         self.postMessage({
           type: 'complete',
           pdfId,
           noReferences: 0,
           message: `Processing complete for ${pdfId}.`
-        });
-        return;
+        })
+        return
       }
 
       //console.log("pdfTEXT: ", pdfText)
