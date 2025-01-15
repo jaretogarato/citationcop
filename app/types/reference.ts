@@ -93,7 +93,7 @@ export interface Reference {
   message?: string
   url_valid?: boolean
   url_match?: boolean
-  
+
   // New field for search results
   searchResults?: GoogleSearchResult
 }
