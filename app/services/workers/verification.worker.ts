@@ -1,32 +1,84 @@
 /// <reference lib="webworker" />
 
 import { WorkerMessage } from '../types'
-
-import { ReferenceExtractionService } from '@/app/services/reference-extraction-service'
-import { PDFReferenceExtractionService } from '@/app/services/old/pdf-reference-extraction-service'
 import { SearchReferenceService } from '@/app/services/search-reference-service'
 import { VerifyReferenceService } from '../verify-reference-service'
 import type { Reference } from '@/app/types/reference'
-//import { logSimpleReferences } from '@/app/utils/reference-helpers/log-references'
 
 declare const self: DedicatedWorkerGlobalScope
 
-// Initialize services
-
-const pdfRefExtractService = new PDFReferenceExtractionService()
-const refExtractionService = new ReferenceExtractionService(
-  '/api/references/extract'
-)
 const searchReferenceService = new SearchReferenceService()
 const verifyReferenceService = new VerifyReferenceService()
-//const urlVerificationCheck = new URLContentVerifyService()
+
+// Function to convert PDF to images using the existing endpoint
+async function convertPdfToImages(file: File): Promise<string[]> {
+  const formData = new FormData()
+  formData.append('pdf', file)
+  formData.append('range', '1-') // Convert all pages
+
+  try {
+    console.log('Making request to pdf2images endpoint...')
+    const response = await fetch('/api/pdf2images', {
+      method: 'POST',
+      body: formData
+    })
+
+    if (!response.ok) {
+      console.error('PDF to images response not OK:', response.status, response.statusText)
+      throw new Error(`Failed to convert PDF to images: ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    
+    if (!data.images || !Array.isArray(data.images)) {
+      console.error('Invalid images data received:', data)
+      throw new Error('Invalid image data received from conversion')
+    }
+
+    // Format the images with the required prefix
+    const formattedImages = data.images.map((img: string) => `data:image/png;base64,${img}`)
+    
+    // Log the first image data to check format
+    if (formattedImages.length > 0) {
+      console.log('First image data preview (after formatting):', 
+        formattedImages[0].substring(0, 100) + '...')
+    }
+
+    return formattedImages
+  } catch (error) {
+    console.error('Error in convertPdfToImages:', error)
+    throw error
+  }
+}
+
+// Function to extract references from a single image
+async function extractReferencesFromImage(imageData: string): Promise<Reference[]> {
+  try {
+    const response = await fetch('/api/open-ai-vision', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ imageData })
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to extract references from image')
+    }
+
+    const data = await response.json()
+    return data.references || []
+  } catch (error) {
+    console.error('Error extracting references from image:', error)
+    return []
+  }
+}
 
 // Listen for messages
 self.onmessage = async (e: MessageEvent) => {
   const { type, pdfId, file } = e.data
 
   if (type === 'process') {
-    //console.log(`🚀 Worker starting to process PDF ${pdfId}`)
     try {
       self.postMessage({
         type: 'update',
@@ -34,109 +86,79 @@ self.onmessage = async (e: MessageEvent) => {
         message: `Worker launched for : ${pdfId}`
       })
 
-      // STEP 1
-
+      // STEP 1: Convert PDF to images
       self.postMessage({
         type: 'update',
         pdfId,
-        message: `Parsing pdf: ${pdfId} `
+        message: `Converting PDF to images: ${pdfId}`
+      })
+      
+      const images = await convertPdfToImages(file)
+      
+      if (images.length === 0) {
+        throw new Error('No images extracted from PDF')
+      }
+
+      // STEP 2: Process each image through Vision API
+      self.postMessage({
+        type: 'update',
+        pdfId,
+        message: `Extracting references from ${images.length} pages`
       })
 
-      const pdfText = await pdfRefExtractService.parseReferencesFromFile(file)
-
-      console.log('Parsed references:', pdfText)
-
-      if (pdfText === '') {
-        console.log(`No references found in PDF ${pdfId}. Skipping processing.`)
+      const allReferences: Reference[] = []
+      for (let i = 0; i < images.length; i++) {
+        const pageReferences = await extractReferencesFromImage(images[i])
+        allReferences.push(...pageReferences)
+        
         self.postMessage({
           type: 'update',
           pdfId,
-          message: `No references found for ${pdfId}.`
+          message: `Processed page ${i + 1}/${images.length}`
         })
-        self.postMessage({
-          type: 'complete',
-          pdfId,
-          noReferences: 0,
-          message: `Processing complete for ${pdfId}.`
-        })
-        return
       }
 
-      //console.log("pdfTEXT: ", pdfText)
-
-      let parsedReferences =
-        await refExtractionService.extractReferences(pdfText)
-
-      console.log('📥 Received references from OpenAI:', parsedReferences)
-
-      let noReferences = parsedReferences.length
-
+      const noReferences = allReferences.length
+      
       self.postMessage({
         type: 'references',
         pdfId: pdfId,
         noReferences: noReferences,
-        message: `SV found ${noReferences} for ${pdfId}`
+        message: `Found ${noReferences} references for ${pdfId}`
       })
 
-      // STEP 2: BATCH PROCESS SEARCH CALLS
-      //console.log('🔍 Starting batch processing for search...')
-
-      console.log('before search')
-      //logSimpleReferences(parsedReferences)
-      // this is the model for sending an update back to UI through the postMessage and into the queue...
-
+      // Continue with existing search and verification steps
+      console.log('Starting batch processing for search...')
+      
       const referencesWithSearch = await searchReferenceService.processBatch(
-        parsedReferences,
+        allReferences,
         (batchResults) => {
-          //logReferences(batchResults)
-
           self.postMessage({
             type: 'update',
             pdfId,
-            message: `✅ search complete. for ${pdfId} `
+            message: `✅ search complete for ${pdfId}`
           })
         }
       )
 
-      //console.log('***** AFTER search ******')
-      //logSimpleReferences(referencesWithSearch)
+      const verifiedReferences: Reference[] = await verifyReferenceService.processBatch(
+        referencesWithSearch,
+        (batchResults) => {
+          self.postMessage({
+            type: 'verification-update',
+            pdfId,
+            message: 'Verifying references...',
+            batchResults
+          })
+        }
+      )
 
-      //STEP 4: Verify references with URLs only
-      //console.log('🌐 Verifying references with URLs...')
-      //const urlVerifiedreferences =
-      //  await urlVerificationCheck.verifyReferencesWithUrls(
-      //   referencesWithSearch
-      //)
-      //console.log('✅ URL verification complete.')
-      //logReferences(urlVerifiedreferences)
-
-      // STEP 5: FINAL VERIFICATION
-      //console.log('*** final verification ***')
-      const verifiedReferences: Reference[] =
-        await verifyReferenceService.processBatch(
-          referencesWithSearch,
-          (batchResults) => {
-            self.postMessage({
-              type: 'verification-update',
-              pdfId,
-              message: 'Verifying references...',
-              batchResults
-            })
-          }
-        )
-
-      // print them out for a check
-      console.log('****   MESSAGES After verification  ***')
-      //logSimpleReferences(verifiedReferences)
-
-      // Send completion message with references back to the main thread
       self.postMessage({
         type: 'complete',
         pdfId,
         references: verifiedReferences
       } as WorkerMessage)
 
-      //console.log(`✅ Successfully processed PDF ${pdfId}`)
     } catch (error) {
       console.error('❌ Error processing PDF:', error)
       self.postMessage({
