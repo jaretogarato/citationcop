@@ -1,5 +1,5 @@
 import type { Reference } from '@/app/types/reference'
-import { filterInvalidReferences } from '../utils/reference-helpers/reference-helpers'
+import { filterInvalidReferences } from '../utils/reference-helpers/filter-references'
 
 export class ReferenceExtractionService {
   private openAIEndpoint: string

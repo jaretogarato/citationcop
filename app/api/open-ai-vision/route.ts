@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY_1 })
 
 export async function POST(request: Request) {
-  const prompt = `Extract the references from the image. Provide them in the following JSON format:
+  const prompt = `If there is a References section on this page, then extract all references to articles, books, etc into the following JSON format:
 
     {
       "references": [
@@ -26,8 +26,6 @@ export async function POST(request: Request) {
         }
       ]
     }
-    
-    It is OK to have 0 references found.
     
     References (in JSON format):`
   try {
