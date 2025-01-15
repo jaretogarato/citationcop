@@ -5,7 +5,7 @@ export interface FileData {
   name: string | null
 }
 
-export type TabType = "upload" | "paste"
+export type TabType = 'upload' | 'paste'
 
 export interface UrlVerificationResult {
   status: ReferenceStatus
@@ -14,53 +14,52 @@ export interface UrlVerificationResult {
 
 // uploaded paper metadata info
 export interface Author {
-  name: string;
-  organization: string | null;
+  name: string
+  organization: string | null
 }
 
 export interface DocumentMetadata {
-  title: string | null;
-  authors: Author[];
-  date: string | null;
+  title: string | null
+  authors: Author[]
+  date: string | null
 }
 
 export interface MetadataResponse {
-  metadata: DocumentMetadata;
+  metadata: DocumentMetadata
 }
 
 // references
-export type ReferenceStatus = "verified" | "unverified" | "error" | "pending"
-
+export type ReferenceStatus = 'verified' | 'unverified' | 'error' | 'pending'
 
 export type ReferenceType =
-  | 'article'    // Journal article
-  | 'book'       // Complete book
-  | 'inbook'     // Book chapter
+  | 'article' // Journal article
+  | 'book' // Complete book
+  | 'inbook' // Book chapter
   | 'inproceedings' // Conference paper
-  | 'proceedings'   // Conference proceedings
-  | 'thesis'     // Thesis/dissertation
-  | 'report'     // Technical report, white paper
-  | 'webpage'    // Web content
+  | 'proceedings' // Conference proceedings
+  | 'thesis' // Thesis/dissertation
+  | 'report' // Technical report, white paper
+  | 'webpage' // Web content
 
 // New types for search results
 export interface SearchResultItem {
-  title: string;
-  link: string;
-  snippet: string;
+  title: string
+  link: string
+  snippet: string
 }
 
 export interface GoogleSearchResult {
-  organic?: SearchResultItem[];
-  knowledgeGraph?: any;
+  organic?: SearchResultItem[]
+  knowledgeGraph?: any
   searchParameters?: {
-    q: string;
-    gl: string;
-    hl: string;
-  };
+    q: string
+    gl: string
+    hl: string
+  }
 }
 
 export interface Reference {
-  date_of_access: any;
+  date_of_access: any
   // Core fields
   id: number
   type?: ReferenceType
@@ -98,8 +97,6 @@ export interface Reference {
   searchResults?: GoogleSearchResult
 }
 
-
-
 // Type definitions for helper functions
 export type StatusColorMap = {
   [K in ReferenceStatus]: string
@@ -117,8 +114,8 @@ interface ArticleMetadata {
 }
 
 export interface VerificationResults {
-  verified: number;
-  issues: number;
-  pending: number;
-  totalReferences: number;
+  verified: number
+  issues: number
+  pending: number
+  totalReferences: number
 }

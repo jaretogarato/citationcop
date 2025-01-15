@@ -1,13 +1,13 @@
 import { createClient } from '@/app/utils/supabase/server';
 //import Pricing from '@/app/components/ui/Pricing/Pricing';
 import {
-  getProducts,
-  getSubscription,
+  getProductsAndPrices,
+  getSubscriptionWithPriceAndProduct,
   getUser,
   getUserDetails
 } from '@/app/utils/supabase/queries';
 import HomePage from '@/app/components/home-page/HomePage';
-import { UserDetailsResponse, GetUserResponse } from '@/app/types/user';
+import { UserDetailsResponse, GetUserResponse } from '@/app/types/supabase/user';
 
 export default async function Home() {
   const supabase = createClient();
@@ -20,8 +20,8 @@ export default async function Home() {
     UserDetailsResponse
   ] = await Promise.all([
     getUser(supabase),
-    getProducts(supabase),
-    getSubscription(supabase),
+    getProductsAndPrices(supabase),
+    getSubscriptionWithPriceAndProduct(supabase),
     getUserDetails(supabase)
   ]);
 
