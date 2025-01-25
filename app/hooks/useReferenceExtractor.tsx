@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { parsePDF } from '@/app/actions/parse-pdf'
 import type { Reference, ReferenceStatus } from '@/app/types/reference'
-import { validateReferences } from '@/app/utils/filter-references'
+import { validateReferences } from '@/app/utils/reference-helpers/filter-references'
 
 interface ProcessingState {
   isProcessing: boolean

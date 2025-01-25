@@ -1,35 +1,42 @@
 "use strict";
 (() => {
-  // app/services/grobid-reference-service.ts
-  var GrobidReferenceService = class {
-    constructor(grobidEndpoint) {
-      this.grobidEndpoint = grobidEndpoint;
+  // app/utils/reference-helpers/reference-helpers.ts
+  var areAuthorsSimilar = (authors1, authors2) => {
+    if (Math.abs(authors1.length - authors2.length) > 1) return false;
+    const normalizeAndSort = (authors) => authors.map((a) => a.toLowerCase().trim()).sort();
+    const set1 = new Set(normalizeAndSort(authors1));
+    const set2 = new Set(normalizeAndSort(authors2));
+    let matches = 0;
+    for (const author of set1) {
+      if (set2.has(author)) matches++;
     }
-    async extractReferences(file) {
-      try {
-        const references = await this.extractWithGrobid(file);
-        return references;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        throw new Error(`Reference extraction failed: ${errorMessage}`);
+    const threshold = Math.min(set1.size, set2.size) * 0.7;
+    return matches >= threshold;
+  };
+  var filterInvalidReferences = (references) => {
+    console.log("references into filter: ", references);
+    const validRefs = references.filter((ref) => {
+      const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0;
+      const hasValidTitle = typeof ref.title === "string" && ref.title.trim() !== "";
+      return hasValidAuthors && hasValidTitle;
+    });
+    const uniqueRefs = [];
+    for (const ref of validRefs) {
+      const normalizedTitle = ref.title.toLowerCase().trim();
+      let isDuplicate = false;
+      for (const existingRef of uniqueRefs) {
+        const existingTitle = existingRef.title.toLowerCase().trim();
+        if (normalizedTitle === existingTitle && areAuthorsSimilar(existingRef.authors, ref.authors)) {
+          isDuplicate = true;
+          break;
+        }
+      }
+      if (!isDuplicate) {
+        uniqueRefs.push(ref);
       }
     }
-    async extractWithGrobid(file) {
-      const formData = new FormData();
-      formData.append("file", file);
-      const response = await fetch(this.grobidEndpoint, {
-        method: "POST",
-        body: formData
-      });
-      if (!response.ok) {
-        throw new Error(`GROBID extraction failed: ${response.status}`);
-      }
-      const data = await response.json();
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      return data.references || [];
-    }
+    console.log("references out filter: ", uniqueRefs);
+    return uniqueRefs;
   };
 
   // app/services/pdf-parse-and-extract-references.ts
@@ -67,7 +74,9 @@
         throw new Error(`OpenAI API failed: ${response.statusText}`);
       }
       const { references } = await response.json();
-      return references;
+      console.log("\u{1F4E5} Received references from OpenAI:", references);
+      const filteredReferences = filterInvalidReferences(references);
+      return filteredReferences;
     }
   };
 
@@ -161,30 +170,23 @@
       }
     }
     async processBatch(references, onBatchComplete) {
-      const processedRefs = [];
-      let currentIndex = 0;
-      const unverifiedReferences = references.filter(
-        (ref) => ref.status !== "verified"
-      );
-      while (currentIndex < unverifiedReferences.length) {
-        const batch = unverifiedReferences.slice(
-          currentIndex,
-          currentIndex + BATCH_SIZE2
+      const result = [...references];
+      const unverifiedRefs = references.map((ref, index) => ({ ref, originalIndex: index })).filter(({ ref }) => ref.status !== "verified");
+      for (let i = 0; i < unverifiedRefs.length; i += BATCH_SIZE2) {
+        const currentBatch = unverifiedRefs.slice(i, i + BATCH_SIZE2);
+        const processedResults = await Promise.all(
+          currentBatch.map(
+            ({ ref }, batchIndex) => this.processReference(ref, batchIndex)
+          )
         );
-        const results = await Promise.all(
-          batch.map((ref, index) => this.processReference(ref, index))
-        );
-        processedRefs.push(...results);
-        onBatchComplete(results);
-        currentIndex += BATCH_SIZE2;
+        processedResults.forEach((processedRef, batchIndex) => {
+          const originalIndex = currentBatch[batchIndex].originalIndex;
+          result[originalIndex] = processedRef;
+        });
+        onBatchComplete(processedResults);
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-      return references.map((ref) => {
-        const processedRef = processedRefs.find(
-          (processed) => processed.id === ref.id
-        );
-        return processedRef || ref;
-      });
+      return result;
     }
   };
 
@@ -202,7 +204,9 @@
       }
     }
     async verifyReferencesWithUrls(references) {
-      const urlReferences = references.filter((ref) => ref.url && this.isValidUrl(ref.url));
+      const urlReferences = references.filter(
+        (ref) => ref.url && this.isValidUrl(ref.url)
+      );
       const verifiedReferences = [];
       let currentIndex = 0;
       while (currentIndex < urlReferences.length) {
@@ -233,22 +237,39 @@
             } catch (error) {
               console.error("Error verifying URL content:", error);
             }
-            return ref;
+            return {
+              ...ref,
+              url_match: false,
+              message: "URL verification failed"
+            };
           })
         );
         verifiedReferences.push(...batchResults);
         currentIndex += _URLContentVerifyService.BATCH_SIZE;
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
-      const finalResults = references.map(
-        (ref) => verifiedReferences.find((vRef) => vRef.id === ref.id) || ref
-      );
-      return finalResults;
+      const verifiedMap = new Map(verifiedReferences.map((ref) => [ref.id, ref]));
+      return references.map((ref) => {
+        const verifiedRef = verifiedMap.get(ref.id);
+        return verifiedRef ? { ...ref, ...verifiedRef } : ref;
+      });
     }
   };
 
+  // app/utils/reference-helpers/log-references.ts
+  var logSimpleReferences = (references) => {
+    console.log("\u{1F50D} References -----------");
+    references.forEach((reference, index) => {
+      console.log(`** Reference #${index + 1}:`);
+      console.log(`  Title: ${reference.title}`);
+      console.log(`  Authors: ${reference.authors.join(", ")}`);
+      console.log(`  Status: ${reference.status}`);
+      console.log(`  Verification Source: ${reference.verification_source}`);
+      console.log(`  Message: ${reference.message}`);
+    });
+  };
+
   // app/services/workers/pdf.worker.ts
-  var referenceService = new GrobidReferenceService("/api/grobid/references");
   var pdfReferenceService = new PDFParseAndExtractReferenceService(
     "/api/references/extract",
     "/api/parse-pdf"
@@ -257,76 +278,31 @@
   var verifyReferenceService = new VerifyReferenceService();
   var urlVerificationCheck = new URLContentVerifyService();
   self.onmessage = async (e) => {
-    const { type, pdfId, file, highAccuracy } = e.data;
+    const { type, pdfId, file } = e.data;
     if (type === "process") {
       try {
-        const references = await referenceService.extractReferences(file);
-        let parsedRefernces = references;
-        if (references.length === 0) {
-          parsedRefernces = await pdfReferenceService.parseAndExtractReferences(file);
-        } else if (highAccuracy) {
-          console.log("\u{1F50D} High Accuracy mode enabled. Verifying references...");
-          const checkedReferences = [];
-          for (const reference of parsedRefernces) {
-            console.log("Checking reference:", {
-              id: reference.id,
-              title: reference.title
-            });
-            const response = await fetch("/api/high-accuracy-check", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ reference })
-            });
-            if (!response.ok) {
-              console.error("Error verifying reference:", reference);
-              reference.status = "error";
-              reference.message = "Verification failed";
-              checkedReferences.push(reference);
-              continue;
-            }
-            const result = await response.json();
-            if (Array.isArray(result)) {
-              if (result.length === 1 && result[0].ok === true) {
-                checkedReferences.push({
-                  ...reference,
-                  status: "verified",
-                  message: "Reference verified correct"
-                });
-              } else {
-                result.forEach((correctedRef, index) => {
-                  checkedReferences.push({
-                    ...correctedRef,
-                    id: correctedRef.id || `${reference.id}-${index + 1}`,
-                    status: "verified",
-                    message: "Reference corrected/expanded"
-                  });
-                });
-              }
-            } else {
-              console.error("Unexpected response format:", result);
-              reference.status = "error";
-              reference.message = "Invalid verification response";
-              checkedReferences.push(reference);
-            }
-          }
-          parsedRefernces = checkedReferences;
-        }
-        parsedRefernces = removeDuplicates(parsedRefernces);
+        let parsedReferences = await pdfReferenceService.parseAndExtractReferences(file);
+        let noReferences = parsedReferences.length;
+        self.postMessage({
+          type: "references",
+          pdfId,
+          noReferences: parsedReferences.length,
+          message: `After second reference check, ${noReferences} found for ${pdfId}`
+        });
         const referencesWithSearch = await searchReferenceService.processBatch(
-          parsedRefernces,
+          parsedReferences,
           (batchResults) => {
             self.postMessage({
-              type: "search-update",
+              type: "update",
               pdfId,
-              message: "google searching..."
+              message: `\u2705 search complete. for ${pdfId} `
             });
           }
         );
-        const urlVerifiedreferences = await urlVerificationCheck.verifyReferencesWithUrls(
-          referencesWithSearch
-        );
+        console.log("***** AFTER search ******");
+        logSimpleReferences(referencesWithSearch);
         const verifiedReferences = await verifyReferenceService.processBatch(
-          urlVerifiedreferences,
+          referencesWithSearch,
           (batchResults) => {
             self.postMessage({
               type: "verification-update",
@@ -336,6 +312,8 @@
             });
           }
         );
+        console.log("****   MESSAGES After verification  ***");
+        logSimpleReferences(verifiedReferences);
         self.postMessage({
           type: "complete",
           pdfId,
@@ -350,15 +328,5 @@
         });
       }
     }
-  };
-  var removeDuplicates = (references) => {
-    const uniqueSet = /* @__PURE__ */ new Map();
-    references.forEach((ref) => {
-      const key = `${ref.authors?.join(",")}|${ref.title}`;
-      if (!uniqueSet.has(key)) {
-        uniqueSet.set(key, ref);
-      }
-    });
-    return Array.from(uniqueSet.values());
   };
 })();

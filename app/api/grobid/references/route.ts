@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { parseReferences } from '@/app/utils/grobid/parse-grobid-response'
 import { Reference } from '@/app/types/reference'
+import { filterInvalidReferences } from '@/app/utils/reference-helpers/reference-helpers'
 
 export const runtime = 'edge'
 
@@ -67,10 +68,19 @@ export async function POST(req: NextRequest) {
     }
 
     const xml = await response.text()
-    const references: Reference[] = parseReferences(xml)
+    const allReferences: Reference[] = parseReferences(xml)
 
-    //console.log('Extracted references:', references)
-    return NextResponse.json({ references })
+    // Filter out invalid references
+    const validReferences = filterInvalidReferences(allReferences)
+
+    // Optionally log the filtering results
+    /*console.log(
+      `Filtered ${allReferences.length - validReferences.length} invalid references. ` +
+        `${validReferences.length} valid references remaining.`
+    )*/
+    console.log('Grobid References: ', validReferences)
+
+    return NextResponse.json({ references: validReferences })
   } catch (error) {
     console.error('Error processing document:', error)
     return NextResponse.json(

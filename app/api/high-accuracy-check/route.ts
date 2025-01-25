@@ -1,6 +1,7 @@
 // app/api/high-accuracy-check/route.ts
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import type { Reference } from '@/app/types/reference'
 
 const API_KEY = process.env.OPENAI_API_KEY_1
 const openAI = new OpenAI({ apiKey: API_KEY })
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
                 "conference": "conference name if applicable",
                 "url": "URL if available. Do NOT create a URL if it does not exist.",
                 "date_of_access": "date of access if applicable",
-                "raw": "raw reference text for this specific reference"
+                "raw": "raw reference text for this specific reference. ONLY include the parts that relate to this reference, not additional text"
             }
         ]`
 
@@ -77,10 +78,18 @@ export async function POST(request: Request) {
       throw new Error('No JSON array found in response')
     }
 
-    const result = JSON.parse(jsonMatch[0])
-   /*console.log(
-      `Reference processed in ${Date.now() - startTime}ms with key ${keyIndex}`
-    )*/
+    let result = JSON.parse(jsonMatch[0])
+  
+    if (result.ok !== true) {
+      result = result.map((ref: Reference) => {
+        return {
+          ...ref,
+          title: ref.title?.replace(/[.,;:]+$/, '').trim()
+        }
+      })
+    }
+
+    console.log(result)
 
     return NextResponse.json(result)
   } catch (error) {

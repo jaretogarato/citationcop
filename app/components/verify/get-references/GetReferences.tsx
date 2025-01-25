@@ -10,7 +10,7 @@ import type { Reference, ReferenceStatus } from '@/app/types/reference'
 import { ModeSelector } from '../../ui/ModeSelector'
 import { ProcessingIndicator } from './ProcessingIndicator'
 import { NoReferencesAlert } from './NoReferencesAlert'
-import { validateReferences } from '@/app/utils/filter-references'
+import { validateReferences } from '@/app/utils/reference-helpers/filter-references'
 
 interface ExtractResponse {
   references: Reference[]

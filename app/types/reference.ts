@@ -84,7 +84,7 @@ export interface Reference {
   conference?: string | null
 
   // raw reference string
-  raw?: string
+  raw: string
 
   // Your app's fields
   status: ReferenceStatus

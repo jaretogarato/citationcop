@@ -11,14 +11,14 @@ import type { Reference } from '@/app/types/reference'
 const PDFProcessor = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-  const [isHighAccuracy, setIsHighAccuracy] = useState(true) 
+  //const [isHighAccuracy, setIsHighAccuracy] = useState(true)
   const [status, setStatus] = useState({
     pending: 0,
     processing: 0,
     complete: 0,
     error: 0
   })
-  const [logMessages, setLogMessages] = useState<string[]>([]) 
+  const [logMessages, setLogMessages] = useState<string[]>([])
   const queueServiceRef = useRef<PDFQueueService | null>(null)
   const [references, setReferences] = useState<Reference[]>([])
 
@@ -29,29 +29,29 @@ const PDFProcessor = () => {
     // Listen for updates from the queue
     queueServiceRef.current.onUpdate((message) => {
       switch (message.type) {
-        case 'search-update':
-          setLogMessages((prev) => [
-            ...prev,
-            `🔍 Search update for PDF ${message.pdfId}: ${message.message}`
-          ])
+        case 'update':
+          setLogMessages((prev) => [...prev, `${message.message}`])
+          break
+
+        case 'references':
+          setLogMessages((prev) => [...prev, `${message.message}`])
           break
 
         case 'complete':
           setLogMessages((prev) => [
             ...prev,
-            `✅ Processing complete for PDF ${message.pdfId}`,
-            `Verified References for PDF ${message.pdfId}:`,
+            `✅ Processing complete for PDF ${message.pdfId}`
+            /*`Verified References for PDF ${message.pdfId}:`,
             ...(message.references || []).map(
               (ref, index) => `  ${index + 1}. ${JSON.stringify(ref, null, 2)}`
-            )
+            )*/
           ])
-          //setReferences((prev) => [...prev, ...(message.references || [])])
 
           setReferences((prev) => [
             ...prev,
-            ...(message.references || []).map(ref => ({
+            ...(message.references || []).map((ref) => ({
               ...ref,
-              sourceDocument: message.pdfId 
+              sourceDocument: message.pdfId
             }))
           ])
 
@@ -88,13 +88,13 @@ const PDFProcessor = () => {
   const handleProcessFiles = () => {
     if (queueServiceRef.current && selectedFiles.length > 0) {
       setIsProcessing(true)
-      queueServiceRef.current.addPDFs(selectedFiles, isHighAccuracy)
+      queueServiceRef.current.addPDFs(selectedFiles)
     }
   }
 
-  const toggleHighAccuracy = (checked: boolean) => {
+  /*const toggleHighAccuracy = (checked: boolean) => {
     setIsHighAccuracy(checked)
-  }
+  }*/
 
   const updateProcessingState = () => {
     if (queueServiceRef.current) {
@@ -113,13 +113,13 @@ const PDFProcessor = () => {
         />
       </div>
 
-      <div className="mb-6">
+     {/*} <div className="mb-6">
         <ModeSelector
-          isHighAccuracy={isHighAccuracy}
+          //isHighAccuracy={isHighAccuracy}
           onToggle={toggleHighAccuracy}
           disabled={isProcessing}
         />
-      </div>
+      </div>*/}
 
       <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 md:grid-cols-4">
         {[
