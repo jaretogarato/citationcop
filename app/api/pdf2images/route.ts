@@ -13,7 +13,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
      const file = formData.get('pdf') as File | null;
      const range = formData.get('range') as string | null;
 
-    console.log("range : " , range)
+    //console.log("range : " , range)
 
      if (!file || !range) {
        return NextResponse.json(

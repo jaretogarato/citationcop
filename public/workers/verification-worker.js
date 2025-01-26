@@ -40087,13 +40087,15 @@
           message: `References are on page: ${pageNo}`
         });
         const slicedPdf = await pdfSlicer.slicePdfPages(file, pageNo, 4);
-        const slicedFile = new File([slicedPdf], "sliced.pdf", { type: "application/pdf" });
+        const slicedFile = new File([slicedPdf], "sliced.pdf", {
+          type: "application/pdf"
+        });
         self.postMessage({
           type: "update",
           pdfId,
           message: `Converting PDF to images: ${pdfId}`
         });
-        const images = await convertPdfToImages(slicedFile);
+        const images = await convertPdfToImagesSequential(slicedFile);
         if (images.length === 0) {
           throw new Error("No images extracted from PDF");
         }
@@ -40102,15 +40104,22 @@
           pdfId,
           message: `Extracting references from ${images.length} pages`
         });
+        const BATCH_SIZE3 = 5;
         const allReferences = [];
-        for (let i = 0; i <= images.length; i++) {
-          const pageReferences = await extractReferencesFromImage(images[i]);
-          allReferences.push(...pageReferences);
-          self.postMessage({
-            type: "update",
-            pdfId,
-            message: `Processed page ${i + 1}/${images.length}`
-          });
+        for (let i = 0; i < images.length; i += BATCH_SIZE3) {
+          const batch = images.slice(i, i + BATCH_SIZE3);
+          const extractionPromises = batch.map(
+            (image, batchIndex) => extractReferencesFromImage(image).then((refs) => {
+              self.postMessage({
+                type: "update",
+                pdfId,
+                message: `Processed page ${i + batchIndex + 1}/${images.length}`
+              });
+              return refs;
+            })
+          );
+          const batchResults = await Promise.all(extractionPromises);
+          batchResults.forEach((refs) => allReferences.push(...refs));
         }
         const noReferences = allReferences.length;
         self.postMessage({
@@ -40126,7 +40135,7 @@
             self.postMessage({
               type: "update",
               pdfId,
-              message: `\u2705 search complete for ${pdfId}`
+              message: `\u2705 search batch complete for ${pdfId}`
             });
           }
         );
@@ -40156,7 +40165,7 @@
       }
     }
   };
-  async function convertPdfToImages(file) {
+  async function convertPdfToImagesSequential(file) {
     const formData = new FormData();
     formData.append("pdf", file);
     formData.append("range", "1-");
