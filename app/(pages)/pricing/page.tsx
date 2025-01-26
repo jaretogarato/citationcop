@@ -21,7 +21,7 @@ export default async function PricingPage() {
 
   //console.log('Products:', products);
   //console.log('Subscription:', subscription);
-  console.log('Products with prices:', JSON.stringify(products, null, 2))
+  // console.log('Products with prices:', JSON.stringify(products, null, 2))
 
   return (
     <Pricing

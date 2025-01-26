@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 })
     }
 
-    const prompt = `Extract the references from the following document. The references should be in a references (or similar) section. Provide them in the following JSON format:
+    const prompt = `Extract the references from the following document. Provide them in the following JSON format:
 
 {
   "references": [
@@ -87,7 +87,7 @@ References (in JSON format):`
         { status: 500 }
       )
     }
-    console.log('*** Extracted content :', parsedContent)
+    //console.log('*** Extracted content :', parsedContent)
     return NextResponse.json(parsedContent)
   } catch (error) {
     console.error('Error in reference extraction:', error)

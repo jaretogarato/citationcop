@@ -24,7 +24,7 @@ const PDFProcessor = () => {
 
   useEffect(() => {
     // Initialize the queue service
-    queueServiceRef.current = new PDFQueueService('/workers/pdf-worker.js')
+    queueServiceRef.current = new PDFQueueService('/workers/verification-worker.js')
 
     // Listen for updates from the queue
     queueServiceRef.current.onUpdate((message) => {
