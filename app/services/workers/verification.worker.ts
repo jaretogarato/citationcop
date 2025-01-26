@@ -192,56 +192,7 @@ async function convertPdfToImagesSequential(file: File): Promise<string[]> {
 
 
 
-// Function to convert PDF to images using the existing endpoint PARALLEL
-async function convertPdfToImages(file: File): Promise<string[]> {
-  const CHUNK_SIZE = 5
-  const chunks: string[] = []
 
-  for (let i = 1; i <= CHUNK_SIZE; i++) {
-    chunks.push(`${i}`)
-  }
-
-  const delay = (ms: number) =>
-    new Promise((resolve) => setTimeout(resolve, ms))
-  const fetchWithRetry = async (
-    formData: FormData,
-    pageNum: string,
-    retries = 3
-  ) => {
-    for (let i = 0; i < retries; i++) {
-      try {
-        const response = await fetch('/api/pdf2images', {
-          method: 'POST',
-          body: formData
-        })
-
-        if (!response.ok) {
-          throw new Error(`Failed to convert page ${pageNum}`)
-        }
-
-        const data = await response.json()
-        return data.images?.[0]
-          ? `data:image/png;base64,${data.images[0]}`
-          : null
-      } catch (error) {
-        if (i === retries - 1) throw error
-        await delay(1000 * (i + 1)) // Exponential backoff
-      }
-    }
-  }
-
-  const formDataPromises = chunks.map((pageNum) => {
-    const formData = new FormData()
-    formData.append('pdf', file)
-    formData.append('range', pageNum)
-    return fetchWithRetry(formData, pageNum)
-  })
-
-  const results = await Promise.all(formDataPromises)
-  return results.filter(
-    (result): result is string => result !== null && result !== undefined
-  )
-}
 
 // Function to extract references from a single image
 async function extractReferencesFromImage(
