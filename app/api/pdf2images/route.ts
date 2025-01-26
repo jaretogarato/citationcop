@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const PDF_CONVERTER_URL =
   process.env.NEXT_PUBLIC_PDF_CONVERTER_URL
 
-console.log('PDF_CONVERTER_URL: ', PDF_CONVERTER_URL)
+//console.log('PDF_CONVERTER_URL: ', PDF_CONVERTER_URL)
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
    try {

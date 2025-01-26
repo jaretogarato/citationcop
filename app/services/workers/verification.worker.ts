@@ -4,6 +4,7 @@ import { WorkerMessage } from '../types'
 import { SearchReferenceService } from '@/app/services/search-reference-service'
 import { VerifyReferenceService } from '../verify-reference-service'
 import { ReferencesPageFinder } from '@/app/services/references-page-finder-service'
+import { PdfSlicerService } from '../pdf-slicer-service'
 import type { Reference } from '@/app/types/reference'
 
 declare const self: DedicatedWorkerGlobalScope
@@ -11,6 +12,7 @@ declare const self: DedicatedWorkerGlobalScope
 const referencePageFinderService = new ReferencesPageFinder()
 const searchReferenceService = new SearchReferenceService()
 const verifyReferenceService = new VerifyReferenceService()
+const pdfSlicer = new PdfSlicerService()
 
 // Listen for messages
 self.onmessage = async (e: MessageEvent) => {
@@ -34,7 +36,11 @@ self.onmessage = async (e: MessageEvent) => {
         message: `References are on page: ${pageNo}`
       })
 
-      // STEP 2: Slice Pages
+      // STEP 2: Slice Pages starting from pageNo
+      const slicedPdf = await pdfSlicer.slicePdfPages(file, pageNo, 4)
+
+      // Update file reference to use sliced PDF
+      const slicedFile = new File([slicedPdf], 'sliced.pdf', { type: 'application/pdf' })
 
       // STEP 3: Convert PDF to images
       self.postMessage({
@@ -43,21 +49,24 @@ self.onmessage = async (e: MessageEvent) => {
         message: `Converting PDF to images: ${pdfId}`
       })
 
-      const images = await convertPdfToImages(file)
+      const images = await convertPdfToImages(slicedFile)
 
       if (images.length === 0) {
         throw new Error('No images extracted from PDF')
       }
 
-      // STEP 2: Process each image through Vision API
+      // STEP 4: Process each image through Vision API
+
       self.postMessage({
         type: 'update',
         pdfId,
         message: `Extracting references from ${images.length} pages`
       })
 
+      // make this just from pageNo to pageNo+4
+
       const allReferences: Reference[] = []
-      for (let i = 10; i < images.length; i++) {
+      for (let i = 0; i <= images.length; i++) {
         const pageReferences = await extractReferencesFromImage(images[i])
         allReferences.push(...pageReferences)
 
@@ -86,7 +95,7 @@ self.onmessage = async (e: MessageEvent) => {
           self.postMessage({
             type: 'update',
             pdfId,
-            message: `✅ search complete for ${pdfId}`
+            message: `✅ search batch complete for ${pdfId}`
           })
         }
       )

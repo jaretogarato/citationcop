@@ -10,7 +10,7 @@ export async function fetchGoogleSearchResults(query: string) {
 
   try {
     
-    console.log("Fetching search results for query:", query)
+    //console.log("Fetching search results for query:", query)
     const response = await fetch('https://google.serper.dev/search', {
       method: 'POST',
       headers: {

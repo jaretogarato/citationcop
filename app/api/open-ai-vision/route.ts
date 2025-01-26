@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       imageData.startsWith(prefix)
     )
     if (!isValidFormat) {
-      console.log("not valid format.")
+      console.log('not valid format.')
       return NextResponse.json(
         {
           error:
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
               type: 'image_url',
               image_url: {
                 url: `data:image/png;base64,${base64Content}`
-                //"detail": "low"
+                //detail: 'low'
               }
             }
           ]
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     // Extract and return the response content
     let content = response.choices[0]?.message?.content
 
-    console.log('**** /n content from openai: ', content, '/n ****')
+    //console.log('**** /n content from openai: ', content, '/n ****')
 
     if (!content) {
       return NextResponse.json(
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
-    console.log('*** Extracted content :', parsedContent)
+    //console.log('*** Extracted content :', parsedContent)
     return NextResponse.json(parsedContent)
   } catch (error) {
     console.error('Error in reference extraction:', error)

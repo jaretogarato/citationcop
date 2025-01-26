@@ -33,7 +33,9 @@ const calculateBackoffDelay = (attempt: number): number => {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const openAIInstances = API_KEYS.map((apiKey) => new OpenAI({ apiKey }))
-const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
+
+// switching to trained model first choice.
+const model = process.env.LLM_MODEL_VERIFY_ID || process.env.LLM_MODEL_ID || 'gpt-4o-mini'
 
 export async function POST(request: Request) {
   try {
@@ -41,7 +43,7 @@ export async function POST(request: Request) {
       reference,
       searchResults,
       keyIndex,
-      maxRetries = 5 // Increased default retries for rate limit handling
+      maxRetries = 5
     } = await request.json()
 
     if (!reference || !searchResults) {
@@ -57,13 +59,50 @@ export async function POST(request: Request) {
 
     const openAI = openAIInstances[keyIndex]
     const startTime = Date.now()
-    //const reference_string = reference.raw
 
-    const prompt = `You are a machine that checks references/citations and uncovers false references in writing...` // [rest of prompt remains the same]
+    //const reference_string = constructGoogleSearchString(reference)
+
+    // FOR NOW JUST GOING WITH THE RAW TEXT FROM THE PAPER!
+    const reference_string = reference.raw
+
+    //console.log(`reference_string: ${reference_string}`);
+
+    /*const reference_string = [
+      reference.authors?.join(' '),
+      reference.title,
+      reference.journal,
+      reference.year,
+      reference.volume,
+      reference.pages,
+      reference.publisher,
+      reference.conference,
+      reference.date_of_access,
+      reference.issue,
+    ]
+      .filter((field) => field !== null && field !== undefined)
+      .join(' ');*/
+
+    const prompt = `You are a machine that checks references/citations and uncovers false references in writing. Given the following search results, determine whether the provided reference refers to an actual article, conference paper, blog post, or other. Only use the information from the search results to determine the validity of the reference.
+    
+    A reference status is:
+    - verified if multiple search results confirms its validity
+    - unverified if there is no evidence of its existance
+    - error if there are some things that suggest that perhaps the reference is has some missing or incorrect info that a human shoud verify
+
+    Reference: ${reference_string}
+
+    Google Search Results:
+    ${JSON.stringify(searchResults, null, 2)}
+
+    Answer in the following JSON format:
+    {
+      "status": "verified | unverified | error", 
+      "message": "Explain how the search results verify or not the given reference. Include links that support your conclusion.",
+    }`
 
     let lastError: Error | null = null as Error | null
 
-    // Enhanced retry loop with exponential backoff
+    // Retry loop
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const response = await openAI.chat.completions.create({

@@ -87,7 +87,7 @@ References (in JSON format):`
         { status: 500 }
       )
     }
-    console.log('*** Extracted content :', parsedContent)
+    //console.log('*** Extracted content :', parsedContent)
     return NextResponse.json(parsedContent)
   } catch (error) {
     console.error('Error in reference extraction:', error)

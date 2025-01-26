@@ -38,7 +38,7 @@ export async function parsePDF(binaryData: Uint8Array): Promise<string> {
     // Clean and filter the text
     const cleanedText = cleanText(extractedText)
 
-    console.log('Extracted and cleaned text:', cleanedText)
+    //console.log('Extracted and cleaned text:', cleanedText)
 
     return cleanedText
   } catch (error) {
