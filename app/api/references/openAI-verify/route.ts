@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     A reference status is:
     - verified if multiple search results confirms its validity
     - unverified if there is no evidence of its existance
-    - error if there are some things that suggest that perhaps the reference is has some missing or incorrect info that a human shoud verify
+    - error if there are some things that suggest that perhaps the reference is has some missing or incorrect info that a human should verify. All references must have a title and authors as a minimum. If not, status should be error
 
     Reference: ${reference_string}
 

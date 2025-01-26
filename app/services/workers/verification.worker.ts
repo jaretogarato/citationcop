@@ -37,10 +37,13 @@ self.onmessage = async (e: MessageEvent) => {
       })
 
       // STEP 2: Slice Pages starting from pageNo
+
       const slicedPdf = await pdfSlicer.slicePdfPages(file, pageNo, 4)
 
       // Update file reference to use sliced PDF
-      const slicedFile = new File([slicedPdf], 'sliced.pdf', { type: 'application/pdf' })
+      const slicedFile = new File([slicedPdf], 'sliced.pdf', {
+        type: 'application/pdf'
+      })
 
       // STEP 3: Convert PDF to images
       self.postMessage({
@@ -131,51 +134,33 @@ self.onmessage = async (e: MessageEvent) => {
 
 // Function to convert PDF to images using the existing endpoint
 async function convertPdfToImages(file: File): Promise<string[]> {
-  const formData = new FormData()
-  formData.append('pdf', file)
-  formData.append('range', '1-') // Convert all pages
+  // Split into chunks of 5 pages each
+  const CHUNK_SIZE = 5
+  const chunks: string[] = []
 
-  try {
-    console.log('Making request to pdf2images endpoint...')
-    const response = await fetch('/api/pdf2images', {
+  for (let i = 1; i <= CHUNK_SIZE; i++) {
+    chunks.push(`${i}`)
+  }
+
+  const formDataPromises = chunks.map((pageNum) => {
+    const formData = new FormData()
+    formData.append('pdf', file)
+    formData.append('range', pageNum)
+
+    return fetch('/api/pdf2images', {
       method: 'POST',
       body: formData
+    }).then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Failed to convert page ${pageNum}`)
+      }
+      const data = await response.json()
+      return data.images?.[0] ? `data:image/png;base64,${data.images[0]}` : null
     })
+  })
 
-    if (!response.ok) {
-      console.error(
-        'PDF to images response not OK:',
-        response.status,
-        response.statusText
-      )
-      throw new Error(`Failed to convert PDF to images: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-
-    if (!data.images || !Array.isArray(data.images)) {
-      console.error('Invalid images data received:', data)
-      throw new Error('Invalid image data received from conversion')
-    }
-
-    // Format the images with the required prefix
-    const formattedImages = data.images.map(
-      (img: string) => `data:image/png;base64,${img}`
-    )
-
-    // Log the first image data to check format
-    if (formattedImages.length > 0) {
-      console.log(
-        'First image data preview (after formatting):',
-        formattedImages[0].substring(0, 100) + '...'
-      )
-    }
-
-    return formattedImages
-  } catch (error) {
-    console.error('Error in convertPdfToImages:', error)
-    throw error
-  }
+  const results = await Promise.all(formDataPromises)
+  return results.filter((result) => result !== null)
 }
 
 // Function to extract references from a single image
