@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import { PDFQueueService } from '@/app/services/queue-service'
 import { FileText, CheckCircle, XCircle, Cog } from 'lucide-react'
 import { PDFDropZone } from './PDFDropZone'
-import { ModeSelector } from '@/app/components/ui/ModeSelector'
 import ReferenceGrid from '@/app/components/batch/ReferenceGrid'
 import type { Reference } from '@/app/types/reference'
 

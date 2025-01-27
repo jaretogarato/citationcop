@@ -1,33 +1,35 @@
-import React, { useEffect } from 'react';
-import { ReferenceCard } from './ReferenceCard';
-import { StatsCards } from './StatsCard';
-import type { Reference } from '@/app/types/reference';
+import React, { useEffect } from 'react'
+import { ReferenceCard } from './ReferenceCard'
+import { StatsCards } from './StatsCard'
+import type { Reference } from '@/app/types/reference'
 
 export interface DisplayReferencesProps {
-  data: Reference[];
-  onComplete: () => void;
+  data: Reference[]
+  onComplete: () => void
 }
 
-export const DisplayReferences = ({ data, onComplete }: DisplayReferencesProps) => {
-
+export const DisplayReferences = ({
+  data,
+  onComplete
+}: DisplayReferencesProps) => {
   // Validate data prop
   useEffect(() => {
     if (!Array.isArray(data)) {
-      console.error('DisplayReferences: data prop is not an array', data);
+      console.error('DisplayReferences: data prop is not an array', data)
     }
-  }, [data]);
+  }, [data])
 
   const getStatusSummary = () => {
-    if (!Array.isArray(data)) return { verified: 0, invalid: 0, warning: 0 };
+    if (!Array.isArray(data)) return { verified: 0, invalid: 0, warning: 0 }
 
     return {
-      verified: data.filter(ref => ref.status === 'verified').length,
-      invalid: data.filter(ref => ref.status === 'unverified').length,
-      warning: data.filter(ref => ref.status === 'error').length
-    };
-  };
+      verified: data.filter((ref) => ref.status === 'verified').length,
+      invalid: data.filter((ref) => ref.status === 'unverified').length,
+      warning: data.filter((ref) => ref.status === 'error').length
+    }
+  }
 
-  const summary = getStatusSummary();
+  const summary = getStatusSummary()
 
   // If data is not an array, show error state
   if (!Array.isArray(data)) {
@@ -37,7 +39,7 @@ export const DisplayReferences = ({ data, onComplete }: DisplayReferencesProps) 
           Error: Invalid reference data
         </h2>
       </div>
-    );
+    )
   }
 
   const statsData = {
@@ -45,7 +47,7 @@ export const DisplayReferences = ({ data, onComplete }: DisplayReferencesProps) 
     verified: summary.verified,
     invalid: summary.invalid,
     warning: summary.warning
-  };
+  }
 
   return (
     <div className="p-8">
@@ -72,9 +74,7 @@ export const DisplayReferences = ({ data, onComplete }: DisplayReferencesProps) 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-[1400px] mx-auto border-none">
         {data.length === 1 ? (
           <div className="col-span-1 md:col-span-2 lg:col-span-3 flex justify-center">
-            <ReferenceCard
-              reference={data[0]}
-            />
+            <ReferenceCard reference={data[0]} />
           </div>
         ) : (
           data.map((reference: Reference, index) => (
@@ -85,7 +85,6 @@ export const DisplayReferences = ({ data, onComplete }: DisplayReferencesProps) 
           ))
         )}
       </div>
-
     </div>
-  );
+  )
 }

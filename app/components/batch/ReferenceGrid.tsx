@@ -15,7 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/app/components/ui/tooltip"
-import { ReferenceDialog } from '../verify/display/ReferenceDialog'
+import { ReferenceDialog } from '@/app/components/reference-display/ReferenceDialog'
 
 const ANIMATION_DELAY = 100 // ms between each reference appearance
 
