@@ -1,7 +1,7 @@
 'use client'
 
 import Button from '@/app/components/ui/Button'
-import Card from '@/app/components/ui/Card'
+import { Card, CardDescription, CardTitle } from '@/app/components/ui/card'
 import { updateName } from '@/app/utils/auth-helpers/server'
 import { handleRequest } from '@/app/utils/auth-helpers/client'
 import { useRouter } from 'next/navigation'
@@ -40,7 +40,7 @@ export default function NameForm({ userName }: NameFormProps) {
   }
 
   return (
-    <Card
+    <Card>
       title="Your Name"
       description="Please enter your full name, or a display name you are comfortable with."
       footer={
@@ -56,7 +56,7 @@ export default function NameForm({ userName }: NameFormProps) {
           </Button>
         </div>
       }
-    >
+    
       <div className="mt-8 mb-4 text-xl font-semibold">
         <form id="nameForm" onSubmit={handleSubmit}>
           <input
