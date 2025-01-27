@@ -1,7 +1,14 @@
 'use client'
 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from '@/app/components/ui/card'
 import Button from '@/app/components/ui/Button'
-import Card from '@/app/components/ui/Card'
 import { updateEmail } from '@/app/utils/auth-helpers/server'
 import { handleRequest } from '@/app/utils/auth-helpers/client'
 import { useRouter } from 'next/navigation'
@@ -28,26 +35,15 @@ export default function EmailForm({
   }
 
   return (
-    <Card
-      title="Your Email"
-      description="Please enter the email address you want to use to login."
-      footer={
-        <div className="flex flex-col items-start justify-between sm:flex-row sm:items-center">
-          <p className="pb-4 sm:pb-0">
-            We will email you to verify the change.
-          </p>
-          <Button
-            variant="slim"
-            type="submit"
-            form="emailForm"
-            loading={isSubmitting}
-          >
-            Update Email
-          </Button>
-        </div>
-      }
-    >
-      <div className="mt-8 mb-4 text-xl font-semibold">
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle>Your Email</CardTitle>
+        <CardDescription>
+          Please enter the email address you want to use to login.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent>
         <form id="emailForm" onSubmit={(e) => handleSubmit(e)}>
           <input
             type="text"
@@ -58,7 +54,21 @@ export default function EmailForm({
             maxLength={64}
           />
         </form>
-      </div>
+      </CardContent>
+
+      <CardFooter className="flex flex-col items-start justify-between sm:flex-row sm:items-center">
+        <p className="pb-4 sm:pb-0">
+          We will email you to verify the change.
+        </p>
+        <Button
+          variant="slim"
+          type="submit"
+          form="emailForm"
+          loading={isSubmitting}
+        >
+          Update Email
+        </Button>
+      </CardFooter>
     </Card>
   )
 }
