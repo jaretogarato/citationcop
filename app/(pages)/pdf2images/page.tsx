@@ -10,7 +10,7 @@ import {
   CardTitle,
   CardContent,
   CardFooter
-} from '@/app/components/ui/Card'
+} from '@/app/components/ui/card'
 import { Alert, AlertDescription } from '@/app/components/ui/alert'
 
 const ImageToPdfPage: React.FC = () => {
