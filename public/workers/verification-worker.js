@@ -24546,7 +24546,15 @@
   var __webpack_exports__version = __webpack_exports__.version;
 
   // app/services/references-page-finder-service.ts
-  __webpack_exports__GlobalWorkerOptions.workerSrc = "/workers/pdf.worker.js";
+  if (typeof window !== "undefined") {
+    __webpack_exports__GlobalWorkerOptions.workerSrc = "/workers/pdf.worker.js";
+    window.pdfjsLib = { disableSourceMaps: true };
+  }
+  if (typeof self !== "undefined" && "WorkerGlobalScope" in self && self instanceof WorkerGlobalScope) {
+    __webpack_exports__GlobalWorkerOptions.workerSrc = "/workers/pdf.worker.js";
+  } else if (typeof window !== "undefined") {
+    __webpack_exports__GlobalWorkerOptions.workerSrc = "/workers/pdf.worker.js";
+  }
   var ReferencesPageFinder = class {
     /**
      * Check if text is a reference section heading - more lenient version
@@ -40096,6 +40104,7 @@
           message: `Converting PDF to images: ${pdfId}`
         });
         const images = await convertPdfToImagesSequential(slicedFile);
+        console.log("images: ", images);
         if (images.length === 0) {
           throw new Error("No images extracted from PDF");
         }
@@ -40176,28 +40185,35 @@
         body: formData
       });
       if (!response.ok) {
-        console.error(
-          "PDF to images response not OK:",
-          response.status,
-          response.statusText
-        );
         throw new Error(`Failed to convert PDF to images: ${response.statusText}`);
       }
-      const data = await response.json();
-      if (!data.images || !Array.isArray(data.images)) {
-        console.error("Invalid images data received:", data);
-        throw new Error("Invalid image data received from conversion");
+      const initialData = await response.json();
+      console.log("Initial response:", initialData);
+      const statusUrl = initialData.statusEndpoint;
+      console.log("Status URL:", statusUrl);
+      const maxAttempts = 30;
+      const pollInterval = 1e3;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        console.log(`Polling attempt ${attempt + 1}...`);
+        const statusResponse = await fetch(statusUrl);
+        if (!statusResponse.ok) {
+          console.error("Status check failed:", statusResponse.status, statusResponse.statusText);
+          throw new Error(`Status check failed: ${statusResponse.statusText}`);
+        }
+        const statusData = await statusResponse.json();
+        console.log("Status response:", statusData);
+        if (statusData.error) {
+          throw new Error(statusData.error);
+        }
+        if (statusData.images && Array.isArray(statusData.images) && statusData.images.length > 0) {
+          console.log(`Successfully received ${statusData.images.length} images`);
+          return statusData.images.map(
+            (img) => `data:image/png;base64,${img}`
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
       }
-      const formattedImages = data.images.map(
-        (img) => `data:image/png;base64,${img}`
-      );
-      if (formattedImages.length > 0) {
-        console.log(
-          "First image data preview (after formatting):",
-          formattedImages[0].substring(0, 100) + "..."
-        );
-      }
-      return formattedImages;
+      throw new Error("Timeout waiting for PDF conversion");
     } catch (error2) {
       console.error("Error in convertPdfToImages:", error2);
       throw error2;

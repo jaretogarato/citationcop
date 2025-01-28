@@ -1,8 +1,19 @@
 import { getDocument } from 'pdfjs-dist'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
-import { GlobalWorkerOptions } from 'pdfjs-dist'
+import { GlobalWorkerOptions } from 'pdfjs-dist';
 
-GlobalWorkerOptions.workerSrc = '/workers/pdf.worker.js'
+if (typeof window !== 'undefined') {
+  GlobalWorkerOptions.workerSrc = '/workers/pdf.worker.js';
+  (window as any).pdfjsLib = { disableSourceMaps: true };
+}
+
+// Set PDF.js worker
+if (typeof self !== 'undefined' && 'WorkerGlobalScope' in self && self instanceof WorkerGlobalScope) {
+  GlobalWorkerOptions.workerSrc = '/workers/pdf.worker.js'
+} else if (typeof window !== 'undefined') {
+  GlobalWorkerOptions.workerSrc = '/workers/pdf.worker.js'
+}
+
 
 interface PDFItem {
   str: string

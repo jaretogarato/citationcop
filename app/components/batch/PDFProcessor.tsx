@@ -23,10 +23,14 @@ const PDFProcessor = () => {
 
   useEffect(() => {
     // Initialize the queue service
-    queueServiceRef.current = new PDFQueueService('/workers/verification-worker.js')
+    queueServiceRef.current = new PDFQueueService(
+      '/workers/verification-worker.js'
+    )
 
     // Listen for updates from the queue
     queueServiceRef.current.onUpdate((message) => {
+      console.log('Received message from server:', message)
+
       switch (message.type) {
         case 'update':
           setLogMessages((prev) => [...prev, `${message.message}`])
@@ -112,7 +116,7 @@ const PDFProcessor = () => {
         />
       </div>
 
-     {/*} <div className="mb-6">
+      {/*} <div className="mb-6">
         <ModeSelector
           //isHighAccuracy={isHighAccuracy}
           onToggle={toggleHighAccuracy}
