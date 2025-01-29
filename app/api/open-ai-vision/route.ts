@@ -72,7 +72,7 @@ export async function POST(request: Request) {
             {
               type: 'image_url',
               image_url: {
-                url: `data:image/png;base64,${base64Content}`
+                url: `data:image/png;base64,${base64Content}`,
                 //detail: 'low'
               }
             }
