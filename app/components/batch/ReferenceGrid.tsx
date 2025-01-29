@@ -1,5 +1,3 @@
-'use client'
-
 import React, { useState, useEffect } from 'react'
 import type { Reference, ReferenceStatus } from '@/app/types/reference'
 import {
@@ -50,8 +48,15 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
     return () => clearTimeout(timeout)
   }, [references])
 
-  // Only show the first n references based on visibleCount
-  const visibleReferences = references.slice(0, visibleCount)
+  // Group references by source document
+  const groupedReferences = references.slice(0, visibleCount).reduce((groups, ref) => {
+    const sourceDoc = ref.sourceDocument || 'Unknown Source'
+    if (!groups[sourceDoc]) {
+      groups[sourceDoc] = []
+    }
+    groups[sourceDoc].push(ref)
+    return groups
+  }, {} as Record<string, Reference[]>)
 
   return (
     <div>
@@ -60,48 +65,68 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
       </h3>
 
       <div className="max-w-4xl rounded-lg border border-slate-700 p-4">
-        <div className="flex flex-wrap gap-1">
-          {visibleReferences.map((ref, i) => (
-            <Dialog key={i}>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DialogTrigger>
-                      <div
-                        className={`
-                          w-4 h-4
-                          ${statusColors[ref.status]}
-                          hover:opacity-75 transition-opacity
-                          cursor-pointer
-                          animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4
-                          rounded-sm 
-                        `}
-                      /> 
-                    </DialogTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent 
-                    side="top" 
-                    className="max-w-[300px] text-xs bg-slate-800 text-slate-100 border-slate-700"
-                  >
-                    <p className="font-semibold">{ref.title}</p>
-                    {ref.sourceDocument && (
-                      <p className="text-slate-300 mt-1">
-                        Source: {ref.sourceDocument}
-                      </p>
-                    )}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <DialogContent className="bg-transparent border-none shadow-none max-w-lg">
-                <DialogTitle hidden>Reference {ref.title}</DialogTitle>
-                <DialogDescription hidden>
-                  Details of the verification of the reference
-                </DialogDescription>
-                <div className="mt-4">
-                  <ReferenceDialog reference={ref} />
-                </div>
-              </DialogContent>
-            </Dialog>
+        <div className="flex flex-wrap items-center gap-1">
+          {Object.entries(groupedReferences).map(([sourceDoc, refs], groupIndex) => (
+            <div key={sourceDoc} className="flex items-center gap-1">
+              {/* Add a vertical separator before each group except the first */}
+              {groupIndex > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <div className="h-6 w-px bg-slate-600 mx-2 self-center hover:bg-slate-400 transition-colors cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent 
+                      side="top" 
+                      className="bg-slate-800 text-slate-100 border-slate-700"
+                    >
+                      <p className="text-xs">Start of references from:</p>
+                      <p className="text-xs font-medium">{sourceDoc}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              
+              {refs.map((ref, i) => (
+                <Dialog key={i}>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DialogTrigger>
+                          <div
+                            className={`
+                              w-4 h-4
+                              ${statusColors[ref.status]}
+                              hover:opacity-75 transition-opacity
+                              cursor-pointer
+                              animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4
+                              rounded-sm 
+                            `}
+                          /> 
+                        </DialogTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent 
+                        side="top" 
+                        className="max-w-[300px] text-xs bg-slate-800 text-slate-100 border-slate-700"
+                      >
+                        <p className="font-semibold">{ref.title}</p>
+                        <p className="text-slate-300 mt-1">
+                          Source: {sourceDoc}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <DialogContent className="bg-transparent border-none shadow-none max-w-lg">
+                    <DialogTitle hidden>Reference {ref.title}</DialogTitle>
+                    <DialogDescription hidden>
+                      Details of the verification of the reference
+                    </DialogDescription>
+                    <div className="mt-4">
+                      <ReferenceDialog reference={ref} />
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              ))}
+            </div>
           ))}
         </div>
       </div>
