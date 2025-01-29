@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import type { Reference, ReferenceStatus } from '@/app/types/reference'
+import type { Reference } from '@/app/types/reference'
 import {
   Dialog,
   DialogContent,
@@ -14,8 +14,11 @@ import {
   TooltipTrigger,
 } from "@/app/components/ui/tooltip"
 import { ReferenceDialog } from '@/app/components/reference-display/ReferenceDialog'
+import type { ReferenceStatus } from '@/app/types/reference'
 
 const ANIMATION_DELAY = 100 // ms between each reference appearance
+
+//type ReferenceStatus = 'verified' | 'unverified' | 'error' | 'pending'
 
 const statusColors: Record<ReferenceStatus, string> = {
   verified: 'bg-emerald-400/60',
@@ -24,11 +27,12 @@ const statusColors: Record<ReferenceStatus, string> = {
   pending: 'bg-indigo-400/60'
 }
 
-const statusDisplayNames: Record<ReferenceStatus, string> = {
+const statusDisplayNames: Record<ReferenceStatus | 'no_status', string> = {
   verified: 'Verified',
   error: 'Needs Human Review',
   pending: 'Pending',
-  unverified: 'Could not be verified'
+  unverified: 'Could not be verified',
+  no_status: 'No Status'
 }
 
 interface ReferenceGridProps {
@@ -48,6 +52,18 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
     return () => clearTimeout(timeout)
   }, [references])
 
+  // Helper function to get color based on status
+  const getStatusColor = (status: ReferenceStatus | undefined | null): string => {
+    if (!status) return 'bg-gray-400/60'
+    return statusColors[status] || 'bg-gray-400/60'
+  }
+
+  // Helper function to get display name based on status
+  const getStatusDisplayName = (status: ReferenceStatus | undefined | null): string => {
+    if (!status) return statusDisplayNames.no_status
+    return statusDisplayNames[status] || statusDisplayNames.no_status
+  }
+
   // Group references by source document
   const groupedReferences = references.slice(0, visibleCount).reduce((groups, ref) => {
     const sourceDoc = ref.sourceDocument || 'Unknown Source'
@@ -57,6 +73,9 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
     groups[sourceDoc].push(ref)
     return groups
   }, {} as Record<string, Reference[]>)
+
+  // Get unique statuses including 'no_status' if there are any undefined/null statuses
+  const uniqueStatuses = [...new Set(references.map(ref => ref.status || 'no_status'))]
 
   return (
     <div>
@@ -95,7 +114,7 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                           <div
                             className={`
                               w-4 h-4
-                              ${statusColors[ref.status]}
+                              ${getStatusColor(ref.status)}
                               hover:opacity-75 transition-opacity
                               cursor-pointer
                               animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4
@@ -132,13 +151,11 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
       </div>
 
       <div className="mt-4 flex gap-4 items-center justify-end">
-        {Object.entries(statusDisplayNames).map(([status, displayName]) => (
+        {uniqueStatuses.map((status) => (
           <div key={status} className="flex items-center gap-2">
-            <div
-              className={`w-4 h-4 ${statusColors[status as ReferenceStatus]}`}
-            />
+            <div className={`w-4 h-4 ${getStatusColor(status as ReferenceStatus)}`} />
             <span className="text-sm text-gray-200 capitalize">
-              {displayName}
+              {getStatusDisplayName(status as ReferenceStatus)}
             </span>
           </div>
         ))}

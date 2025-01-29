@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import ReactMarkdown from 'react-markdown'
+
+import type { Reference } from '@/app/types/reference'
+import ReferenceGrid from '@/app/components/batch/ReferenceGrid'
 
 interface PageResult {
   pageNumber: number
@@ -16,6 +18,7 @@ export default function TestReferences() {
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<string>('')
   const [images, setImages] = useState<string[]>([])
+  const [references, setReferences] = useState<Reference[]>([])
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
@@ -24,6 +27,7 @@ export default function TestReferences() {
     setResults([])
     setError(null)
     setProgress('')
+    setReferences([])
   }
 
   const handleProcessPdf = async () => {
@@ -40,7 +44,7 @@ export default function TestReferences() {
       // Step 1: Convert PDF to images
       const formData = new FormData()
       formData.append('pdf', selectedFile)
-      formData.append('range', '1-100') // Increased range for academic papers
+      formData.append('range', '1-100')
 
       const pdfResponse = await fetch('/api/pdf2images', {
         method: 'POST',
@@ -52,7 +56,7 @@ export default function TestReferences() {
       }
 
       const { images } = await pdfResponse.json()
-      setImages(images) // Add this line
+      setImages(images)
       setProgress(`Analyzing ${images.length} pages for references...`)
 
       // Step 2: Check each page for references
@@ -60,7 +64,6 @@ export default function TestReferences() {
         images.map(async (base64Image: string, index: number) => {
           const imageData = `data:image/jpeg;base64,${base64Image}`
 
-          // Check if page contains references
           const checkResponse = await fetch(
             '/api/llama-vision/yes-references',
             {
@@ -79,7 +82,6 @@ export default function TestReferences() {
 
           const { hasReferences } = await checkResponse.json()
 
-          // If page has references, get markdown
           let markdown = ''
           if (hasReferences) {
             setProgress(
@@ -109,6 +111,29 @@ export default function TestReferences() {
       )
 
       setResults(pageResults)
+
+      // Step 3: Extract structured references
+      const referencePagesMarkdown = pageResults
+        .filter((r) => r.hasReferences)
+        .map((r) => r.markdown)
+        .join('\n\n')
+
+      if (referencePagesMarkdown) {
+        setProgress('Extracting structured references...')
+        const extractResponse = await fetch('/api/references/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: referencePagesMarkdown })
+        })
+
+        if (!extractResponse.ok) {
+          throw new Error('Failed to extract structured references')
+        }
+
+        const { references } = await extractResponse.json()
+        setReferences(references)
+      }
+
       setProgress('')
     } catch (error) {
       console.error(error)
@@ -123,6 +148,7 @@ export default function TestReferences() {
       <h1 className="text-2xl font-bold mb-4">
         Academic Paper Reference Extractor
       </h1>
+
       <div className="mb-4">
         <input
           type="file"
@@ -140,23 +166,26 @@ export default function TestReferences() {
           onClick={handleProcessPdf}
           disabled={!selectedFile || loading}
           className={`px-4 py-2 rounded-md text-white 
-            ${
-              !selectedFile || loading
-                ? 'bg-gray-400'
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
+            ${!selectedFile || loading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
         >
           {loading ? 'Processing...' : 'Extract References'}
         </button>
       </div>
+
       {error && (
         <div className="bg-red-50 text-red-700 p-4 rounded-md mb-4">
           {error}
         </div>
       )}
+
       {progress && (
         <div className="bg-blue-50 text-blue-700 p-4 rounded-md mb-4">
           {progress}
+        </div>
+      )}
+      {references.length > 0 && (
+        <div className="space-y-4">
+          <ReferenceGrid references={references} />
         </div>
       )}
 
@@ -169,7 +198,6 @@ export default function TestReferences() {
             </h2>
 
             <div className="grid grid-cols-2 gap-4">
-              {/* Original Image */}
               <div className="border rounded-md p-4">
                 <h3 className="text-lg font-medium mb-2">Original Page</h3>
                 <img
@@ -179,14 +207,13 @@ export default function TestReferences() {
                 />
               </div>
 
-              {/* Rendered Markdown */}
               <div className="border rounded-md p-4">
                 <h3 className="text-lg font-medium mb-2">
                   Extracted References
                 </h3>
-                <div className="prose max-w-none">
-                  <ReactMarkdown>{result.markdown}</ReactMarkdown>
-                </div>
+                <pre className="whitespace-pre-wrap font-mono text-sm">
+                  {result.markdown}
+                </pre>
               </div>
             </div>
           </div>
