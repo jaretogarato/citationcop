@@ -29,7 +29,10 @@ export interface MetadataResponse {
 }
 
 // references
-export type ReferenceStatus = 'verified' | 'unverified' | 'error' | 'pending'
+//export type ReferenceStatus = 'verified' | 'unverified' | 'error' | 'pending'
+
+export type ReferenceStatus = 'verified' | 'unverified' | 'error' | 'pending' 
+
 
 export type ReferenceType =
   | 'article' // Journal article
