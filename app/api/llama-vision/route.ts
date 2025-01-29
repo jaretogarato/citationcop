@@ -6,10 +6,10 @@ function isBase64Image(str: string) {
   return str.startsWith('data:image/')
 }
 
-function extractBase64Data(dataUrl: string) {
-  const base64Data = dataUrl.split(',')[1]
-  return base64Data
-}
+//function extractBase64Data(dataUrl: string) {//
+//  const base64Data = dataUrl.split(',')[1]
+//  return base64Data
+//}
 
 async function getMarkDown({
   together,
