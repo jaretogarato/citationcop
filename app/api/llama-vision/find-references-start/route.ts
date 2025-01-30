@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Together from 'together-ai'
 
-async function checkForReferences({
+async function checkForReferencesStart({
   together,
   visionLLM,
   imageData
@@ -10,8 +10,9 @@ async function checkForReferences({
   visionLLM: string
   imageData: string
 }) {
-  const systemPrompt = `Analyze this page and determine if it contains a references section or the continuation of a references section. 
-  Respond with ONLY "yes" or "no". Do not include any other text in your response.`
+  const systemPrompt = `Analyze this page and determine if it contains the START of a references section, bibliography, or works cited section. Look specifically for section headers like "References", "Bibliography", "Works Cited", "Literature Cited", or similar headings that indicate the beginning of a reference list. Do NOT consider pages that are just continuing a references section.
+
+Respond with ONLY "yes" or "no". Do not include any other text in your response.`
 
   const output = await together.chat.completions.create({
     model: visionLLM,
@@ -66,17 +67,17 @@ export async function POST(request: NextRequest) {
       apiKey
     })
 
-    const hasReferences = await checkForReferences({
+    const hasReferencesStart = await checkForReferencesStart({
       together,
       visionLLM,
       imageData: filePath
     })
 
-    return NextResponse.json({ hasReferences })
+    return NextResponse.json({ hasReferences: hasReferencesStart })
   } catch (error) {
-    console.error('Reference Check Error:', error)
+    console.error('Reference Section Start Check Error:', error)
     return NextResponse.json(
-      { error: 'Failed to check for references' },
+      { error: 'Failed to check for references section start' },
       { status: 500 }
     )
   }

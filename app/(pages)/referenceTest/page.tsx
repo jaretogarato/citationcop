@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-
 import type { Reference } from '@/app/types/reference'
 import ReferenceGrid from '@/app/components/batch/ReferenceGrid'
 
@@ -9,6 +8,7 @@ interface PageResult {
   pageNumber: number
   markdown: string
   hasReferences: boolean
+  isStartOfSection?: boolean
 }
 
 export default function TestReferences() {
@@ -30,6 +30,42 @@ export default function TestReferences() {
     setReferences([])
   }
 
+  const findReferenceSectionStart = async (imageData: string): Promise<boolean> => {
+    const response = await fetch('/api/llama-vision/find-references-start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filePath: imageData,
+        model: 'Llama-3.2-90B-Vision'
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to check for references section start')
+    }
+
+    const { hasReferences } = await response.json()
+    return hasReferences
+  }
+
+  const checkIfStillInReferencesSection = async (imageData: string): Promise<boolean> => {
+    const response = await fetch('/api/llama-vision/yes-references', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filePath: imageData,
+        model: 'Llama-3.2-90B-Vision'
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to check if still in references section')
+    }
+
+    const { hasReferences } = await response.json()
+    return hasReferences
+  }
+
   const handleProcessPdf = async () => {
     if (!selectedFile) {
       setError('Please select a PDF file.')
@@ -39,6 +75,7 @@ export default function TestReferences() {
     setLoading(true)
     setError(null)
     setProgress('Converting PDF to images...')
+    setResults([])
 
     try {
       // Step 1: Convert PDF to images
@@ -57,69 +94,79 @@ export default function TestReferences() {
 
       const { images } = await pdfResponse.json()
       setImages(images)
-      setProgress(`Analyzing ${images.length} pages for references...`)
+      setProgress('Searching for references section from the end...')
 
-      // Step 2: Check each page for references
-      const pageResults = await Promise.all(
-        images.map(async (base64Image: string, index: number) => {
-          const imageData = `data:image/jpeg;base64,${base64Image}`
+      // Step 2: Find the start of the references section (searching backward)
+      let referencesSectionStart: number | null = null
+      for (let i = images.length - 1; i >= 0; i--) {
+        const base64Image = images[i]
+        const imageData = `data:image/jpeg;base64,${base64Image}`
 
-          const checkResponse = await fetch(
-            '/api/llama-vision/yes-references',
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                filePath: imageData,
-                model: 'Llama-3.2-90B-Vision'
-              })
-            }
-          )
+        setProgress(`Checking page ${i + 1} for references section start...`)
+        
+        const isReferencesStart = await findReferenceSectionStart(imageData)
+        if (isReferencesStart) {
+          referencesSectionStart = i
+          break
+        }
+      }
 
-          if (!checkResponse.ok) {
-            throw new Error('Failed to check for references')
-          }
+      if (referencesSectionStart === null) {
+        setProgress('No references section found in the document.')
+        return
+      }
 
-          const { hasReferences } = await checkResponse.json()
+      // Step 3: Process the references section and subsequent pages
+      setProgress(`Found references section starting on page ${referencesSectionStart + 1}`)
+      
+      for (let i = referencesSectionStart; i < images.length; i++) {
+        const base64Image = images[i]
+        const imageData = `data:image/jpeg;base64,${base64Image}`
 
-          let markdown = ''
-          if (hasReferences) {
-            setProgress(
-              `Found references on page ${index + 1}, extracting content...`
-            )
-            const markdownResponse = await fetch('/api/llama-vision', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                filePath: imageData,
-                model: 'Llama-3.2-90B-Vision'
-              })
-            })
+        setProgress(`Processing page ${i + 1}...`)
 
-            if (markdownResponse.ok) {
-              const { markdown: pageMarkdown } = await markdownResponse.json()
-              markdown = pageMarkdown
-            }
-          }
+        // Check if we're still in the references section
+        const stillInReferencesSection = await checkIfStillInReferencesSection(imageData)
+        
+        if (!stillInReferencesSection) {
+          setProgress('Reached end of references section')
+          break
+        }
 
-          return {
-            pageNumber: index + 1,
-            hasReferences,
-            markdown
-          }
+        // Extract references content
+        const markdownResponse = await fetch('/api/llama-vision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filePath: imageData,
+            model: 'Llama-3.2-90B-Vision'
+          })
         })
-      )
 
-      setResults(pageResults)
+        if (!markdownResponse.ok) {
+          throw new Error('Failed to extract references content')
+        }
 
-      // Step 3: Extract structured references
-      const referencePagesMarkdown = pageResults
-        .filter((r) => r.hasReferences)
-        .map((r) => r.markdown)
-        .join('\n\n')
+        const { markdown: pageMarkdown } = await markdownResponse.json()
 
-      if (referencePagesMarkdown) {
+        // Add new result immediately to show real-time progress
+        const newResult: PageResult = {
+          pageNumber: i + 1,
+          hasReferences: true,
+          markdown: pageMarkdown,
+          isStartOfSection: i === referencesSectionStart
+        }
+        
+        setResults(prevResults => [...prevResults, newResult])
+      }
+
+      // Step 4: Extract structured references
+      if (results.length > 0) {
         setProgress('Extracting structured references...')
+        const referencePagesMarkdown = results
+          .map(r => r.markdown)
+          .join('\n\n')
+
         const extractResponse = await fetch('/api/references/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -183,41 +230,46 @@ export default function TestReferences() {
           {progress}
         </div>
       )}
+
       {references.length > 0 && (
         <div className="space-y-4">
+          <div className="text-lg font-semibold">
+            Found {references.length} references
+          </div>
           <ReferenceGrid references={references} />
         </div>
       )}
 
-      {results
-        .filter((r) => r.hasReferences)
-        .map((result) => (
-          <div key={result.pageNumber} className="mb-8">
-            <h2 className="text-xl font-semibold mb-2">
-              References found on page {result.pageNumber}
-            </h2>
+      {results.map((result) => (
+        <div key={result.pageNumber} className="mb-8">
+          <h2 className="text-xl font-semibold mb-2">
+            {result.isStartOfSection ? 
+              '📚 References Section Starts Here - Page ' + result.pageNumber :
+              'References continued on page ' + result.pageNumber
+            }
+          </h2>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="border rounded-md p-4">
-                <h3 className="text-lg font-medium mb-2">Original Page</h3>
-                <img
-                  src={`data:image/jpeg;base64,${images[result.pageNumber - 1]}`}
-                  alt={`Page ${result.pageNumber}`}
-                  className="w-full h-auto"
-                />
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="border rounded-md p-4">
+              <h3 className="text-lg font-medium mb-2">Original Page</h3>
+              <img
+                src={`data:image/jpeg;base64,${images[result.pageNumber - 1]}`}
+                alt={`Page ${result.pageNumber}`}
+                className="w-full h-auto"
+              />
+            </div>
 
-              <div className="border rounded-md p-4">
-                <h3 className="text-lg font-medium mb-2">
-                  Extracted References
-                </h3>
-                <pre className="whitespace-pre-wrap font-mono text-sm">
-                  {result.markdown}
-                </pre>
-              </div>
+            <div className="border rounded-md p-4">
+              <h3 className="text-lg font-medium mb-2">
+                Extracted References
+              </h3>
+              <pre className="whitespace-pre-wrap font-mono text-sm">
+                {result.markdown}
+              </pre>
             </div>
           </div>
-        ))}
+        </div>
+      ))}
     </div>
   )
 }
