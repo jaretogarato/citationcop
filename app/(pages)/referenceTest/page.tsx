@@ -30,7 +30,9 @@ export default function TestReferences() {
     setReferences([])
   }
 
-  const findReferenceSectionStart = async (imageData: string): Promise<boolean> => {
+  /*const findReferenceSectionStart = async (
+    imageData: string
+  ): Promise<boolean> => {
     const response = await fetch('/api/llama-vision/find-references-start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -46,24 +48,30 @@ export default function TestReferences() {
 
     const { hasReferences } = await response.json()
     return hasReferences
-  }
+  }*/
 
-  const checkIfStillInReferencesSection = async (imageData: string): Promise<boolean> => {
-    const response = await fetch('/api/llama-vision/yes-references', {
+  const analyzePage = async (
+    imageData: string
+  ): Promise<{
+    isReferencesStart: boolean
+    isNewSectionStart: boolean
+    containsReferences: boolean
+  }> => {
+    const response = await fetch('/api/llama-vision/analyze-page', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         filePath: imageData,
-        model: 'Llama-3.2-90B-Vision'
+        //model: 'Llama-3.2-90B-Vision'
+        mode: 'free'
       })
     })
 
     if (!response.ok) {
-      throw new Error('Failed to check if still in references section')
+      throw new Error('Failed to analyze page')
     }
 
-    const { hasReferences } = await response.json()
-    return hasReferences
+    return response.json()
   }
 
   const handleProcessPdf = async () => {
@@ -78,7 +86,7 @@ export default function TestReferences() {
     setResults([])
 
     try {
-      // Step 1: Convert PDF to images
+      // Step 1: Convert PDF to images (unchanged)
       const formData = new FormData()
       formData.append('pdf', selectedFile)
       formData.append('range', '1-100')
@@ -96,16 +104,19 @@ export default function TestReferences() {
       setImages(images)
       setProgress('Searching for references section from the end...')
 
-      // Step 2: Find the start of the references section (searching backward)
+      // Step 2: Find the references section boundaries
       let referencesSectionStart: number | null = null
+
+      // Search backwards from the end
       for (let i = images.length - 1; i >= 0; i--) {
         const base64Image = images[i]
         const imageData = `data:image/jpeg;base64,${base64Image}`
 
-        setProgress(`Checking page ${i + 1} for references section start...`)
-        
-        const isReferencesStart = await findReferenceSectionStart(imageData)
-        if (isReferencesStart) {
+        setProgress(`Checking page ${i + 1}...`)
+
+        const analysis = await analyzePage(imageData)
+
+        if (analysis.isReferencesStart) {
           referencesSectionStart = i
           break
         }
@@ -117,8 +128,10 @@ export default function TestReferences() {
       }
 
       // Step 3: Process the references section and subsequent pages
-      setProgress(`Found references section starting on page ${referencesSectionStart + 1}`)
-      
+      setProgress(
+        `Found references section starting on page ${referencesSectionStart + 1}`
+      )
+
       for (let i = referencesSectionStart; i < images.length; i++) {
         const base64Image = images[i]
         const imageData = `data:image/jpeg;base64,${base64Image}`
@@ -126,20 +139,21 @@ export default function TestReferences() {
         setProgress(`Processing page ${i + 1}...`)
 
         // Check if we're still in the references section
-        const stillInReferencesSection = await checkIfStillInReferencesSection(imageData)
-        
-        if (!stillInReferencesSection) {
+        const analysis = await analyzePage(imageData)
+
+        if (analysis.isNewSectionStart || !analysis.containsReferences) {
           setProgress('Reached end of references section')
           break
         }
 
-        // Extract references content
+        // Extract references content (unchanged)
         const markdownResponse = await fetch('/api/llama-vision', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             filePath: imageData,
-            model: 'Llama-3.2-90B-Vision'
+            //model: 'Llama-3.2-90B-Vision'
+            mode: 'free'
           })
         })
 
@@ -149,22 +163,22 @@ export default function TestReferences() {
 
         const { markdown: pageMarkdown } = await markdownResponse.json()
 
-        // Add new result immediately to show real-time progress
+        // Add new result
         const newResult: PageResult = {
           pageNumber: i + 1,
           hasReferences: true,
           markdown: pageMarkdown,
           isStartOfSection: i === referencesSectionStart
         }
-        
-        setResults(prevResults => [...prevResults, newResult])
+
+        setResults((prevResults) => [...prevResults, newResult])
       }
 
-      // Step 4: Extract structured references
+      // Step 4: Extract structured references (unchanged)
       if (results.length > 0) {
         setProgress('Extracting structured references...')
         const referencePagesMarkdown = results
-          .map(r => r.markdown)
+          .map((r) => r.markdown)
           .join('\n\n')
 
         const extractResponse = await fetch('/api/references/extract', {
@@ -243,10 +257,9 @@ export default function TestReferences() {
       {results.map((result) => (
         <div key={result.pageNumber} className="mb-8">
           <h2 className="text-xl font-semibold mb-2">
-            {result.isStartOfSection ? 
-              '📚 References Section Starts Here - Page ' + result.pageNumber :
-              'References continued on page ' + result.pageNumber
-            }
+            {result.isStartOfSection
+              ? '📚 References Section Starts Here - Page ' + result.pageNumber
+              : 'References continued on page ' + result.pageNumber}
           </h2>
 
           <div className="grid grid-cols-2 gap-4">
@@ -260,9 +273,7 @@ export default function TestReferences() {
             </div>
 
             <div className="border rounded-md p-4">
-              <h3 className="text-lg font-medium mb-2">
-                Extracted References
-              </h3>
+              <h3 className="text-lg font-medium mb-2">Extracted References</h3>
               <pre className="whitespace-pre-wrap font-mono text-sm">
                 {result.markdown}
               </pre>
