@@ -7,8 +7,8 @@ import ReferenceGrid from '@/app/components/batch/ReferenceGrid'
 interface PageResult {
   pageNumber: number
   markdown: string
-  hasReferences: boolean
   isStartOfSection?: boolean
+  isNewSectionStart?: boolean
 }
 
 export default function TestReferences() {
@@ -19,6 +19,14 @@ export default function TestReferences() {
   const [progress, setProgress] = useState<string>('')
   const [images, setImages] = useState<string[]>([])
   const [references, setReferences] = useState<Reference[]>([])
+  const [pageAnalyses, setPageAnalyses] = useState<
+    {
+      pageNumber: number
+      isReferencesStart: boolean
+      isNewSectionStart: boolean
+      containsReferences: boolean
+    }[]
+  >([])
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
@@ -29,26 +37,6 @@ export default function TestReferences() {
     setProgress('')
     setReferences([])
   }
-
-  /*const findReferenceSectionStart = async (
-    imageData: string
-  ): Promise<boolean> => {
-    const response = await fetch('/api/llama-vision/find-references-start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filePath: imageData,
-        model: 'Llama-3.2-90B-Vision'
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to check for references section start')
-    }
-
-    const { hasReferences } = await response.json()
-    return hasReferences
-  }*/
 
   const analyzePage = async (
     imageData: string
@@ -62,7 +50,6 @@ export default function TestReferences() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         filePath: imageData,
-        //model: 'Llama-3.2-90B-Vision'
         mode: 'free'
       })
     })
@@ -86,7 +73,7 @@ export default function TestReferences() {
     setResults([])
 
     try {
-      // Step 1: Convert PDF to images (unchanged)
+      // Step 1: Convert PDF to images
       const formData = new FormData()
       formData.append('pdf', selectedFile)
       formData.append('range', '1-100')
@@ -104,8 +91,9 @@ export default function TestReferences() {
       setImages(images)
       setProgress('Searching for references section from the end...')
 
-      // Step 2: Find the references section boundaries
+      // Step 2: Find the references section boundaries and analyze pages
       let referencesSectionStart: number | null = null
+      const pageAnalyses: PageResult[] = []
 
       // Search backwards from the end
       for (let i = images.length - 1; i >= 0; i--) {
@@ -116,8 +104,28 @@ export default function TestReferences() {
 
         const analysis = await analyzePage(imageData)
 
+        setPageAnalyses((prev) => [
+          ...prev,
+          {
+            pageNumber: i + 1,
+            ...analysis
+          }
+        ])
+
         if (analysis.isReferencesStart) {
           referencesSectionStart = i
+        }
+
+        // Store analysis results
+        pageAnalyses[i] = {
+          pageNumber: i + 1,
+          isStartOfSection: analysis.isReferencesStart,
+          isNewSectionStart: analysis.isNewSectionStart,
+          markdown: ''
+        }
+
+        // If we found the start and this page doesn't have references, we can stop
+        if (referencesSectionStart !== null && !analysis.containsReferences) {
           break
         }
       }
@@ -127,32 +135,28 @@ export default function TestReferences() {
         return
       }
 
-      // Step 3: Process the references section and subsequent pages
+      // Step 3: Process the references section and get markdown content
       setProgress(
         `Found references section starting on page ${referencesSectionStart + 1}`
       )
 
       for (let i = referencesSectionStart; i < images.length; i++) {
-        const base64Image = images[i]
-        const imageData = `data:image/jpeg;base64,${base64Image}`
+        const analysis = pageAnalyses[i]
 
-        setProgress(`Processing page ${i + 1}...`)
-
-        // Check if we're still in the references section
-        const analysis = await analyzePage(imageData)
-
-        if (analysis.isNewSectionStart || !analysis.containsReferences) {
+        if (analysis.isNewSectionStart) {
           setProgress('Reached end of references section')
           break
         }
 
-        // Extract references content (unchanged)
+        const base64Image = images[i]
+        const imageData = `data:image/jpeg;base64,${base64Image}`
+
+        // Get markdown content
         const markdownResponse = await fetch('/api/llama-vision', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             filePath: imageData,
-            //model: 'Llama-3.2-90B-Vision'
             mode: 'free'
           })
         })
@@ -163,18 +167,14 @@ export default function TestReferences() {
 
         const { markdown: pageMarkdown } = await markdownResponse.json()
 
-        // Add new result
-        const newResult: PageResult = {
-          pageNumber: i + 1,
-          hasReferences: true,
-          markdown: pageMarkdown,
-          isStartOfSection: i === referencesSectionStart
-        }
+        // Update the stored analysis with markdown
+        pageAnalyses[i].markdown = pageMarkdown
 
-        setResults((prevResults) => [...prevResults, newResult])
+        // Add to results
+        setResults((prevResults) => [...prevResults, pageAnalyses[i]])
       }
 
-      // Step 4: Extract structured references (unchanged)
+      // Step 4: Extract structured references
       if (results.length > 0) {
         setProgress('Extracting structured references...')
         const referencePagesMarkdown = results
@@ -195,7 +195,15 @@ export default function TestReferences() {
         setReferences(references)
       }
 
-      setProgress('')
+      setProgress(
+        '✅ Processing complete! Found references section from ' +
+          `page ${referencesSectionStart + 1} to ${
+            results.length > 0
+              ? results[results.length - 1].pageNumber
+              : referencesSectionStart + 1
+          }`
+      )
+      //setProgress('')
     } catch (error) {
       console.error(error)
       setError(error instanceof Error ? error.message : 'An error occurred')
@@ -206,9 +214,7 @@ export default function TestReferences() {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">
-        Academic Paper Reference Extractor
-      </h1>
+      <h1 className="text-2xl font-bold mb-4">Reference Extractor</h1>
 
       <div className="mb-4">
         <input
@@ -253,7 +259,47 @@ export default function TestReferences() {
           <ReferenceGrid references={references} />
         </div>
       )}
-
+      {pageAnalyses.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">Page Analysis Results</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse border border-gray-300">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 px-4 py-2">Page</th>
+                  <th className="border border-gray-300 px-4 py-2">
+                    References Start
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2">
+                    New Section Start
+                  </th>
+                  <th className="border border-gray-300 px-4 py-2">
+                    Contains References
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageAnalyses.map((analysis) => (
+                  <tr key={analysis.pageNumber}>
+                    <td className="border border-gray-300 px-4 py-2 text-center">
+                      {analysis.pageNumber}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2 text-center">
+                      {analysis.isReferencesStart ? '✅' : '❌'}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2 text-center">
+                      {analysis.isNewSectionStart ? '✅' : '❌'}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2 text-center">
+                      {analysis.containsReferences ? '✅' : '❌'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       {results.map((result) => (
         <div key={result.pageNumber} className="mb-8">
           <h2 className="text-xl font-semibold mb-2">
