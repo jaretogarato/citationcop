@@ -21,11 +21,11 @@ async function getMarkDown({
   - No Delimiters: Do not use code fences or delimiters like \`\`\`markdown.
   - Content: Only get the core of the page, do not include headers or  footers
   `*/
-  const systemPrompt = `Convert the the provided image into Markdown format. Do not capture the header or footer sections. 
+  const systemPrompt = `You are converting a reference section in this image to Markdown format. 
   Requirements:
   - Output Only Markdown: Return solely the Markdown content without any additional explanations or comments.
   - No Delimiters: Do not use code fences or delimiters like \`\`\`markdown.
-  - Content: All content EXCEPT for header and footer.
+  - Content: Capture all references. Be careful to include the ending of references that might be coming from the page before. Do not capture the header or footer sections. 
   `
   const output = await together.chat.completions.create({
     model: visionLLM,

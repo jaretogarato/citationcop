@@ -12,8 +12,8 @@ async function analyzePage({
 }) {
   const systemPrompt = `Analyze this page and answer these three questions about references:
 
-1. Is this the START of a references section (contains a header like "References", "Bibliography", "Works Cited", etc.)?
-2. Is this the START of a new section AFTER references (like "Appendix", "Supplementary Material", etc.)?
+1. Is this the START of a references section? It MUST contains a header like "References", "Bibliography", "Works Cited", etc.
+2. Is this the START of a new section (contains a header like "Appendix", "Supplementary Material", etc.)?
 3. Does this page contain reference entries (regardless of whether it's the start or middle of the section)?
 
 Respond in this exact JSON format without any additional text:
@@ -44,6 +44,7 @@ Respond in this exact JSON format without any additional text:
   if (output.choices?.[0]?.message?.content) {
     try {
       const response = JSON.parse(output.choices[0].message.content)
+      console.log('LLM response:', response)
       return {
         isReferencesStart: response.isReferencesStart.toLowerCase() === 'yes',
         isNewSectionStart: response.isNewSectionStart.toLowerCase() === 'yes',

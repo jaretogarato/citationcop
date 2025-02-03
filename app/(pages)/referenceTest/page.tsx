@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Reference } from '@/app/types/reference'
 import ReferenceGrid from '@/app/components/batch/ReferenceGrid'
 
@@ -19,6 +19,8 @@ export default function TestReferences() {
   const [progress, setProgress] = useState<string>('')
   const [images, setImages] = useState<string[]>([])
   const [references, setReferences] = useState<Reference[]>([])
+  let referencesSectionEnd: number | null = null
+
   const [pageAnalyses, setPageAnalyses] = useState<
     {
       pageNumber: number
@@ -71,6 +73,7 @@ export default function TestReferences() {
     setError(null)
     setProgress('Converting PDF to images...')
     setResults([])
+    setPageAnalyses([]) // Clear previous analyses
 
     try {
       // Step 1: Convert PDF to images
@@ -93,7 +96,12 @@ export default function TestReferences() {
 
       // Step 2: Find the references section boundaries and analyze pages
       let referencesSectionStart: number | null = null
-      const pageAnalyses: PageResult[] = []
+      const collectedAnalyses: {
+        pageNumber: number
+        isReferencesStart: boolean
+        isNewSectionStart: boolean
+        containsReferences: boolean
+      }[] = []
 
       // Search backwards from the end
       for (let i = images.length - 1; i >= 0; i--) {
@@ -104,31 +112,18 @@ export default function TestReferences() {
 
         const analysis = await analyzePage(imageData)
 
-        setPageAnalyses((prev) => [
-          ...prev,
-          {
-            pageNumber: i + 1,
-            ...analysis
-          }
-        ])
+        collectedAnalyses.unshift({
+          pageNumber: i + 1,
+          ...analysis
+        })
 
         if (analysis.isReferencesStart) {
           referencesSectionStart = i
-        }
-
-        // Store analysis results
-        pageAnalyses[i] = {
-          pageNumber: i + 1,
-          isStartOfSection: analysis.isReferencesStart,
-          isNewSectionStart: analysis.isNewSectionStart,
-          markdown: ''
-        }
-
-        // If we found the start and this page doesn't have references, we can stop
-        if (referencesSectionStart !== null && !analysis.containsReferences) {
           break
         }
       }
+
+      setPageAnalyses(collectedAnalyses)
 
       if (referencesSectionStart === null) {
         setProgress('No references section found in the document.')
@@ -140,10 +135,19 @@ export default function TestReferences() {
         `Found references section starting on page ${referencesSectionStart + 1}`
       )
 
-      for (let i = referencesSectionStart; i < images.length; i++) {
-        const analysis = pageAnalyses[i]
+      const collectedResults: PageResult[] = []
 
-        if (analysis.isNewSectionStart) {
+      // Use the collected analyses instead of looking them up from state
+      for (let i = referencesSectionStart; i < images.length; i++) {
+        const analysis = collectedAnalyses.find((a) => a.pageNumber === i + 1)
+        if (!analysis) continue
+
+        // Don't break on new section if it's also the references start
+        if (
+          (analysis.isNewSectionStart && !analysis.isReferencesStart) ||
+          !analysis.containsReferences
+        ) {
+          referencesSectionEnd = i - 1
           setProgress('Reached end of references section')
           break
         }
@@ -167,43 +171,57 @@ export default function TestReferences() {
 
         const { markdown: pageMarkdown } = await markdownResponse.json()
 
-        // Update the stored analysis with markdown
-        pageAnalyses[i].markdown = pageMarkdown
-
-        // Add to results
-        setResults((prevResults) => [...prevResults, pageAnalyses[i]])
+        collectedResults.push({
+          pageNumber: i + 1,
+          markdown: pageMarkdown,
+          isStartOfSection: analysis.isReferencesStart,
+          isNewSectionStart: analysis.isNewSectionStart
+        })
       }
 
+      setResults(collectedResults)
+
       // Step 4: Extract structured references
-      if (results.length > 0) {
-        setProgress('Extracting structured references...')
-        const referencePagesMarkdown = results
+      if (collectedResults.length > 0) {
+        setProgress('Extracting references...')
+        const referencePagesMarkdown = collectedResults
           .map((r) => r.markdown)
           .join('\n\n')
 
-        const extractResponse = await fetch('/api/references/extract', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: referencePagesMarkdown })
-        })
+        try {
+          const response = await fetch('/api/references/extract/chunk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: referencePagesMarkdown })
+          })
 
-        if (!extractResponse.ok) {
-          throw new Error('Failed to extract structured references')
+          if (!response.ok) {
+            throw new Error('Failed to extract references')
+          }
+
+          const data = await response.json()
+          if (data.references) {
+            setReferences(data.references)
+            setProgress(`✅ Extracted ${data.references.length} references`)
+          }
+        } catch (error) {
+          console.error('Error in reference extraction:', error)
+          throw new Error('Failed to extract references')
         }
+      }
 
-        const { references } = await extractResponse.json()
-        setReferences(references)
+      if (referencesSectionEnd === null && collectedResults.length > 0) {
+        referencesSectionEnd = images.length - 1
       }
 
       setProgress(
         '✅ Processing complete! Found references section from ' +
-          `page ${referencesSectionStart + 1} to ${
-            results.length > 0
-              ? results[results.length - 1].pageNumber
+          `page ${referencesSectionStart + 1} to page ${
+            referencesSectionEnd !== null
+              ? referencesSectionEnd + 1
               : referencesSectionStart + 1
           }`
       )
-      //setProgress('')
     } catch (error) {
       console.error(error)
       setError(error instanceof Error ? error.message : 'An error occurred')
@@ -259,13 +277,14 @@ export default function TestReferences() {
           <ReferenceGrid references={references} />
         </div>
       )}
+
       {pageAnalyses.length > 0 && (
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4">Page Analysis Results</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse border border-gray-300">
               <thead>
-                <tr className="bg-gray-100">
+                <tr className="bg-gray-600">
                   <th className="border border-gray-300 px-4 py-2">Page</th>
                   <th className="border border-gray-300 px-4 py-2">
                     References Start
