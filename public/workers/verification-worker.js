@@ -19799,7 +19799,7 @@
           self.postMessage({
             type: "update",
             pdfId,
-            message: `Analyzing pages ${startPage}-${startPage + chunkSize - 1}`
+            message: `Analyzing pages ${startPage + 1}-${startPage + chunkSize}`
           });
           const slicedPdf = await pdfSlicer.slicePdfPages(
             file,
