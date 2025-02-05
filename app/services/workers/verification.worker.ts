@@ -244,10 +244,33 @@ self.onmessage = async (e: MessageEvent) => {
         message: `Found ${extractedReferences.length} references for ${pdfId}`
       })
 
+      
+       // Step 4:  DOI verification via API
+       self.postMessage({
+        type: 'update',
+        pdfId,
+        message: 'Checking DOIs...'
+      })
+
+      const doiResponse = await fetch('/api/references/verify-doi', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ references: extractedReferences })
+      })
+
+      if (!doiResponse.ok) {
+        throw new Error('DOI verification failed')
+      }
+
+      const { references: referencesWithDOI } = await doiResponse.json()
+
+      console.log("referencesWithDOI", referencesWithDOI)
+
+      
       // STEP 4: Process through search and verification
       const referencesWithSearch: Reference[] =
         await searchReferenceService.processBatch(
-          extractedReferences,
+          referencesWithDOI,
           (batchResults) => {
             self.postMessage({
               type: 'update',

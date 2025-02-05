@@ -4253,6 +4253,9 @@
   var BATCH_SIZE = 3;
   var SearchReferenceService = class {
     async processReference(reference) {
+      if (reference.status === "verified") {
+        return reference;
+      }
       const query = `${reference.title} ${reference.authors.join(" ")}`;
       try {
         const response = await fetch("/api/serper", {
@@ -4308,6 +4311,9 @@
   var BATCH_SIZE2 = 3;
   var VerifyReferenceService = class {
     async processReference(reference, keyIndex) {
+      if (reference.status === "verified") {
+        return reference;
+      }
       try {
         const response = await fetch("/api/references/openAI-verify", {
           method: "POST",
@@ -19933,8 +19939,23 @@
           noReferences: extractedReferences.length,
           message: `Found ${extractedReferences.length} references for ${pdfId}`
         });
+        self.postMessage({
+          type: "update",
+          pdfId,
+          message: "Checking DOIs..."
+        });
+        const doiResponse = await fetch("/api/references/verify-doi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ references: extractedReferences })
+        });
+        if (!doiResponse.ok) {
+          throw new Error("DOI verification failed");
+        }
+        const { references: referencesWithDOI } = await doiResponse.json();
+        console.log("referencesWithDOI", referencesWithDOI);
         const referencesWithSearch = await searchReferenceService.processBatch(
-          extractedReferences,
+          referencesWithDOI,
           (batchResults) => {
             self.postMessage({
               type: "update",
