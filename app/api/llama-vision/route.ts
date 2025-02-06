@@ -6,11 +6,6 @@ function isBase64Image(str: string) {
   return str.startsWith('data:image/')
 }
 
-//function extractBase64Data(dataUrl: string) {//
-//  const base64Data = dataUrl.split(',')[1]
-//  return base64Data
-//}
-
 async function getMarkDown({
   together,
   visionLLM,
@@ -20,13 +15,18 @@ async function getMarkDown({
   visionLLM: string
   imageData: string
 }) {
-  const systemPrompt = `Convert the provided image into Markdown format. Ensure that all content from the page is included, such as headers, footers, subtexts, images (with alt text if possible), tables, and any other elements.
+  /*  const systemPrompt = `Convert the provided image into Markdown format. Do not capture the header and footer. 
   Requirements:
   - Output Only Markdown: Return solely the Markdown content without any additional explanations or comments.
   - No Delimiters: Do not use code fences or delimiters like \`\`\`markdown.
-  - Complete Content: Do not omit any part of the page, including headers, footers, and subtext.
+  - Content: Only get the core of the page, do not include headers or  footers
+  `*/
+  const systemPrompt = `You are converting a reference section in this image to Markdown format. 
+  Requirements:
+  - Output Only Markdown: Return solely the Markdown content without any additional explanations or comments.
+  - No Delimiters: Do not use code fences or delimiters like \`\`\`markdown.
+  - Content: Capture all references. Be careful to include the ending of references that might be coming from the page before. Do not capture the header or footer sections. 
   `
-
   const output = await together.chat.completions.create({
     model: visionLLM,
     messages: [

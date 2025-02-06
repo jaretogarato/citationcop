@@ -3,16 +3,30 @@
 import { WorkerMessage } from '../types'
 import { SearchReferenceService } from '@/app/services/search-reference-service'
 import { VerifyReferenceService } from '../verify-reference-service'
-import { ReferencesPageFinder } from '@/app/services/references-page-finder-service'
+
 import { PdfSlicerService } from '../pdf-slicer-service'
 import type { Reference } from '@/app/types/reference'
+import { PDFDocument } from 'pdf-lib'
 
 declare const self: DedicatedWorkerGlobalScope
 
-const referencePageFinderService = new ReferencesPageFinder()
 const searchReferenceService = new SearchReferenceService()
 const verifyReferenceService = new VerifyReferenceService()
 const pdfSlicer = new PdfSlicerService()
+
+interface PageAnalysis {
+  pageNumber: number
+  isReferencesStart: boolean
+  isNewSectionStart: boolean
+  containsReferences: boolean
+}
+
+interface PageResult {
+  pageNumber: number
+  markdown: string
+  isStartOfSection?: boolean
+  isNewSectionStart?: boolean
+}
 
 // Listen for messages
 self.onmessage = async (e: MessageEvent) => {
@@ -26,90 +40,222 @@ self.onmessage = async (e: MessageEvent) => {
         message: `Worker launched for : ${pdfId}`
       })
 
-      // STEP 1: Identify pages
-      const pageNo: number =
-        await referencePageFinderService.findReferencesPage(file)
+      // Get total number of pages first
+      const arrayBuffer = await file.arrayBuffer()
+      const pdfDoc = await PDFDocument.load(arrayBuffer)
+      const totalPages = pdfDoc.getPageCount()
 
-      self.postMessage({
-        type: 'update',
-        pdfId,
-        message: `References are on page: ${pageNo}`
-      })
+      // STEP 1: Iteratively search for references section from the end
+      let chunkSize = 3
+      let referencesSectionStart: number | null = null
+      let currentChunk = 0
+      let lastProcessedImages: string[] = []
+      let lastStartPage = 0
 
-      // STEP 2: Slice Pages starting from pageNo
+      while (referencesSectionStart === null) {
+        // Calculate start page for current chunk from the end
+        const startPage = Math.max(
+          1,
+          totalPages - (currentChunk + 1) * chunkSize
+        )
+        lastStartPage = startPage
 
-      const slicedPdf = await pdfSlicer.slicePdfPages(file, pageNo, 4)
+        self.postMessage({
+          type: 'update',
+          pdfId,
+          message: `Analyzing pages ${startPage + 1}-${startPage + chunkSize}`
+        })
+        // Slice current chunk
+        const slicedPdf = await pdfSlicer.slicePdfPages(
+          file,
+          startPage,
+          chunkSize
+        )
 
-      // Update file reference to use sliced PDF
-      const slicedFile = new File([slicedPdf], 'sliced.pdf', {
-        type: 'application/pdf'
-      })
+        // Convert sliced PDF to images
+        const formData = new FormData()
+        formData.append(
+          'pdf',
+          new File([slicedPdf], 'chunk.pdf', { type: 'application/pdf' })
+        )
+        formData.append('range', '1-')
 
-      // STEP 3: Convert PDF to images
-      self.postMessage({
-        type: 'update',
-        pdfId,
-        message: `Converting PDF to images: ${pdfId}`
-      })
+        const pdfResponse = await fetch('/api/pdf2images', {
+          method: 'POST',
+          body: formData
+        })
 
-      const images = await convertPdfToImagesSequential(slicedFile)
+        if (!pdfResponse.ok) {
+          throw new Error('Failed to convert PDF chunk to images')
+        }
 
-      if (images.length === 0) {
-        throw new Error('No images extracted from PDF')
-      }
+        const { images } = await pdfResponse.json()
+        lastProcessedImages = images.map(
+          (img: string) => `data:image/jpeg;base64,${img}`
+        )
 
-      // STEP 4: Process each image through Vision API
+        // Analyze each page in the chunk
+        for (let i = images.length - 1; i >= 0; i--) {
+          const currentPage = startPage + i
+          const analysis = await analyzePage(lastProcessedImages[i])
 
-      self.postMessage({
-        type: 'update',
-        pdfId,
-        message: `Extracting references from ${images.length} pages`
-      })
-
-      const BATCH_SIZE = 5
-
-      const allReferences: Reference[] = []
-
-      // Process in batches of BATCH_SIZE
-      for (let i = 0; i < images.length; i += BATCH_SIZE) {
-        const batch = images.slice(i, i + BATCH_SIZE)
-        const extractionPromises = batch.map((image, batchIndex) =>
-          extractReferencesFromImage(image).then((refs) => {
+          if (analysis.isReferencesStart) {
+            referencesSectionStart = i
             self.postMessage({
               type: 'update',
               pdfId,
-              message: `Processed page ${i + batchIndex + 1}/${images.length}`
+              message: `Found references section starting on page ${currentPage}`
             })
-            return refs
-          })
-        )
+            break
+          }
+        }
 
-        const batchResults = await Promise.all(extractionPromises)
-        batchResults.forEach((refs) => allReferences.push(...refs))
+        if (referencesSectionStart === null) {
+          currentChunk++
+          if (startPage <= 1) {
+            throw new Error('Could not find references section in the document')
+          }
+        }
       }
 
-      const noReferences = allReferences.length
+      // STEP 2: Process references section and get markdown content
+      self.postMessage({
+        type: 'update',
+        pdfId,
+        message: 'Processing references section'
+      })
+
+      const collectedResults: PageResult[] = []
+      let referencesSectionEnd: number | null = null
+
+      // Start from the references section and continue until we find the end
+      let currentPage = lastStartPage + referencesSectionStart
+      let reachedEnd = false
+
+      while (!reachedEnd && currentPage <= totalPages) {
+        // Slice and process current page
+        const slicedPdf = await pdfSlicer.slicePdfPages(file, currentPage, 1)
+        const formData = new FormData()
+        formData.append(
+          'pdf',
+          new File([slicedPdf], 'chunk.pdf', { type: 'application/pdf' })
+        )
+        formData.append('range', '1-')
+
+        const pdfResponse = await fetch('/api/pdf2images', {
+          method: 'POST',
+          body: formData
+        })
+
+        if (!pdfResponse.ok) {
+          throw new Error('Failed to convert PDF page to image')
+        }
+
+        const { images } = await pdfResponse.json()
+        const imageData = `data:image/jpeg;base64,${images[0]}`
+
+        // Get page analysis
+        const analysis = await analyzePage(imageData)
+
+        // Check if we've reached the end of references section
+        if (
+          (analysis.isNewSectionStart && !analysis.isReferencesStart) ||
+          !analysis.containsReferences
+        ) {
+          referencesSectionEnd = currentPage - 1
+          self.postMessage({
+            type: 'update',
+            pdfId,
+            message: 'Reached end of references section'
+          })
+          reachedEnd = true
+        }
+
+        // Get markdown content
+        const markdownResponse = await fetch('/api/llama-vision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filePath: imageData,
+            mode: 'free'
+          })
+        })
+
+        if (!markdownResponse.ok) {
+          throw new Error('Failed to extract references content')
+        }
+
+        const { markdown: pageMarkdown } = await markdownResponse.json()
+
+        collectedResults.push({
+          pageNumber: currentPage,
+          markdown: pageMarkdown,
+          isStartOfSection:
+            currentPage === lastStartPage + referencesSectionStart,
+          isNewSectionStart: analysis.isNewSectionStart
+        })
+
+        self.postMessage({
+          type: 'update',
+          pdfId,
+          message: `Processed page ${currentPage}`
+        })
+
+        if (!reachedEnd) {
+          currentPage++
+        }
+      }
+
+      if (collectedResults.length === 0) {
+        throw new Error('No references content extracted')
+      }
+
+      // STEP 3: Extract structured references from markdown
+      self.postMessage({
+        type: 'update',
+        pdfId,
+        message: 'Extracting structured references'
+      })
+
+      const referencePagesMarkdown = collectedResults
+        .map((r) => r.markdown)
+        .join('\n\n')
+
+      const extractResponse = await fetch('/api/references/extract/chunk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: referencePagesMarkdown })
+      })
+
+      if (!extractResponse.ok) {
+        throw new Error('Failed to extract references')
+      }
+
+      const { references: extractedReferences } = await extractResponse.json()
+
+      if (!extractedReferences) {
+        throw new Error('No references extracted from markdown')
+      }
 
       self.postMessage({
         type: 'references',
         pdfId: pdfId,
-        noReferences: noReferences,
-        message: `Found ${noReferences} references for ${pdfId}`
+        noReferences: extractedReferences.length,
+        message: `Found ${extractedReferences.length} references for ${pdfId}`
       })
 
-      // Continue with existing search and verification steps
-      console.log('Starting batch processing for search...')
-
-      const referencesWithSearch = await searchReferenceService.processBatch(
-        allReferences,
-        (batchResults) => {
-          self.postMessage({
-            type: 'update',
-            pdfId,
-            message: `✅ search batch complete for ${pdfId}`
-          })
-        }
-      )
+      // STEP 4: Process through search and verification
+      const referencesWithSearch: Reference[] =
+        await searchReferenceService.processBatch(
+          extractedReferences,
+          (batchResults) => {
+            self.postMessage({
+              type: 'update',
+              pdfId,
+              message: `✅ search batch complete for ${pdfId}`
+            })
+          }
+        )
 
       const verifiedReferences: Reference[] =
         await verifyReferenceService.processBatch(
@@ -140,8 +286,25 @@ self.onmessage = async (e: MessageEvent) => {
   }
 }
 
+async function analyzePage(imageData: string): Promise<PageAnalysis> {
+  const response = await fetch('/api/llama-vision/analyze-page', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      filePath: imageData,
+      mode: 'free'
+    })
+  })
 
-// Function to convert PDF to images using the existing endpoint
+  if (!response.ok) {
+    throw new Error('Failed to analyze page')
+  }
+
+  const analysis = await response.json()
+  return analysis
+}
+
+/* Function to convert PDF to images using the existing endpoint
 async function convertPdfToImagesSequential(file: File): Promise<string[]> {
   const formData = new FormData()
   formData.append('pdf', file)
@@ -188,14 +351,10 @@ async function convertPdfToImagesSequential(file: File): Promise<string[]> {
     console.error('Error in convertPdfToImages:', error)
     throw error
   }
-}
-
-
-
-
+}*/
 
 // Function to extract references from a single image
-async function extractReferencesFromImage(
+/*async function extractReferencesFromImage(
   imageData: string
 ): Promise<Reference[]> {
   try {
@@ -218,3 +377,4 @@ async function extractReferencesFromImage(
     return []
   }
 }
+*/

@@ -10,7 +10,7 @@ async function checkForReferences({
   visionLLM: string
   imageData: string
 }) {
-  const systemPrompt = `Analyze this page and determine if it contains academic references or a bibliography section. 
+  const systemPrompt = `Analyze this page and determine if it contains a references section or the continuation of a references section. 
   Respond with ONLY "yes" or "no". Do not include any other text in your response.`
 
   const output = await together.chat.completions.create({
