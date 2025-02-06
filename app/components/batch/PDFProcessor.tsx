@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { PDFQueueService } from '@/app/services/queue-service'
 import { FileText, CheckCircle, XCircle, Cog } from 'lucide-react'
 import { PDFDropZone } from './PDFDropZone'
-import ReferenceGrid from '@/app/components/batch/ReferenceGrid'
+import ReferenceGrid from '@/app/components/reference-display/ReferenceGrid'
 import type { Reference } from '@/app/types/reference'
 
 const PDFProcessor = () => {

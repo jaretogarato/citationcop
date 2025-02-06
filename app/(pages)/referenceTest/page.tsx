@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Reference } from '@/app/types/reference'
-import ReferenceGrid from '@/app/components/batch/ReferenceGrid'
+import ReferenceGrid from '@/app/components/reference-display/ReferenceGrid'
 
 interface PageResult {
   pageNumber: number

@@ -7,6 +7,9 @@ export class VerifyReferenceService {
     reference: Reference,
     keyIndex: number
   ): Promise<Reference> {
+    if (reference.status === 'verified') {
+      return reference
+    }
     try {
       const response = await fetch('/api/references/openAI-verify', {
         method: 'POST',

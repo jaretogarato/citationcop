@@ -6,6 +6,7 @@ export class PdfSlicerService {
     startPage: number,
     numPages: number = 4
   ): Promise<Blob> {
+    
     const arrayBuffer = await file.arrayBuffer()
     const pdfDoc = await PDFDocument.load(arrayBuffer)
     

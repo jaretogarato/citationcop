@@ -8,9 +8,12 @@ const BATCH_SIZE = 3
 
 export class SearchReferenceService {
   private async processReference(reference: Reference): Promise<Reference> {
-    const query = `${reference.title} ${reference.authors.join(' ')}`
-    //console.log('searching withreference:', reference.id, 'with query:', query)
+    if (reference.status === 'verified') {
+      return reference
+    }
 
+    const query = `${reference.title} ${reference.authors.join(' ')}`
+    
     try {
       const response = await fetch('/api/serper', {
         method: 'POST',
