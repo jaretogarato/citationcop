@@ -76,8 +76,8 @@ async function verifyDOI(reference: Reference): Promise<Reference> {
     
     const data = await response.json()
     const work = data.message
-    console.log('result:', data)
-    console.log('Crossref metadata:', work)
+    //console.log('result:', data)
+    //console.log('Crossref metadata:', work)
 
     const matches = compareMetadata(reference, work)
     

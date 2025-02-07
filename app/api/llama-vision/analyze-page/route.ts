@@ -4,24 +4,36 @@ import Together from 'together-ai'
 async function analyzePage({
   together,
   visionLLM,
-  imageData
+  imageData,
+  parsedText
 }: {
   together: Together
   visionLLM: string
   imageData: string
+  parsedText: string
 }) {
-  const systemPrompt = `Analyze this page and answer these three questions about references:
+  const systemPrompt = `Analyze this page and its extracted text to answer these three questions about references:
 
-1. Is this the START of a references section? It MUST contains a header like "References", "Bibliography", "Works Cited", etc.
+Extracted text from the page:
+${parsedText}
+
+Using both the image and the extracted text above, please answer:
+
+1. Does this page contain a header like "References", "Bibliography", "Works Cited", etc just before a series of references?
 2. Is this the START of a new section (contains a header like "Appendix", "Supplementary Material", etc.)?
 3. Does this page contain reference entries (regardless of whether it's the start or middle of the section)?
 
-Respond in this exact JSON format without any additional text:
+Pay special attention to the extracted text to identify section headers and reference patterns.
+
+Respond ONLY IN this exact JSON format without any additional text:
 {
   "isReferencesStart": "yes/no",
   "isNewSectionStart": "yes/no",
   "containsReferences": "yes/no"
-}`
+}
+ONLY respond in JSON format.
+
+Response:`
 
   const output = await together.chat.completions.create({
     model: visionLLM,
@@ -41,6 +53,8 @@ Respond in this exact JSON format without any additional text:
     ]
   })
 
+  console.log('LLM output:', output.choices[0]?.message?.content)
+
   if (output.choices?.[0]?.message?.content) {
     try {
       const response = JSON.parse(output.choices[0].message.content)
@@ -59,7 +73,7 @@ Respond in this exact JSON format without any additional text:
       }
     }
   }
-  
+
   return {
     isReferencesStart: false,
     isNewSectionStart: false,
@@ -70,7 +84,7 @@ Respond in this exact JSON format without any additional text:
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
-    const { filePath, model = 'Llama-3.2-90B-Vision' } = data
+    const { filePath, parsedText, model = 'free' } = data
 
     if (!filePath) {
       return NextResponse.json(
@@ -99,7 +113,8 @@ export async function POST(request: NextRequest) {
     const analysis = await analyzePage({
       together,
       visionLLM,
-      imageData: filePath
+      imageData: filePath,
+      parsedText: parsedText || ''
     })
 
     return NextResponse.json(analysis)

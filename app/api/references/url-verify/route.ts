@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
-//import type { Reference } from '@/types/reference';
+//import type { Reference } from '@/types/reference'
 
 const API_KEYS = [
   process.env.OPENAI_API_KEY_1,
@@ -60,7 +60,7 @@ async function fetchUrlContent(url: string): Promise<string> {
     if (!cleanContent) {
       throw new Error('No readable content found on page')
     }
-    //console.log('Content fetched:', cleanContent);
+    console.log('Content fetched:', cleanContent)
     return cleanContent
   } catch (error) {
     console.error('Error fetching URL:', error)
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
     // Use the first API key for URL verification
     const openAI = openAIInstances[0]
-    const startTime = Date.now()
+    //const startTime = Date.now()
 
     // Fetch the URL content
     let webContent: string
@@ -97,7 +97,6 @@ export async function POST(request: Request) {
         message: `Failed to fetch URL content: ${error instanceof Error ? error.message : 'Unknown error'}`
       })
     }
-    //console.log('URL webcontent: ', webContent)
 
     const prompt = `You are a reference validation system analyzing webpage content to verify citations.
 
