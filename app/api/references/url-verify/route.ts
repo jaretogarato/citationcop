@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { NextResponse } from 'next/server'
+import OpenAI from 'openai'
 //import type { Reference } from '@/types/reference';
 
 const API_KEYS = [
@@ -8,14 +8,14 @@ const API_KEYS = [
   process.env.OPENAI_API_KEY_3
 ].filter((key): key is string => {
   if (!key) {
-    console.warn('Missing OpenAI API key');
-    return false;
+    console.warn('Missing OpenAI API key')
+    return false
   }
-  return true;
-});
+  return true
+})
 
-const openAIInstances = API_KEYS.map((apiKey) => new OpenAI({ apiKey }));
-const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini';
+const openAIInstances = API_KEYS.map((apiKey) => new OpenAI({ apiKey }))
+const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
 
 async function fetchUrlContent(url: string): Promise<string> {
   try {
@@ -25,14 +25,14 @@ async function fetchUrlContent(url: string): Promise<string> {
         Accept:
           'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
       }
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch URL: ${response.statusText}`);
+      throw new Error(`Failed to fetch URL: ${response.statusText}`)
     }
 
     // Get the content type from headers
-    const contentType = response.headers.get('content-type') || '';
+    const contentType = response.headers.get('content-type') || ''
 
     // Check if we're dealing with text content
     if (
@@ -40,11 +40,11 @@ async function fetchUrlContent(url: string): Promise<string> {
       !contentType.includes('text/plain') &&
       !contentType.includes('application/json')
     ) {
-      throw new Error('Unsupported content type: ' + contentType);
+      throw new Error('Unsupported content type: ' + contentType)
     }
 
     // Get the raw text content
-    const rawContent = await response.text();
+    const rawContent = await response.text()
 
     // Basic HTML cleaning - remove scripts, styles, and HTML tags
     const cleanContent = rawContent
@@ -55,24 +55,24 @@ async function fetchUrlContent(url: string): Promise<string> {
       .replace(/&nbsp;/g, ' ') // Replace &nbsp; with space
       .replace(/&[a-z]+;/gi, '') // Remove other HTML entities
       .trim()
-      .slice(0, 15000); // Limit content length for OpenAI
+      .slice(0, 15000) // Limit content length for OpenAI
 
     if (!cleanContent) {
-      throw new Error('No readable content found on page');
+      throw new Error('No readable content found on page')
     }
     //console.log('Content fetched:', cleanContent);
-    return cleanContent;
+    return cleanContent
   } catch (error) {
-    console.error('Error fetching URL:', error);
+    console.error('Error fetching URL:', error)
     throw new Error(
       `Failed to fetch URL content: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
+    )
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const { reference, maxRetries = 0 } = await request.json();
+    const { reference, maxRetries = 0 } = await request.json()
 
     /// MAX RETRIES SET
 
@@ -80,24 +80,24 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Reference with URL is required' },
         { status: 400 }
-      );
+      )
     }
 
     // Use the first API key for URL verification
-    const openAI = openAIInstances[0];
-    const startTime = Date.now();
+    const openAI = openAIInstances[0]
+    const startTime = Date.now()
 
     // Fetch the URL content
-    let webContent: string;
+    let webContent: string
     try {
-      webContent = await fetchUrlContent(reference.url);
+      webContent = await fetchUrlContent(reference.url)
     } catch (error) {
       return NextResponse.json({
         status: 'error',
         message: `Failed to fetch URL content: ${error instanceof Error ? error.message : 'Unknown error'}`
-      });
+      })
     }
-    console.log('URL webcontent: ', webContent);
+    //console.log('URL webcontent: ', webContent)
 
     const prompt = `You are a reference validation system analyzing webpage content to verify citations.
 
@@ -113,9 +113,9 @@ Answer in the following JSON format:
 {
   "status": "verified | error",
   "message": "Detailed explanation of the verification result",
-}`;
+}`
 
-    let lastError: Error | null = null;
+    let lastError: Error | null = null
 
     // Retry loop
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -125,18 +125,18 @@ Answer in the following JSON format:
           messages: [{ role: 'system', content: prompt }],
           temperature: 0.0,
           response_format: { type: 'json_object' }
-        });
+        })
 
-        const content = response.choices[0]?.message?.content;
+        const content = response.choices[0]?.message?.content
 
         if (!content) {
-          console.warn(`Attempt ${attempt + 1}: No content received from LLM`);
-          continue;
+          console.warn(`Attempt ${attempt + 1}: No content received from LLM`)
+          continue
         }
 
         try {
-          const result = JSON.parse(content);
-          console.log(`result: ${result.status}, ${result.message}`);
+          const result = JSON.parse(content)
+          //console.log(`result: ${result.status}, ${result.message}`)
 
           // Validate the response structure
           if (
@@ -148,38 +148,38 @@ Answer in the following JSON format:
             console.warn(
               `Attempt ${attempt + 1}: Invalid response structure:`,
               result
-            );
-            continue;
+            )
+            continue
           }
 
-          console.log(`URL content verified in ${Date.now() - startTime}ms`);
-          return NextResponse.json(result);
+          //console.log(`URL content verified in ${Date.now() - startTime}ms`)
+          return NextResponse.json(result)
         } catch (parseError) {
           console.warn(
             `Attempt ${attempt + 1}: JSON parsing failed:`,
             parseError instanceof Error
               ? parseError.message
               : 'Unknown parsing error'
-          );
+          )
           lastError =
             parseError instanceof Error
               ? parseError
-              : new Error('Unknown parsing error');
+              : new Error('Unknown parsing error')
           if (attempt < maxRetries) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-            continue;
+            await new Promise((resolve) => setTimeout(resolve, 1000))
+            continue
           }
         }
       } catch (error) {
         console.warn(
           `Attempt ${attempt + 1}: Request failed:`,
           error instanceof Error ? error.message : 'Unknown error'
-        );
-        lastError = error instanceof Error ? error : new Error('Unknown error');
+        )
+        lastError = error instanceof Error ? error : new Error('Unknown error')
 
         if (attempt < maxRetries) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          continue;
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+          continue
         }
       }
     }
@@ -188,22 +188,22 @@ Answer in the following JSON format:
     console.error(
       'All verification attempts failed. Last error:',
       lastError?.message
-    );
+    )
     return NextResponse.json(
       {
         status: 'error',
         message: `URL verification failed after ${maxRetries + 1} attempts. Last error: ${(lastError as Error)?.message}`
       },
       { status: 500 }
-    );
+    )
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error:', error)
     return NextResponse.json(
       {
         status: 'error',
         message: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
-    );
+    )
   }
 }
