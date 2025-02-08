@@ -2,7 +2,6 @@ import React from 'react'
 import { Reference } from '@/app/types/reference'
 import { Dialog, DialogTrigger } from '@/app/components/ui/dialog'
 import { ReferenceDialog } from '@/app/components/reference-display/ReferenceDialog'
-
 import { renderMessageWithLinks } from '@/app/utils/ui/ui-utils'
 import {
   CheckCircle,

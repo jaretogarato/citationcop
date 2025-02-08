@@ -6,33 +6,40 @@ function isBase64Image(str: string) {
   return str.startsWith('data:image/')
 }
 
-//function extractBase64Data(dataUrl: string) {//
-//  const base64Data = dataUrl.split(',')[1]
-//  return base64Data
-//}
-
 async function getMarkDown({
   together,
   visionLLM,
-  imageData
+  imageData,
+  parsedText
 }: {
   together: Together
   visionLLM: string
   imageData: string
+  parsedText?: string
 }) {
-  const systemPrompt = `Convert the provided image into Markdown format. Ensure that all content from the page is included, such as headers, footers, subtexts, images (with alt text if possible), tables, and any other elements.
-  Requirements:
-  - Output Only Markdown: Return solely the Markdown content without any additional explanations or comments.
-  - No Delimiters: Do not use code fences or delimiters like \`\`\`markdown.
-  - Complete Content: Do not omit any part of the page, including headers, footers, and subtext.
-  `
+  const systemPrompt = `You are converting a reference section in this image to Markdown format. 
+
+Below is the extracted text from the page:
+${parsedText || ''}
+
+Using both the image and the extracted text above, please convert the references to Markdown format.
+
+Requirements:
+- Output Only Markdown: Return solely the Markdown content without any additional explanations or comments.
+- No Delimiters: Do not use code fences or delimiters like \`\`\`markdown.
+- Content: Capture all references. Be careful to include the ending of references that might be coming from the page before. Do not capture the header or footer sections.
+- Use the extracted text to ensure accuracy, especially for:
+  * Author names and initials
+  * Years and dates
+  * Journal names and volume numbers
+  * DOIs and URLs
+  * Special characters and symbols`
 
   const output = await together.chat.completions.create({
     model: visionLLM,
     messages: [
       {
         role: 'user',
-
         content: [
           { type: 'text', text: systemPrompt },
           {
@@ -61,7 +68,7 @@ async function getMarkDown({
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
-    const { filePath, model = 'Llama-3.2-90B-Vision' } = data
+    const { filePath, parsedText, model = 'Llama-3.2-90B-Vision' } = data
 
     if (!filePath) {
       return NextResponse.json(
@@ -93,7 +100,8 @@ export async function POST(request: NextRequest) {
     const finalMarkdown = await getMarkDown({
       together,
       visionLLM,
-      imageData
+      imageData,
+      parsedText
     })
 
     return NextResponse.json({ markdown: finalMarkdown })

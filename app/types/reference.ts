@@ -61,6 +61,11 @@ export interface GoogleSearchResult {
   }
 }
 
+export interface ExtractedReference {
+  text: string
+  pageNumber: number
+}
+
 export interface Reference {
   date_of_access: any
   // Core fields
