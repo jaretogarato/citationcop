@@ -12,28 +12,27 @@ async function analyzePage({
   imageData: string
   parsedText: string
 }) {
-  const systemPrompt = `Analyze this page and its extracted text to answer these three questions about references:
+  console.log('LLM input:', parsedText)
 
-Extracted text from the page:
-${parsedText}
+  const systemPrompt = `Extracted text from the page: ${parsedText}
 
-Using both the image and the extracted text above, please answer:
+    Using both the image and the extracted text above, please answer:
 
-1. Does this page contain a header like "References", "Bibliography", "Works Cited", etc just before a series of references?
-2. Is this the START of a new section (contains a header like "Appendix", "Supplementary Material", etc.)?
-3. Does this page contain reference entries (regardless of whether it's the start or middle of the section)?
+    1. Does this page contain a header like "References", "Bibliography", "Works Cited", just before a series of references?
+    2. Is this the START of a new section (contains a header like "Appendix", "Supplementary Material", etc.)?
+    3. Does this page contain reference entries?
 
-Pay special attention to the extracted text to identify section headers and reference patterns.
+    Pay special attention to the extracted text to identify section headers and reference patterns.
 
-Respond ONLY IN this exact JSON format without any additional text:
-{
-  "isReferencesStart": "yes/no",
-  "isNewSectionStart": "yes/no",
-  "containsReferences": "yes/no"
-}
-ONLY respond in JSON format.
+    Respond ONLY IN this exact JSON format without any additional text:
+    {
+      "isReferencesStart": "yes/no",
+      "isNewSectionStart": "yes/no",
+      "containsReferences": "yes/no"
+    }
+    ONLY respond in JSON format.
 
-Response:`
+    Response:`
 
   const output = await together.chat.completions.create({
     model: visionLLM,

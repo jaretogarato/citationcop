@@ -39966,19 +39966,27 @@
   var ReferencePageDetectionService = class {
     CHUNK_SIZE = 3;
     pdfDoc = null;
+    pdfSlicer = new PdfSlicerService();
+    async initialize(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      this.pdfDoc = await __webpack_exports__getDocument({ data: arrayBuffer }).promise;
+    }
+    async cleanup() {
+      if (this.pdfDoc) {
+        await this.pdfDoc.destroy();
+        this.pdfDoc = null;
+      }
+    }
     async findReferencePages(file) {
       try {
         const arrayBuffer = await file.arrayBuffer();
         const pdfLibDoc = await PDFDocument_default.load(arrayBuffer);
-        this.pdfDoc = await __webpack_exports__getDocument({ data: arrayBuffer }).promise;
         const totalPages = pdfLibDoc.getPageCount();
         const results = await this.processPages(file, totalPages);
         return results.sort((a, b) => a.pageNumber - b.pageNumber);
-      } finally {
-        if (this.pdfDoc) {
-          await this.pdfDoc.destroy();
-          this.pdfDoc = null;
-        }
+      } catch (error2) {
+        console.error("Error finding reference pages:", error2);
+        throw error2;
       }
     }
     async processPages(file, totalPages) {
@@ -39990,21 +39998,35 @@
         const batchEnd = currentPage;
         const batchStart = Math.max(1, currentPage - this.CHUNK_SIZE + 1);
         const batchSize = batchEnd - batchStart + 1;
-        const batchResults = await this.processBatch(file, batchStart, batchSize);
-        for (let i = batchResults.length - 1; i >= 0; i--) {
-          const result = batchResults[i];
+        const pdfSlice = await this.pdfSlicer.slicePdfPages(file, batchStart, batchSize);
+        const arrayBuffer = await pdfSlice.arrayBuffer();
+        const images = await this.convertPdfToImages(arrayBuffer);
+        for (let i = images.length - 1; i >= 0; i--) {
+          const pageNumber = batchStart + i;
+          const imageData = images[i];
+          const parsedContent = await this.extractPageContent(pageNumber);
+          const analysis = await this.analyzePage(imageData, parsedContent.rawText);
+          const pageResult = {
+            pageNumber,
+            imageData,
+            parsedContent,
+            analysis: {
+              ...analysis,
+              pageNumber
+            }
+          };
           if (!foundReferenceStart) {
-            if (result.analysis.isReferencesStart) {
+            if (analysis.isReferencesStart) {
               foundReferenceStart = true;
-              results.push(result);
+              results.push(pageResult);
             }
           } else {
-            if (result.analysis.isNewSectionStart && !result.analysis.isReferencesStart) {
+            if (analysis.isNewSectionStart && !analysis.isReferencesStart) {
               reachedEnd = true;
               break;
             }
-            if (result.analysis.containsReferences) {
-              results.push(result);
+            if (analysis.containsReferences) {
+              results.push(pageResult);
             } else {
               reachedEnd = true;
               break;
@@ -40018,43 +40040,21 @@
       }
       return results;
     }
-    async processBatch(file, startPage, batchSize) {
-      const pdfSlice = await this.slicePdfPages(file, startPage, batchSize);
-      const images = await this.convertPdfToImages(pdfSlice);
-      const results = [];
-      for (let i = 0; i < images.length; i++) {
-        const pageNumber = startPage + i;
-        const imageData = images[i];
-        const parsedText = await this.extractPageText(pageNumber);
-        const analysis = await this.analyzePage(imageData, parsedText);
-        results.push({
-          pageNumber,
-          imageData,
-          parsedText,
-          analysis: {
-            ...analysis,
-            pageNumber
-          }
-        });
-      }
-      return results;
-    }
-    async extractPageText(pageNumber) {
+    async extractPageContent(pageNumber) {
       if (!this.pdfDoc) {
         throw new Error("PDF document not initialized");
       }
       const page = await this.pdfDoc.getPage(pageNumber);
       const textContent = await page.getTextContent();
-      console.log("Text content:", textContent.items.map((item) => item.str).join(" ").trim());
-      return textContent.items.map((item) => item.str).join(" ").trim();
-    }
-    async slicePdfPages(file, startPage, pageCount) {
-      const slicedPdf = await new PdfSlicerService().slicePdfPages(
-        file,
-        startPage,
-        pageCount
-      );
-      return slicedPdf.arrayBuffer();
+      const items = textContent.items.map((item) => ({
+        str: item.str,
+        height: item.transform[3],
+        width: item.width,
+        transform: item.transform
+      }));
+      const lines = this.mergeSameLine(items);
+      const rawText = items.map((item) => item.str).join(" ").trim();
+      return { lines, rawText };
     }
     async convertPdfToImages(pdfData) {
       const formData = new FormData();
@@ -40080,6 +40080,7 @@
         body: JSON.stringify({
           filePath: imageData,
           parsedText,
+          // Include parsed text in the analysis
           mode: "free"
         })
       });
@@ -40088,12 +40089,48 @@
       }
       return await response.json();
     }
+    mergeSameLine(items) {
+      if (!items.length) return [];
+      const toLine = (item) => {
+        let x = Number(item.transform[4].toFixed(1));
+        let y = Number(item.transform[5].toFixed(1));
+        let w = item.width;
+        if (w < 0) {
+          x += w;
+          w = -w;
+        }
+        return {
+          x,
+          y,
+          width: w,
+          height: item.height,
+          text: item.str,
+          _height: [item.height]
+        };
+      };
+      const lines = [toLine(items[0])];
+      for (let i = 1; i < items.length; i++) {
+        const current = toLine(items[i]);
+        const prevLine = lines[lines.length - 1];
+        const sameLine = current.y === prevLine.y || current.y >= prevLine.y && current.y < prevLine.y + prevLine.height || current.y + current.height > prevLine.y && current.y + current.height <= prevLine.y + prevLine.height;
+        if (sameLine) {
+          prevLine.text += " " + current.text;
+          prevLine.width += current.width;
+          prevLine._height.push(current.height);
+        } else {
+          prevLine.height = Math.max(...prevLine._height);
+          lines.push(current);
+        }
+      }
+      lines[lines.length - 1].height = Math.max(...lines[lines.length - 1]._height);
+      return lines;
+    }
   };
 
   // app/services/workers/verification.worker.ts
   var searchReferenceService = new SearchReferenceService();
   var verifyReferenceService = new VerifyReferenceService();
-  var referenceDetectionService = new ReferencePageDetectionService();
+  var refPageDetectionService = new ReferencePageDetectionService();
   self.onmessage = async (e) => {
     const { type, pdfId, file } = e.data;
     if (type === "process") {
@@ -40103,12 +40140,13 @@
           pdfId,
           message: `Worker launched for: ${pdfId}`
         });
+        await refPageDetectionService.initialize(file);
         self.postMessage({
           type: "update",
           pdfId,
           message: "Searching for references section..."
         });
-        const referencePages = await referenceDetectionService.findReferencePages(file);
+        const referencePages = await refPageDetectionService.findReferencePages(file);
         const referencesSectionStart = referencePages[0].pageNumber;
         self.postMessage({
           type: "update",
@@ -40118,7 +40156,7 @@
         self.postMessage({
           type: "update",
           pdfId,
-          message: "Processing references section"
+          message: "Extracting content from pages with references"
         });
         const markdownContents = await Promise.all(
           referencePages.map(async (page) => {
@@ -40127,6 +40165,7 @@
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 filePath: page.imageData,
+                parsedText: page.parsedContent.rawText,
                 mode: "free"
               })
             });
@@ -40148,6 +40187,7 @@
           message: "Extracting structured references"
         });
         const referencePagesMarkdown = markdownContents.map((content) => content.markdown).join("\n\n");
+        console.log("\u{1F4C4} Extracted markdown contents:", referencePagesMarkdown);
         const extractResponse = await fetch("/api/references/extract/chunk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -40157,29 +40197,38 @@
           throw new Error("Failed to extract references");
         }
         const { references: extractedReferences } = await extractResponse.json();
-        if (!extractedReferences) {
-          throw new Error("No references extracted from markdown");
-        }
+        console.log("\u{1F4DA} Extracted references:", extractedReferences);
         self.postMessage({
           type: "references",
           pdfId,
           noReferences: extractedReferences.length,
           message: `Found ${extractedReferences.length} references for ${pdfId}`
         });
-        self.postMessage({
-          type: "update",
-          pdfId,
-          message: "Checking DOIs..."
-        });
-        const doiResponse = await fetch("/api/references/verify-doi", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ references: extractedReferences })
-        });
-        if (!doiResponse.ok) {
-          throw new Error("DOI verification failed");
+        let referencesWithDOI = extractedReferences;
+        if (extractedReferences.some((ref) => ref.DOI)) {
+          self.postMessage({
+            type: "update",
+            pdfId,
+            message: "Found DOIs, verifying..."
+          });
+          const doiResponse = await fetch("/api/references/verify-doi", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ references: extractedReferences })
+          });
+          if (!doiResponse.ok) {
+            throw new Error("DOI verification failed");
+          }
+          const { references } = await doiResponse.json();
+          referencesWithDOI = references;
+        } else {
+          self.postMessage({
+            type: "update",
+            pdfId,
+            message: "No DOIs found, skipping verification"
+          });
         }
-        const { references: referencesWithDOI } = await doiResponse.json();
+        console.log("\u{1F4DA} References with DOIs:", referencesWithDOI);
         const referencesWithSearch = await searchReferenceService.processBatch(
           referencesWithDOI,
           (batchResults) => {
@@ -40213,6 +40262,8 @@
           pdfId,
           error: error2 instanceof Error ? error2.message : "Unknown error"
         });
+      } finally {
+        await refPageDetectionService.cleanup();
       }
     }
   };
