@@ -3,32 +3,17 @@
 import { WorkerMessage } from '../types'
 import { SearchReferenceService } from '@/app/services/search-reference-service'
 import { VerifyReferenceService } from '../verify-reference-service'
-
-import { PdfSlicerService } from '../pdf-slicer-service'
+import { ReferencePageDetectionService } from '../reference-page-detection-service'
+import { EnhancedReferenceExtractor } from '../reference-extraction-service'
 import type { Reference } from '@/app/types/reference'
-import { PDFDocument } from 'pdf-lib'
 
 declare const self: DedicatedWorkerGlobalScope
 
 const searchReferenceService = new SearchReferenceService()
 const verifyReferenceService = new VerifyReferenceService()
-const pdfSlicer = new PdfSlicerService()
+const refPageDetectionService = new ReferencePageDetectionService()
+//const referenceExtractor = new EnhancedReferenceExtractor()
 
-interface PageAnalysis {
-  pageNumber: number
-  isReferencesStart: boolean
-  isNewSectionStart: boolean
-  containsReferences: boolean
-}
-
-interface PageResult {
-  pageNumber: number
-  markdown: string
-  isStartOfSection?: boolean
-  isNewSectionStart?: boolean
-}
-
-// Listen for messages
 self.onmessage = async (e: MessageEvent) => {
   const { type, pdfId, file } = e.data
 
@@ -37,178 +22,61 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({
         type: 'update',
         pdfId: pdfId,
-        message: `Worker launched for : ${pdfId}`
+        message: `Worker launched for: ${pdfId}`
       })
 
-      // Get total number of pages first
-      const arrayBuffer = await file.arrayBuffer()
-      const pdfDoc = await PDFDocument.load(arrayBuffer)
-      const totalPages = pdfDoc.getPageCount()
+      // Initialize the detection service
+      await refPageDetectionService.initialize(file)
 
-      // STEP 1: Iteratively search for references section from the end
-      let chunkSize = 3
-      let referencesSectionStart: number | null = null
-      let currentChunk = 0
-      let lastProcessedImages: string[] = []
-      let lastStartPage = 0
-
-      while (referencesSectionStart === null) {
-        // Calculate start page for current chunk from the end
-        const startPage = Math.max(
-          1,
-          totalPages - (currentChunk + 1) * chunkSize
-        )
-        lastStartPage = startPage
-
-        self.postMessage({
-          type: 'update',
-          pdfId,
-          message: `Analyzing pages ${startPage + 1}-${startPage + chunkSize}`
-        })
-        // Slice current chunk
-        const slicedPdf = await pdfSlicer.slicePdfPages(
-          file,
-          startPage,
-          chunkSize
-        )
-
-        // Convert sliced PDF to images
-        const formData = new FormData()
-        formData.append(
-          'pdf',
-          new File([slicedPdf], 'chunk.pdf', { type: 'application/pdf' })
-        )
-        formData.append('range', '1-')
-
-        const pdfResponse = await fetch('/api/pdf2images', {
-          method: 'POST',
-          body: formData
-        })
-
-        if (!pdfResponse.ok) {
-          throw new Error('Failed to convert PDF chunk to images')
-        }
-
-        const { images } = await pdfResponse.json()
-        lastProcessedImages = images.map(
-          (img: string) => `data:image/jpeg;base64,${img}`
-        )
-
-        // Analyze each page in the chunk
-        for (let i = images.length - 1; i >= 0; i--) {
-          const currentPage = startPage + i
-          const analysis = await analyzePage(lastProcessedImages[i])
-
-          if (analysis.isReferencesStart) {
-            referencesSectionStart = i
-            self.postMessage({
-              type: 'update',
-              pdfId,
-              message: `Found references section starting on page ${currentPage}`
-            })
-            break
-          }
-        }
-
-        if (referencesSectionStart === null) {
-          currentChunk++
-          if (startPage <= 1) {
-            throw new Error('Could not find references section in the document')
-          }
-        }
-      }
-
-      // STEP 2: Process references section and get markdown content
+      // STEP 1: Find reference pages with parsed text
       self.postMessage({
         type: 'update',
         pdfId,
-        message: 'Processing references section'
+        message: 'Searching for references section...'
       })
 
-      const collectedResults: PageResult[] = []
-      let referencesSectionEnd: number | null = null
+      const referencePages =
+        await refPageDetectionService.findReferencePages(file)
 
-      // Start from the references section and continue until we find the end
-      let currentPage = lastStartPage + referencesSectionStart
-      let reachedEnd = false
+      const referencesSectionStart = referencePages[0].pageNumber
+      self.postMessage({
+        type: 'update',
+        pdfId,
+        message: `Found references section starting on page ${referencesSectionStart}`
+      })
 
-      while (!reachedEnd && currentPage <= totalPages) {
-        // Slice and process current page
-        const slicedPdf = await pdfSlicer.slicePdfPages(file, currentPage, 1)
-        const formData = new FormData()
-        formData.append(
-          'pdf',
-          new File([slicedPdf], 'chunk.pdf', { type: 'application/pdf' })
-        )
-        formData.append('range', '1-')
+      // STEP 2: Extract markdown content from reference pages
+      self.postMessage({
+        type: 'update',
+        pdfId,
+        message: 'Extracting content from pages with references'
+      })
 
-        const pdfResponse = await fetch('/api/pdf2images', {
-          method: 'POST',
-          body: formData
-        })
-
-        if (!pdfResponse.ok) {
-          throw new Error('Failed to convert PDF page to image')
-        }
-
-        const { images } = await pdfResponse.json()
-        const imageData = `data:image/jpeg;base64,${images[0]}`
-
-        // Get page analysis
-        const analysis = await analyzePage(imageData)
-
-        // Check if we've reached the end of references section
-        if (
-          (analysis.isNewSectionStart && !analysis.isReferencesStart) ||
-          !analysis.containsReferences
-        ) {
-          referencesSectionEnd = currentPage - 1
-          self.postMessage({
-            type: 'update',
-            pdfId,
-            message: 'Reached end of references section'
+      const markdownContents = await Promise.all(
+        referencePages.map(async (page) => {
+          const markdownResponse = await fetch('/api/llama-vision', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filePath: page.imageData,
+              parsedText: page.parsedContent.rawText,
+              mode: 'free'
+            })
           })
-          reachedEnd = true
-        }
 
-        // Get markdown content
-        const markdownResponse = await fetch('/api/llama-vision', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filePath: imageData,
-            mode: 'free'
-          })
+          if (!markdownResponse.ok) {
+            throw new Error('Failed to extract references content')
+          }
+
+          const { markdown } = await markdownResponse.json()
+          return {
+            pageNumber: page.pageNumber,
+            markdown,
+            isStartOfSection: page.pageNumber === referencesSectionStart,
+            isNewSectionStart: page.analysis.isNewSectionStart
+          }
         })
-
-        if (!markdownResponse.ok) {
-          throw new Error('Failed to extract references content')
-        }
-
-        const { markdown: pageMarkdown } = await markdownResponse.json()
-
-        collectedResults.push({
-          pageNumber: currentPage,
-          markdown: pageMarkdown,
-          isStartOfSection:
-            currentPage === lastStartPage + referencesSectionStart,
-          isNewSectionStart: analysis.isNewSectionStart
-        })
-
-        self.postMessage({
-          type: 'update',
-          pdfId,
-          message: `Processed page ${currentPage}`
-        })
-
-        if (!reachedEnd) {
-          currentPage++
-        }
-      }
-
-      if (collectedResults.length === 0) {
-        throw new Error('No references content extracted')
-      }
+      )
 
       // STEP 3: Extract structured references from markdown
       self.postMessage({
@@ -217,9 +85,11 @@ self.onmessage = async (e: MessageEvent) => {
         message: 'Extracting structured references'
       })
 
-      const referencePagesMarkdown = collectedResults
-        .map((r) => r.markdown)
+      const referencePagesMarkdown = markdownContents
+        .map((content) => content.markdown)
         .join('\n\n')
+
+      console.log('📄 Extracted markdown contents:', referencePagesMarkdown)
 
       const extractResponse = await fetch('/api/references/extract/chunk', {
         method: 'POST',
@@ -233,9 +103,7 @@ self.onmessage = async (e: MessageEvent) => {
 
       const { references: extractedReferences } = await extractResponse.json()
 
-      if (!extractedReferences) {
-        throw new Error('No references extracted from markdown')
-      }
+      console.log('📚 Extracted references:', extractedReferences)
 
       self.postMessage({
         type: 'references',
@@ -244,30 +112,38 @@ self.onmessage = async (e: MessageEvent) => {
         message: `Found ${extractedReferences.length} references for ${pdfId}`
       })
 
-      
-       // Step 4:  DOI verification via API
-       self.postMessage({
-        type: 'update',
-        pdfId,
-        message: 'Checking DOIs...'
-      })
+      // STEP 4: DOI VERIFICATION Check if any references have DOIs
+      let referencesWithDOI = extractedReferences
+      if (extractedReferences.some((ref: Reference) => ref.DOI)) {
+        self.postMessage({
+          type: 'update',
+          pdfId,
+          message: 'Found DOIs, verifying...'
+        })
 
-      const doiResponse = await fetch('/api/references/verify-doi', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ references: extractedReferences })
-      })
+        const doiResponse = await fetch('/api/references/verify-doi', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ references: extractedReferences })
+        })
 
-      if (!doiResponse.ok) {
-        throw new Error('DOI verification failed')
+        if (!doiResponse.ok) {
+          throw new Error('DOI verification failed')
+        }
+
+        const { references } = await doiResponse.json()
+        referencesWithDOI = references
+      } else {
+        self.postMessage({
+          type: 'update',
+          pdfId,
+          message: 'No DOIs found, skipping verification'
+        })
       }
 
-      const { references: referencesWithDOI } = await doiResponse.json()
+      console.log('📚 References with DOIs:', referencesWithDOI)
 
-      console.log("referencesWithDOI", referencesWithDOI)
-
-      
-      // STEP 4: Process through search and verification
+      // STEP 5: Search and verification
       const referencesWithSearch: Reference[] =
         await searchReferenceService.processBatch(
           referencesWithDOI,
@@ -305,99 +181,9 @@ self.onmessage = async (e: MessageEvent) => {
         pdfId,
         error: error instanceof Error ? error.message : 'Unknown error'
       } as WorkerMessage)
+    } finally {
+      // Cleanup
+      await refPageDetectionService.cleanup()
     }
   }
 }
-
-async function analyzePage(imageData: string): Promise<PageAnalysis> {
-  const response = await fetch('/api/llama-vision/analyze-page', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      filePath: imageData,
-      mode: 'free'
-    })
-  })
-
-  if (!response.ok) {
-    throw new Error('Failed to analyze page')
-  }
-
-  const analysis = await response.json()
-  return analysis
-}
-
-/* Function to convert PDF to images using the existing endpoint
-async function convertPdfToImagesSequential(file: File): Promise<string[]> {
-  const formData = new FormData()
-  formData.append('pdf', file)
-  formData.append('range', '1-') // Convert all pages
-
-  try {
-    console.log('Making request to pdf2images endpoint...')
-    const response = await fetch('/api/pdf2images', {
-      method: 'POST',
-      body: formData
-    })
-
-    if (!response.ok) {
-      console.error(
-        'PDF to images response not OK:',
-        response.status,
-        response.statusText
-      )
-      throw new Error(`Failed to convert PDF to images: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-
-    if (!data.images || !Array.isArray(data.images)) {
-      console.error('Invalid images data received:', data)
-      throw new Error('Invalid image data received from conversion')
-    }
-
-    // Format the images with the required prefix
-    const formattedImages = data.images.map(
-      (img: string) => `data:image/png;base64,${img}`
-    )
-
-    // Log the first image data to check format
-    if (formattedImages.length > 0) {
-      console.log(
-        'First image data preview (after formatting):',
-        formattedImages[0].substring(0, 100) + '...'
-      )
-    }
-
-    return formattedImages
-  } catch (error) {
-    console.error('Error in convertPdfToImages:', error)
-    throw error
-  }
-}*/
-
-// Function to extract references from a single image
-/*async function extractReferencesFromImage(
-  imageData: string
-): Promise<Reference[]> {
-  try {
-    const response = await fetch('/api/open-ai-vision', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ imageData })
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to extract references from image')
-    }
-
-    const data = await response.json()
-    return data.references || []
-  } catch (error) {
-    console.error('Error extracting references from image:', error)
-    return []
-  }
-}
-*/

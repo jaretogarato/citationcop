@@ -48,7 +48,7 @@ async function verifyDOI(reference: Reference): Promise<Reference> {
     return reference
   }
   
-  console.log('Verifying DOI:', reference.DOI)
+  console.log('******  Verifying DOI:', reference.DOI)
   try {
     const response = await fetch(
       `https://api.crossref.org/works/${encodeURIComponent(reference.DOI)}?mailto=${EMAIL}`,
@@ -76,8 +76,8 @@ async function verifyDOI(reference: Reference): Promise<Reference> {
     
     const data = await response.json()
     const work = data.message
-    console.log('result:', data)
-    console.log('Crossref metadata:', work)
+    //console.log('result:', data)
+    //console.log('Crossref metadata:', work)
 
     const matches = compareMetadata(reference, work)
     

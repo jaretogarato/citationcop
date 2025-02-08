@@ -1,34 +1,66 @@
-import type { Reference } from '@/app/types/reference'
-import { filterInvalidReferences } from '../utils/reference-helpers/filter-references'
+interface ProcessedPage {
+  pageNumber: number
+  imageData: string
+  parsedContent: {
+    rawText: string
+  }
+}
 
-export class ReferenceExtractionService {
-  private openAIEndpoint: string
+import { ExtractedReference } from '@/app/types/reference'
 
-  constructor(openAIEndpoint: string) {
-    this.openAIEndpoint = openAIEndpoint
+export class EnhancedReferenceExtractor {
+  async extractReferences(pages: ProcessedPage[]): Promise<ExtractedReference[]> {
+    const allReferences: ExtractedReference[] = []
+
+    for (const page of pages) {
+      const references = await this.extractReferencesFromPage(page)
+      allReferences.push(...references)
+    }
+
+    return this.postProcessReferences(allReferences)
   }
 
-  public async extractReferences(text: string): Promise<Reference[]> {
-    try {
-      const response = await fetch(this.openAIEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ text })
+  private async extractReferencesFromPage(page: ProcessedPage): Promise<ExtractedReference[]> {
+    const response = await fetch('/api/llama-vision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filePath: page.imageData,
+        parsedText: page.parsedContent.rawText,
+        mode: 'free'
       })
+    })
 
-      if (!response.ok) {
-        throw new Error(`OpenAI API failed: ${response.statusText}`)
-      }
-
-      const { references }: { references: Reference[] } = await response.json()
-      console.log('📥 Received references from OpenAI:', references)
-
-      return filterInvalidReferences(references)
-    } catch (error) {
-      console.error('Error in extractReferences:', error)
-      throw error
+    if (!response.ok) {
+      throw new Error('Failed to extract references')
     }
+
+    const { markdown } = await response.json()
+    const references = this.splitMarkdownIntoReferences(markdown)
+    
+    return references.map(ref => ({
+      text: ref,
+      pageNumber: page.pageNumber
+    }))
+  }
+
+  private splitMarkdownIntoReferences(markdown: string): string[] {
+    return markdown
+      .split(/\n(?=\[\d+\]|\d+\.\s|[A-Z][a-z]+,\s+[A-Z]\.|\[.*?\]\s+\()/g)
+      .map(ref => ref.trim())
+      .filter(ref => this.isValidReference(ref))
+  }
+
+  private isValidReference(text: string): boolean {
+    return (
+      text.length > 10 &&
+      /[A-Z]/.test(text) &&
+      /\d/.test(text) &&
+      !/^(Figure|Table|Section)\s/i.test(text)
+    )
+  }
+
+  private postProcessReferences(references: ExtractedReference[]): ExtractedReference[] {
+    return references.sort((a, b) => a.pageNumber - b.pageNumber)
   }
 }
