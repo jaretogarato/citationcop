@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const PDF_CONVERTER_URL = process.env.PDF_CONVERTER_URL // Correct env variable
-
 // CORS Headers
 const corsHeaders = new Headers({
   'Access-Control-Allow-Origin': '*',
@@ -9,14 +7,13 @@ const corsHeaders = new Headers({
   'Access-Control-Allow-Headers': 'Content-Type'
 })
 
-//console.log('PDF_CONVERTER_URL: ', PDF_CONVERTER_URL)
-export const config = {
-  api: {
-    // Increase the body size limit and disable body parsing
-    bodyParser: false,
-    sizeLimit: '10mb'
-  }
-}
+const PDF_CONVERTER_URL = process.env.PDF_CONVERTER_URL
+
+// New configuration method
+export const maxDuration = 300 // 5 minutes
+export const dynamic = 'force-dynamic'
+// This handles the bodyParser: false and sizeLimit configuration
+export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -24,8 +21,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const file = formData.get('pdf') as File | null
     const range = formData.get('range') as string | null
-
-    //console.log("range : " , range)
 
     if (!file || !range) {
       return NextResponse.json(
