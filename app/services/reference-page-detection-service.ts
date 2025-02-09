@@ -1,6 +1,5 @@
 import { PDFDocument } from 'pdf-lib'
-import { getDocument, PDFDocumentProxy } from 'pdfjs-dist'
-import { GlobalWorkerOptions } from 'pdfjs-dist'
+import { getDocument, PDFDocumentProxy, GlobalWorkerOptions } from 'pdfjs-dist'
 import { PdfSlicerService } from './pdf-slicer-service'
 
 GlobalWorkerOptions.workerSrc = '/workers/pdf.worker.js'
@@ -207,41 +206,44 @@ export class ReferencePageDetectionService {
   //  const { images } = await response.json()
   //  return images.map((img: string) => `data:image/jpeg;base64,${img}`)
   //}
-	private async convertPdfToImages(pdfData: ArrayBuffer): Promise<string[]> {
-		const formData = new FormData()
-		formData.append(
-			'pdf',
-			new File([pdfData], 'chunk.pdf', { type: 'application/pdf' })
-		)
-		formData.append('range', '1-')
+  private async convertPdfToImages(pdfData: ArrayBuffer): Promise<string[]> {
+    const formData = new FormData()
+    formData.append(
+      'pdf',
+      new File([pdfData], 'chunk.pdf', { type: 'application/pdf' })
+    )
+    formData.append('range', '1-')
 
-		console.log("📄 Sending request to /api/pdf2images with FormData:", formData);
+    console.log(
+      '📄 Sending request to /api/pdf2images with FormData:',
+      formData
+    )
 
-		const response = await fetch('/api/pdf2images', {
-			method: 'POST',
-			body: formData
-		})
+    const response = await fetch('/api/pdf2images', {
+      method: 'POST',
+      body: formData
+    })
 
-		console.log("📥 Received API response status:", response.status);
+    console.log('📥 Received API response status:', response.status)
 
-		if (!response.ok) {
-			const errorText = await response.text();
-			console.error("❌ Error response from API:", errorText);
-			throw new Error('Failed to convert PDF chunk to images')
-		}
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('❌ Error response from API:', errorText)
+      throw new Error('Failed to convert PDF chunk to images')
+    }
 
-		const jsonResponse = await response.json();
-		console.log("📄 Parsed JSON Response from API:", jsonResponse);
+    const jsonResponse = await response.json()
+    console.log('📄 Parsed JSON Response from API:', jsonResponse)
 
-		const { images } = jsonResponse;
+    const { images } = jsonResponse
 
-		if (!images || !Array.isArray(images)) {
-			console.error("❌ API response does not contain images:", jsonResponse);
-			throw new Error("Invalid response: missing images array");
-		}
+    if (!images || !Array.isArray(images)) {
+      console.error('❌ API response does not contain images:', jsonResponse)
+      throw new Error('Invalid response: missing images array')
+    }
 
-		return images.map((img: string) => `data:image/jpeg;base64,${img}`)
-	}
+    return images.map((img: string) => `data:image/jpeg;base64,${img}`)
+  }
 
   private async analyzePage(
     imageData: string,
