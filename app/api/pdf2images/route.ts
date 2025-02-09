@@ -19,9 +19,13 @@ export async function OPTIONS() {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const formData = await req.formData();
+		console.log("📄 Received formData:", formData);
 
     const file = formData.get('pdf') as File | null;
     const range = formData.get('range') as string | null;
+		console.log("📄 Extracted file:", file);
+		console.log("📄 Extracted range:", range);
+
 
     if (!file || !range) {
       return new NextResponse(
@@ -44,7 +48,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const data = await response.json();
-    console.log("📄 PDF Conversion API Response:", data); // 🐛 Debugging line
+		console.log("📄 PDF Conversion API Response:", JSON.stringify(data, null, 2));
 
     return new NextResponse(JSON.stringify(data), { headers: corsHeaders });
 
