@@ -2,7 +2,7 @@ import type { Reference } from '@/app/types/reference'
 
 // Combine both validations
 export const validateReferences = (references: Reference[]): Reference[] => {
-  console.log('Validating references:', references)
+  //console.log('Validating references:', references)
   const validRefs = references.filter(isValidReference)
   return removeDuplicateReferences(validRefs)
 }
@@ -12,11 +12,11 @@ const isValidReference = (reference: Reference): boolean => {
     reference?.title?.trim() || reference?.authors?.length > 0
   )
   if (!valid) {
-    console.log('Invalid reference:', {
+    /*console.log('Invalid reference:', {
       title: reference?.title,
       authorCount: reference?.authors?.length,
       reference
-    })
+    })*/
   }
   return valid
 }
@@ -26,7 +26,7 @@ const removeDuplicateReferences = (references: Reference[]): Reference[] => {
   return references.filter((ref) => {
     const normalizedTitle = ref.title?.toLowerCase().trim()
     if (seen.has(normalizedTitle)) {
-      console.log('Duplicate found:', normalizedTitle)
+      //console.log('Duplicate found:', normalizedTitle)
       return false
     }
     seen.add(normalizedTitle)
@@ -60,7 +60,7 @@ const areAuthorsSimilar = (authors1: string[], authors2: string[]): boolean => {
 export const filterInvalidReferences = (
   references: Reference[]
 ): Reference[] => {
-  console.log('references into filter: ', references)
+  //console.log('references into filter: ', references)
   // First, filter out references without valid authors and titles
   const validRefs = references.filter((ref) => {
     const hasValidAuthors = Array.isArray(ref.authors) && ref.authors.length > 0
@@ -93,6 +93,6 @@ export const filterInvalidReferences = (
     }
   }
 
-  console.log('references out filter: ', uniqueRefs)
+  //console.log('references out filter: ', uniqueRefs)
   return uniqueRefs
 }

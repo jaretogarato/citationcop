@@ -4,7 +4,7 @@ import { WorkerMessage } from '../types'
 import { SearchReferenceService } from '@/app/services/search-reference-service'
 import { VerifyReferenceService } from '../verify-reference-service'
 import { ReferencePageDetectionService } from '../reference-page-detection-service'
-import { EnhancedReferenceExtractor } from '../reference-extraction-service'
+
 import type { Reference } from '@/app/types/reference'
 
 declare const self: DedicatedWorkerGlobalScope
@@ -12,7 +12,6 @@ declare const self: DedicatedWorkerGlobalScope
 const searchReferenceService = new SearchReferenceService()
 const verifyReferenceService = new VerifyReferenceService()
 const refPageDetectionService = new ReferencePageDetectionService()
-//const referenceExtractor = new EnhancedReferenceExtractor()
 
 self.onmessage = async (e: MessageEvent) => {
   const { type, pdfId, file } = e.data
@@ -89,7 +88,7 @@ self.onmessage = async (e: MessageEvent) => {
         .map((content) => content.markdown)
         .join('\n\n')
 
-      console.log('📄 Extracted markdown contents:', referencePagesMarkdown)
+      //console.log('📄 Extracted markdown contents:', referencePagesMarkdown)
 
       const extractResponse = await fetch('/api/references/extract/chunk', {
         method: 'POST',
@@ -103,7 +102,7 @@ self.onmessage = async (e: MessageEvent) => {
 
       const { references: extractedReferences } = await extractResponse.json()
 
-      console.log('📚 Extracted references:', extractedReferences)
+      //console.log('📚 Extracted references:', extractedReferences)
 
       self.postMessage({
         type: 'references',
@@ -141,7 +140,7 @@ self.onmessage = async (e: MessageEvent) => {
         })
       }
 
-      console.log('📚 References with DOIs:', referencesWithDOI)
+      //('📚 References with DOIs:', referencesWithDOI)
 
       // STEP 5: Search and verification
       const referencesWithSearch: Reference[] =

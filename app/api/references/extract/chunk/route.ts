@@ -40,13 +40,13 @@ function splitIntoChunks(text: string, maxChunkSize: number = 4000): string[] {
   }
 
   // Debug logging
-  chunks.forEach((chunk, i) => {
+  /*chunks.forEach((chunk, i) => {
     const references = chunk.split('\n')
     console.log(`\nChunk ${i + 1} (${chunk.length} chars):`)
     console.log(`Contains ${references.length} references`)
     console.log('First reference:', references[0])
     console.log('Last reference:', references[references.length - 1])
-  })
+  })*/
 
   return chunks
 }
@@ -122,9 +122,9 @@ async function processChunkWithRetry(
 
         // Exponential backoff: 2^attempt seconds (2, 4, 8 seconds)
         const backoffTime = Math.pow(2, attempt) * 1000
-        console.log(
+        /*console.log(
           `Rate limit hit, retrying in ${backoffTime / 1000} seconds...`
-        )
+        )*/
         await sleep(backoffTime)
         continue
       }
@@ -156,8 +156,8 @@ async function processBatch(chunks: string[]): Promise<any[]> {
 export async function POST(request: Request) {
   try {
     const { text } = await request.json()
-    console.log('******* Received text:', text)
-    console.log('----------------------------')
+   //console.log('******* Received text:', text)
+   // console.log('----------------------------')
 
     if (!text) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 })
