@@ -161,26 +161,61 @@ export class ReferencePageDetectionService {
     return { lines, rawText }
   }
 
-  private async convertPdfToImages(pdfData: ArrayBuffer): Promise<string[]> {
-    const formData = new FormData()
-    formData.append(
-      'pdf',
-      new File([pdfData], 'chunk.pdf', { type: 'application/pdf' })
-    )
-    formData.append('range', '1-')
+  //private async convertPdfToImages(pdfData: ArrayBuffer): Promise<string[]> {
+  //  const formData = new FormData()
+  //  formData.append(
+  //    'pdf',
+  //    new File([pdfData], 'chunk.pdf', { type: 'application/pdf' })
+  //  )
+  //  formData.append('range', '1-')
 
-    const response = await fetch('/api/pdf2images', {
-      method: 'POST',
-      body: formData
-    })
+  //  const response = await fetch('/api/pdf2images', {
+  //    method: 'POST',
+  //    body: formData
+  //  })
 
-    if (!response.ok) {
-      throw new Error('Failed to convert PDF chunk to images')
-    }
+  //  if (!response.ok) {
+  //    throw new Error('Failed to convert PDF chunk to images')
+  //  }
 
-    const { images } = await response.json()
-    return images.map((img: string) => `data:image/jpeg;base64,${img}`)
-  }
+  //  const { images } = await response.json()
+  //  return images.map((img: string) => `data:image/jpeg;base64,${img}`)
+  //}
+	private async convertPdfToImages(pdfData: ArrayBuffer): Promise<string[]> {
+		const formData = new FormData()
+		formData.append(
+			'pdf',
+			new File([pdfData], 'chunk.pdf', { type: 'application/pdf' })
+		)
+		formData.append('range', '1-')
+
+		console.log("📄 Sending request to /api/pdf2images with FormData:", formData);
+
+		const response = await fetch('/api/pdf2images', {
+			method: 'POST',
+			body: formData
+		})
+
+		console.log("📥 Received API response status:", response.status);
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			console.error("❌ Error response from API:", errorText);
+			throw new Error('Failed to convert PDF chunk to images')
+		}
+
+		const jsonResponse = await response.json();
+		console.log("📄 Parsed JSON Response from API:", jsonResponse);
+
+		const { images } = jsonResponse;
+
+		if (!images || !Array.isArray(images)) {
+			console.error("❌ API response does not contain images:", jsonResponse);
+			throw new Error("Invalid response: missing images array");
+		}
+
+		return images.map((img: string) => `data:image/jpeg;base64,${img}`)
+	}
 
   private async analyzePage(imageData: string, parsedText: string): Promise<PageAnalysis> {
     const response = await fetch('/api/llama-vision/analyze-page', {
