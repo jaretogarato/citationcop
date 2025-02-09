@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Add a default URL or use non-null assertion
-const PDF_CONVERTER_URL = process.env.PDF_CONVERTER_URL
+const PDF_CONVERTER_URL = process.env.PDF_CONVERTER_URL // Correct env variable
+
+// CORS Headers
+const corsHeaders = new Headers({
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type'
+})
 
 //console.log('PDF_CONVERTER_URL: ', PDF_CONVERTER_URL)
 export const config = {
@@ -14,41 +20,28 @@ export const config = {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    console.log('Request received at /api/pdf2images')
-
     const formData = await req.formData()
-    console.log('FormData parsed successfully')
 
     const file = formData.get('pdf') as File | null
     const range = formData.get('range') as string | null
 
-    console.log('File size:', file?.size, 'bytes')
-    console.log('Range:', range)
+    //console.log("range : " , range)
 
     if (!file || !range) {
       return NextResponse.json(
         { error: 'PDF file and range are required.' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
     const serverFormData = new FormData()
     serverFormData.append('pdf', file, file.name || 'file.pdf')
     serverFormData.append('range', range)
-    console.log('Server FormData created successfully')
-    // Add this log
-    const serverFile = serverFormData.get('pdf') as File
-    console.log(
-      'Server FormData file size:',
-      serverFile.size / (1024 * 1024).toFixed(2),
-      'MB'
-    )
 
     const response = await fetch(PDF_CONVERTER_URL!, {
       method: 'POST',
       body: serverFormData
     })
-    console.log('Response status:', response.status)
 
     if (!response.ok) {
       const errorText = await response.text()

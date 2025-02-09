@@ -27,7 +27,7 @@ self.onmessage = async (e: MessageEvent) => {
       // Initialize the detection service
       await refPageDetectionService.initialize(file)
 
-      // STEP 1: Find reference pages with parsed text
+      // STEP 1: Find reference pages with vision and parsed text
       self.postMessage({
         type: 'update',
         pdfId,

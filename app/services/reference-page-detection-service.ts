@@ -187,40 +187,61 @@ export class ReferencePageDetectionService {
     return { lines, rawText }
   }
 
-  private async convertPdfToImages(pdfData: ArrayBuffer): Promise<string[]> {
-    const chunkSizeMB = pdfData.byteLength / (1024 * 1024)
-    console.log(`About to send chunk of size: ${chunkSizeMB.toFixed(2)} MB`)
+  //private async convertPdfToImages(pdfData: ArrayBuffer): Promise<string[]> {
+  //  const formData = new FormData()
+  //  formData.append(
+  //    'pdf',
+  //    new File([pdfData], 'chunk.pdf', { type: 'application/pdf' })
+  //  )
+  //  formData.append('range', '1-')
 
+  //  const response = await fetch('/api/pdf2images', {
+  //    method: 'POST',
+  //    body: formData
+  //  })
 
-    const newPDF = new File([pdfData], 'chunk.pdf', { type: 'application/pdf' })
-    const fileSizeMB2 = newPDF.size / (1024 * 1024)
-    console.log(`New PDF size: ${fileSizeMB2.toFixed(2)} MB`)
+  //  if (!response.ok) {
+  //    throw new Error('Failed to convert PDF chunk to images')
+  //  }
 
-    const formData = new FormData()
-    formData.append(
-      'pdf',
-      newPDF
-      //new File([pdfData], 'chunk.pdf', { type: 'application/pdf' })
-    )
-    formData.append('range', '1-')
+  //  const { images } = await response.json()
+  //  return images.map((img: string) => `data:image/jpeg;base64,${img}`)
+  //}
+	private async convertPdfToImages(pdfData: ArrayBuffer): Promise<string[]> {
+		const formData = new FormData()
+		formData.append(
+			'pdf',
+			new File([pdfData], 'chunk.pdf', { type: 'application/pdf' })
+		)
+		formData.append('range', '1-')
 
+		console.log("📄 Sending request to /api/pdf2images with FormData:", formData);
 
-    const formDataFile = formData.get('pdf') as File
-    console.log(`FormData file size before fetch: ${(formDataFile.size / (1024 * 1024)).toFixed(2)} MB`)
+		const response = await fetch('/api/pdf2images', {
+			method: 'POST',
+			body: formData
+		})
 
+		console.log("📥 Received API response status:", response.status);
 
-    const response = await fetch('/api/pdf2images', {
-      method: 'POST',
-      body: formData
-    })
+		if (!response.ok) {
+			const errorText = await response.text();
+			console.error("❌ Error response from API:", errorText);
+			throw new Error('Failed to convert PDF chunk to images')
+		}
 
-    if (!response.ok) {
-      throw new Error('Failed to convert PDF page to images')
-    }
+		const jsonResponse = await response.json();
+		console.log("📄 Parsed JSON Response from API:", jsonResponse);
 
-    const { images } = await response.json()
-    return images.map((img: string) => `data:image/jpeg;base64,${img}`)
-  }
+		const { images } = jsonResponse;
+
+		if (!images || !Array.isArray(images)) {
+			console.error("❌ API response does not contain images:", jsonResponse);
+			throw new Error("Invalid response: missing images array");
+		}
+
+		return images.map((img: string) => `data:image/jpeg;base64,${img}`)
+	}
 
   private async analyzePage(
     imageData: string,
