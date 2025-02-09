@@ -1,9 +1,9 @@
 {
   "functions": {
     "api/pdf2images": {
-      "maxDuration": 10,
+      "maxDuration": 60,
       "memory": 1024,
-      "maxRequestBodySize": "10mb"
+      "maxPayloadSize": "10mb"
     }
   }
 }
