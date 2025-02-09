@@ -10,7 +10,8 @@ const corsHeaders = new Headers({
 const PDF_CONVERTER_URL = process.env.PDF_CONVERTER_URL
 
 // New configuration method
-export const maxDuration = 300 // 5 minutes
+//export const maxDuration = 300 // 5 minutes
+export const maxDuration = 60 // highest value we can use on Hobby plan
 export const dynamic = 'force-dynamic'
 // This handles the bodyParser: false and sizeLimit configuration
 export const runtime = 'nodejs'
