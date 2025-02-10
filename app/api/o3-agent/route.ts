@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     "status": "verified|unverified|needs-human",
     "message": "detailed explanation of findings. Include relevant links if available.",
     "checks_performed": ["list of verification methods used"]
-    "reference": "Complete reference in APA format. Add information if the original referenece was incomplete."
+    "reference": "Complete reference in APA format. Add information if the original reference was incomplete."
   }
   
   Example search strategies:

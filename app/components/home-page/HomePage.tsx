@@ -6,8 +6,7 @@ import { useRouter } from 'next/navigation'
 import WhoItsFor from '@/app/components/home-page/WhoItsFor'
 import QuickFeatures from '@/app/components/home-page/QuickFeatures'
 import Stats from '@/app/components/home-page/Stats'
-
-
+import ReferenceVerification from '@/app/components/home-page/ReferenceVerification'
 
 export default function HomePage(): JSX.Element {
   const router = useRouter();
@@ -61,6 +60,8 @@ export default function HomePage(): JSX.Element {
         <WhoItsFor />
 
         <QuickFeatures />
+
+        <ReferenceVerification />
 
       </main>
     </div>

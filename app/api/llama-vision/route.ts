@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Together from 'together-ai'
 
+export const maxDuration = 60
+export const runtime = 'edge'
+
 // Helper functions
 function isBase64Image(str: string) {
   return str.startsWith('data:image/')
@@ -17,7 +20,7 @@ async function getMarkDown({
   imageData: string
   parsedText?: string
 }) {
-  const systemPrompt = `You are converting a reference section in this image to Markdown format. 
+  const systemPrompt = `You are converting a reference section in this image to Markdown format.
 
 Below is the extracted text from the page:
 ${parsedText || ''}
@@ -66,6 +69,9 @@ Requirements:
 }
 
 export async function POST(request: NextRequest) {
+	console.log('maxDuration: ', maxDuration)
+	console.log('runtime: ', runtime)
+
   try {
     const data = await request.json()
     const { filePath, parsedText, model = 'Llama-3.2-90B-Vision' } = data

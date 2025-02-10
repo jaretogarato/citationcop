@@ -1,7 +1,7 @@
 'use client'
 
 import Button from '@/app/components/ui/Button'
-import { Card, CardDescription, CardTitle } from '@/app/components/ui/card'
+import { Card } from '@/app/components/ui/card'
 import { updateName } from '@/app/utils/auth-helpers/server'
 import { handleRequest } from '@/app/utils/auth-helpers/client'
 import { useRouter } from 'next/navigation'

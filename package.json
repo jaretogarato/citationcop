@@ -24,6 +24,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-progress": "^1.1.0",
@@ -54,6 +55,7 @@
     "react-dom": "^18.3.1",
     "react-markdown": "^9.0.3",
     "react-merge-refs": "^2.1.1",
+    "shadcn": "^2.3.0",
     "stream": "^0.0.3",
     "stripe": "^14.25.0",
     "tailwind-merge": "^2.3.0",
