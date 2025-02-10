@@ -85,6 +85,8 @@ export class ReferencePageDetectionService {
       const batchStart = Math.max(1, currentPage - this.CHUNK_SIZE + 1)
       const batchSize = batchEnd - batchStart + 1
 
+      console.log(`Processing pages ${batchStart}-${batchEnd}`)
+
       const pdfSlicer = new PdfSlicerService()
       // Process batch of pages
       const pdfSlice = await pdfSlicer.slicePdfPages(
@@ -93,15 +95,6 @@ export class ReferencePageDetectionService {
         batchSize
       )
       const arrayBuffer = await pdfSlice.arrayBuffer()
-
-      // Calculate size in MB
-      const sizeInMB = arrayBuffer.byteLength / (1024 * 1024)
-      const isOverLimit = sizeInMB > 4
-
-      console.log(
-        `Chunk pages ${batchStart}-${batchEnd} (${batchSize} pages): ` +
-          `${sizeInMB.toFixed(2)} MB ${isOverLimit ? '⚠️ OVER 4MB LIMIT!' : ''}`
-      )
 
       const images = await this.convertPdfToImages(arrayBuffer)
 
@@ -186,26 +179,6 @@ export class ReferencePageDetectionService {
     return { lines, rawText }
   }
 
-  //private async convertPdfToImages(pdfData: ArrayBuffer): Promise<string[]> {
-  //  const formData = new FormData()
-  //  formData.append(
-  //    'pdf',
-  //    new File([pdfData], 'chunk.pdf', { type: 'application/pdf' })
-  //  )
-  //  formData.append('range', '1-')
-
-  //  const response = await fetch('/api/pdf2images', {
-  //    method: 'POST',
-  //    body: formData
-  //  })
-
-  //  if (!response.ok) {
-  //    throw new Error('Failed to convert PDF chunk to images')
-  //  }
-
-  //  const { images } = await response.json()
-  //  return images.map((img: string) => `data:image/jpeg;base64,${img}`)
-  //}
   private async convertPdfToImages(pdfData: ArrayBuffer): Promise<string[]> {
     const formData = new FormData()
     formData.append(

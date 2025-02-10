@@ -19,26 +19,27 @@ export class PdfSlicerService {
     
     console.log(`Copying pages ${startPage} to ${endPage}`)
     
-    // Copy pages
+    // Create array of page indices to copy
+    const pageIndices = []
     for (let i = startPage - 1; i < endPage; i++) {
-      const [page] = await newPdf.copyPages(pdfDoc, [i])
-      newPdf.addPage(page)
+      pageIndices.push(i)
     }
     
-    // Save and create blob
+    // Copy all pages at once to preserve shared resources
+    const pages = await newPdf.copyPages(pdfDoc, pageIndices)
+    pages.forEach(page => newPdf.addPage(page))
+    
+    // Save with minimal options
     const newPdfBytes = await newPdf.save({
-      useObjectStreams: false,  // Try without object streams
-      addDefaultPage: false,    // Don't add extra pages
-      objectsPerTick: 50       // Limit objects per operation
+      useObjectStreams: false,
+      addDefaultPage: false,
+      objectsPerTick: 50
     })
     
     console.log(`New PDF bytes size: ${(newPdfBytes.length / (1024 * 1024)).toFixed(2)} MB`)
     
     const finalBlob = new Blob([newPdfBytes], { type: 'application/pdf' })
     console.log(`Final blob size: ${(finalBlob.size / (1024 * 1024)).toFixed(2)} MB`)
-    
-    // Clean up
-    pdfDoc.setModificationDate(new Date())
     
     return finalBlob
   }
