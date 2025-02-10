@@ -41,7 +41,7 @@ interface ProcessedPageResult {
 export class ReferencePageDetectionService {
   private readonly CHUNK_SIZE = 3
   private pdfDoc: PDFDocumentProxy | null = null
-  private pdfSlicer = new PdfSlicerService()
+  //private pdfSlicer = new PdfSlicerService()
 
   async initialize(file: File) {
     const arrayBuffer = await file.arrayBuffer()
@@ -57,6 +57,8 @@ export class ReferencePageDetectionService {
 
   async findReferencePages(file: File): Promise<ProcessedPageResult[]> {
     try {
+      const fileSizeMB = file.size / (1024 * 1024)
+      console.log(`Original PDF size: ${fileSizeMB.toFixed(2)} MB`)
       const arrayBuffer = await file.arrayBuffer()
       const pdfLibDoc = await PDFDocument.load(arrayBuffer)
       const totalPages = pdfLibDoc.getPageCount()
@@ -70,7 +72,10 @@ export class ReferencePageDetectionService {
     }
   }
 
-  private async processPages(file: File, totalPages: number): Promise<ProcessedPageResult[]> {
+  private async processPages(
+    file: File,
+    totalPages: number
+  ): Promise<ProcessedPageResult[]> {
     const results: ProcessedPageResult[] = []
     let currentPage = totalPages
     let foundReferenceStart = false
@@ -81,9 +86,24 @@ export class ReferencePageDetectionService {
       const batchStart = Math.max(1, currentPage - this.CHUNK_SIZE + 1)
       const batchSize = batchEnd - batchStart + 1
 
+      const pdfSlicer = new PdfSlicerService()
       // Process batch of pages
-      const pdfSlice = await this.pdfSlicer.slicePdfPages(file, batchStart, batchSize)
+      const pdfSlice = await pdfSlicer.slicePdfPages(
+        file,
+        batchStart,
+        batchSize
+      )
       const arrayBuffer = await pdfSlice.arrayBuffer()
+
+      // Calculate size in MB
+      const sizeInMB = arrayBuffer.byteLength / (1024 * 1024)
+      const isOverLimit = sizeInMB > 4
+
+      console.log(
+        `Chunk pages ${batchStart}-${batchEnd} (${batchSize} pages): ` +
+          `${sizeInMB.toFixed(2)} MB ${isOverLimit ? '⚠️ OVER 4MB LIMIT!' : ''}`
+      )
+
       const images = await this.convertPdfToImages(arrayBuffer)
 
       // Process each page in the batch
@@ -95,7 +115,10 @@ export class ReferencePageDetectionService {
         const parsedContent = await this.extractPageContent(pageNumber)
 
         // Analyze page using both image and text
-        const analysis = await this.analyzePage(imageData, parsedContent.rawText)
+        const analysis = await this.analyzePage(
+          imageData,
+          parsedContent.rawText
+        )
 
         const pageResult: ProcessedPageResult = {
           pageNumber,
@@ -156,7 +179,10 @@ export class ReferencePageDetectionService {
     }))
 
     const lines = this.mergeSameLine(items)
-    const rawText = items.map(item => item.str).join(' ').trim()
+    const rawText = items
+      .map((item) => item.str)
+      .join(' ')
+      .trim()
 
     return { lines, rawText }
   }
@@ -217,7 +243,10 @@ export class ReferencePageDetectionService {
 		return images.map((img: string) => `data:image/jpeg;base64,${img}`)
 	}
 
-  private async analyzePage(imageData: string, parsedText: string): Promise<PageAnalysis> {
+  private async analyzePage(
+    imageData: string,
+    parsedText: string
+  ): Promise<PageAnalysis> {
     const response = await fetch('/api/llama-vision/analyze-page', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -278,7 +307,9 @@ export class ReferencePageDetectionService {
       }
     }
 
-    lines[lines.length - 1].height = Math.max(...lines[lines.length - 1]._height)
+    lines[lines.length - 1].height = Math.max(
+      ...lines[lines.length - 1]._height
+    )
     return lines
   }
 }

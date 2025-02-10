@@ -60,7 +60,7 @@ async function fetchUrlContent(url: string): Promise<string> {
     if (!cleanContent) {
       throw new Error('No readable content found on page')
     }
-    console.log('Content fetched:', cleanContent)
+    //console.log('Content fetched:', cleanContent)
     return cleanContent
   } catch (error) {
     console.error('Error fetching URL:', error)

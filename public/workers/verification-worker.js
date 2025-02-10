@@ -4296,7 +4296,6 @@
           throw new Error("Failed to process reference");
         }
         const results = await response.json();
-        console.log("Search API results for reference:", reference.id, results);
         return {
           ...reference,
           status: (results.organic?.length ?? 0) > 0 ? "pending" : "error",
@@ -4339,7 +4338,7 @@
         return reference;
       }
       try {
-        const response = await fetch("/api/references/openAI-verify", {
+        const response = await fetch("/api/references/deepseek-verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -39943,20 +39942,28 @@
   var PdfSlicerService = class {
     async slicePdfPages(file, startPage, numPages = 4) {
       const arrayBuffer = await file.arrayBuffer();
+      console.log(`Original arrayBuffer size: ${(arrayBuffer.byteLength / (1024 * 1024)).toFixed(2)} MB`);
       const pdfDoc = await PDFDocument_default.load(arrayBuffer);
       const totalPages = pdfDoc.getPageCount();
       const endPage = Math.min(startPage + numPages - 1, totalPages);
       const newPdf = await PDFDocument_default.create();
-      console.log(`Original PDF pages: ${totalPages}`);
-      console.log(`Slicing from page ${startPage} to ${endPage}`);
+      console.log(`Copying pages ${startPage} to ${endPage}`);
       for (let i = startPage - 1; i < endPage; i++) {
         const [page] = await newPdf.copyPages(pdfDoc, [i]);
         newPdf.addPage(page);
       }
-      const newPdfBytes = await newPdf.save();
+      const newPdfBytes = await newPdf.save({
+        useObjectStreams: false,
+        // Try without object streams
+        addDefaultPage: false,
+        // Don't add extra pages
+        objectsPerTick: 50
+        // Limit objects per operation
+      });
+      console.log(`New PDF bytes size: ${(newPdfBytes.length / (1024 * 1024)).toFixed(2)} MB`);
       const finalBlob = new Blob([newPdfBytes], { type: "application/pdf" });
-      const finalPdf = await PDFDocument_default.load(await finalBlob.arrayBuffer());
-      console.log(`Final PDF pages: ${finalPdf.getPageCount()}`);
+      console.log(`Final blob size: ${(finalBlob.size / (1024 * 1024)).toFixed(2)} MB`);
+      pdfDoc.setModificationDate(/* @__PURE__ */ new Date());
       return finalBlob;
     }
   };
@@ -39966,7 +39973,7 @@
   var ReferencePageDetectionService = class {
     CHUNK_SIZE = 3;
     pdfDoc = null;
-    pdfSlicer = new PdfSlicerService();
+    //private pdfSlicer = new PdfSlicerService()
     async initialize(file) {
       const arrayBuffer = await file.arrayBuffer();
       this.pdfDoc = await __webpack_exports__getDocument({ data: arrayBuffer }).promise;
@@ -39979,6 +39986,8 @@
     }
     async findReferencePages(file) {
       try {
+        const fileSizeMB = file.size / (1024 * 1024);
+        console.log(`Original PDF size: ${fileSizeMB.toFixed(2)} MB`);
         const arrayBuffer = await file.arrayBuffer();
         const pdfLibDoc = await PDFDocument_default.load(arrayBuffer);
         const totalPages = pdfLibDoc.getPageCount();
@@ -39998,14 +40007,27 @@
         const batchEnd = currentPage;
         const batchStart = Math.max(1, currentPage - this.CHUNK_SIZE + 1);
         const batchSize = batchEnd - batchStart + 1;
-        const pdfSlice = await this.pdfSlicer.slicePdfPages(file, batchStart, batchSize);
+        const pdfSlicer = new PdfSlicerService();
+        const pdfSlice = await pdfSlicer.slicePdfPages(
+          file,
+          batchStart,
+          batchSize
+        );
         const arrayBuffer = await pdfSlice.arrayBuffer();
+        const sizeInMB = arrayBuffer.byteLength / (1024 * 1024);
+        const isOverLimit = sizeInMB > 4;
+        console.log(
+          `Chunk pages ${batchStart}-${batchEnd} (${batchSize} pages): ${sizeInMB.toFixed(2)} MB ${isOverLimit ? "\u26A0\uFE0F OVER 4MB LIMIT!" : ""}`
+        );
         const images = await this.convertPdfToImages(arrayBuffer);
         for (let i = images.length - 1; i >= 0; i--) {
           const pageNumber = batchStart + i;
           const imageData = images[i];
           const parsedContent = await this.extractPageContent(pageNumber);
-          const analysis = await this.analyzePage(imageData, parsedContent.rawText);
+          const analysis = await this.analyzePage(
+            imageData,
+            parsedContent.rawText
+          );
           const pageResult = {
             pageNumber,
             imageData,
@@ -40056,6 +40078,23 @@
       const rawText = items.map((item) => item.str).join(" ").trim();
       return { lines, rawText };
     }
+    //private async convertPdfToImages(pdfData: ArrayBuffer): Promise<string[]> {
+    //  const formData = new FormData()
+    //  formData.append(
+    //    'pdf',
+    //    new File([pdfData], 'chunk.pdf', { type: 'application/pdf' })
+    //  )
+    //  formData.append('range', '1-')
+    //  const response = await fetch('/api/pdf2images', {
+    //    method: 'POST',
+    //    body: formData
+    //  })
+    //  if (!response.ok) {
+    //    throw new Error('Failed to convert PDF chunk to images')
+    //  }
+    //  const { images } = await response.json()
+    //  return images.map((img: string) => `data:image/jpeg;base64,${img}`)
+    //}
     async convertPdfToImages(pdfData) {
       const formData = new FormData();
       formData.append(
@@ -40063,14 +40102,24 @@
         new File([pdfData], "chunk.pdf", { type: "application/pdf" })
       );
       formData.append("range", "1-");
+      console.log("\u{1F4C4} Sending request to /api/pdf2images with FormData:", formData);
       const response = await fetch("/api/pdf2images", {
         method: "POST",
         body: formData
       });
+      console.log("\u{1F4E5} Received API response status:", response.status);
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("\u274C Error response from API:", errorText);
         throw new Error("Failed to convert PDF chunk to images");
       }
-      const { images } = await response.json();
+      const jsonResponse = await response.json();
+      console.log("\u{1F4C4} Parsed JSON Response from API:", jsonResponse);
+      const { images } = jsonResponse;
+      if (!images || !Array.isArray(images)) {
+        console.error("\u274C API response does not contain images:", jsonResponse);
+        throw new Error("Invalid response: missing images array");
+      }
       return images.map((img) => `data:image/jpeg;base64,${img}`);
     }
     async analyzePage(imageData, parsedText) {
@@ -40122,7 +40171,9 @@
           lines.push(current);
         }
       }
-      lines[lines.length - 1].height = Math.max(...lines[lines.length - 1]._height);
+      lines[lines.length - 1].height = Math.max(
+        ...lines[lines.length - 1]._height
+      );
       return lines;
     }
   };
@@ -40187,7 +40238,6 @@
           message: "Extracting structured references"
         });
         const referencePagesMarkdown = markdownContents.map((content) => content.markdown).join("\n\n");
-        console.log("\u{1F4C4} Extracted markdown contents:", referencePagesMarkdown);
         const extractResponse = await fetch("/api/references/extract/chunk", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -40197,7 +40247,6 @@
           throw new Error("Failed to extract references");
         }
         const { references: extractedReferences } = await extractResponse.json();
-        console.log("\u{1F4DA} Extracted references:", extractedReferences);
         self.postMessage({
           type: "references",
           pdfId,
@@ -40228,7 +40277,6 @@
             message: "No DOIs found, skipping verification"
           });
         }
-        console.log("\u{1F4DA} References with DOIs:", referencesWithDOI);
         const referencesWithSearch = await searchReferenceService.processBatch(
           referencesWithDOI,
           (batchResults) => {

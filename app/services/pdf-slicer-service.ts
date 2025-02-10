@@ -8,26 +8,37 @@ export class PdfSlicerService {
   ): Promise<Blob> {
     
     const arrayBuffer = await file.arrayBuffer()
-    const pdfDoc = await PDFDocument.load(arrayBuffer)
+    console.log(`Original arrayBuffer size: ${(arrayBuffer.byteLength / (1024 * 1024)).toFixed(2)} MB`)
     
+    const pdfDoc = await PDFDocument.load(arrayBuffer)
     const totalPages = pdfDoc.getPageCount()
     const endPage = Math.min(startPage + numPages - 1, totalPages)
+    
+    // Create new PDF
     const newPdf = await PDFDocument.create()
     
-    console.log(`Original PDF pages: ${totalPages}`)
-    console.log(`Slicing from page ${startPage} to ${endPage}`)
+    console.log(`Copying pages ${startPage} to ${endPage}`)
     
+    // Copy pages
     for (let i = startPage - 1; i < endPage; i++) {
       const [page] = await newPdf.copyPages(pdfDoc, [i])
       newPdf.addPage(page)
     }
     
-    const newPdfBytes = await newPdf.save()
-    const finalBlob = new Blob([newPdfBytes], { type: 'application/pdf' })
+    // Save and create blob
+    const newPdfBytes = await newPdf.save({
+      useObjectStreams: false,  // Try without object streams
+      addDefaultPage: false,    // Don't add extra pages
+      objectsPerTick: 50       // Limit objects per operation
+    })
     
-    // Load again to check final page count
-    const finalPdf = await PDFDocument.load(await finalBlob.arrayBuffer())
-    console.log(`Final PDF pages: ${finalPdf.getPageCount()}`)
+    console.log(`New PDF bytes size: ${(newPdfBytes.length / (1024 * 1024)).toFixed(2)} MB`)
+    
+    const finalBlob = new Blob([newPdfBytes], { type: 'application/pdf' })
+    console.log(`Final blob size: ${(finalBlob.size / (1024 * 1024)).toFixed(2)} MB`)
+    
+    // Clean up
+    pdfDoc.setModificationDate(new Date())
     
     return finalBlob
   }

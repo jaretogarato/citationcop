@@ -11,7 +11,12 @@ export class VerifyReferenceService {
       return reference
     }
     try {
-      const response = await fetch('/api/references/openAI-verify', {
+      
+      // maybe if the referecne contains a URL, then quick grab the URL and check if it is a valid URL then grab the content of the URL and send along in the call to the deepseek-verify
+      
+      //const response = await fetch('/api/references/openAI-verify', {
+
+      const response = await fetch('/api/references/deepseek-verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
