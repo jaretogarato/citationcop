@@ -47,7 +47,6 @@ export const referenceTools: ChatCompletionTool[] = [
       strict: true
     }
   },
-
   {
     type: 'function',
     function: {

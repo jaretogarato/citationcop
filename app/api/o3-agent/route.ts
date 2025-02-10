@@ -42,6 +42,11 @@ export async function POST(request: Request) {
           role: 'system',
           content: `You are a reference verification assistant. Your task is to verify academic and web references using available tools.
   
+          A reference status is:
+    - verified if its validity can be confirmed 
+    - unverified if there is no evidence of its existance
+    - needs-human if there are some things that suggest that perhaps the reference is has some missing or incorrect info that a human should verify.
+
   When searching:
   1. First identify key elements from the reference (authors, title, year, publication)
   2. Create specific search queries using these elements - prioritize exact titles and author names
@@ -55,10 +60,10 @@ export async function POST(request: Request) {
   
   Return a final JSON response only when you have sufficient evidence:
   {
-    "status": "verified|unverified|error",
-    "confidence": "high|medium|low",
-    "message": "detailed explanation of findings",
+    "status": "verified|unverified|needs-human",
+    "message": "detailed explanation of findings. Include relevant links if available.",
     "checks_performed": ["list of verification methods used"]
+    "reference": "Complete reference in APA format. Add information if the original referenece was incomplete."
   }
   
   Example search strategies:
