@@ -23,7 +23,7 @@ export class ReferenceExtractionService {
       }
 
       const { references }: { references: Reference[] } = await response.json()
-      console.log('📥 Received references from OpenAI:', references)
+      //console.log('📥 Received references from OpenAI:', references)
 
       return filterInvalidReferences(references)
     } catch (error) {

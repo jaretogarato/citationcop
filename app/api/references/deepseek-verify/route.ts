@@ -1,42 +1,15 @@
 import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
-//import type { Reference } from '@/app/types/reference'
+import Together from 'together-ai'
 
-const API_KEYS = [
-  process.env.OPENAI_API_KEY_1,
-  process.env.OPENAI_API_KEY_2,
-  process.env.OPENAI_API_KEY_3
-].filter((key): key is string => {
-  if (!key) {
-    console.warn('Missing OpenAI API key')
-    return false
-  }
-  return true
-})
+const apiKey = process.env.TOGETHER_API_KEY
+const model = 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free'
 
 // Configuration for exponential backoff
 const INITIAL_RETRY_DELAY = 1000 // 1 second
 const MAX_RETRY_DELAY = 32000 // 32 seconds
 const BACKOFF_FACTOR = 2
 
-// Helper function to calculate delay with jitter
-const calculateBackoffDelay = (attempt: number): number => {
-  const delay = Math.min(
-    INITIAL_RETRY_DELAY * Math.pow(BACKOFF_FACTOR, attempt),
-    MAX_RETRY_DELAY
-  )
-  // Add random jitter of up to 25% of the delay
-  return delay + Math.random() * delay * 0.25
-}
-
-// Helper function to handle the delay
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-const openAIInstances = API_KEYS.map((apiKey) => new OpenAI({ apiKey }))
-
-// switching to trained model first choice.
-const model =
-  process.env.LLM_MODEL_VERIFY_ID || process.env.LLM_MODEL_ID || 'gpt-4o-mini'
+const together = new Together({ apiKey })
 
 export async function POST(request: Request) {
   try {
@@ -54,34 +27,16 @@ export async function POST(request: Request) {
       )
     }
 
-    if (keyIndex >= openAIInstances.length) {
-      return NextResponse.json({ error: 'Invalid key index' }, { status: 400 })
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'Together API key is required' },
+        { status: 400 }
+      )
     }
 
-    const openAI = openAIInstances[keyIndex]
     const startTime = Date.now()
 
-    //const reference_string = constructGoogleSearchString(reference)
-
-    // FOR NOW JUST GOING WITH THE RAW TEXT FROM THE PAPER!
     const reference_string = reference.raw
-
-    //console.log(`reference_string: ${reference_string}`);
-
-    /*const reference_string = [
-      reference.authors?.join(' '),
-      reference.title,
-      reference.journal,
-      reference.year,
-      reference.volume,
-      reference.pages,
-      reference.publisher,
-      reference.conference,
-      reference.date_of_access,
-      reference.issue,
-    ]
-      .filter((field) => field !== null && field !== undefined)
-      .join(' ');*/
 
     const prompt = `You are a machine that checks references/citations and uncovers false references in writing. Given the following search results, determine whether the provided reference refers to an actual article, conference paper, blog post, or other. Only use the information from the search results to determine the validity of the reference.
     
@@ -92,29 +47,33 @@ export async function POST(request: Request) {
 
     Reference: ${reference_string}
 
-   Google Search Results: ${formatSearchResults(searchResults)}
+    Google Search Results: ${formatSearchResults(searchResults)}
 
     Answer in the following JSON format:
     {
       "status": "verified | unverified | error", 
-      "message": "Explain how the search results verify or not the given reference. Include links that support your conclusion.",
+      "message": "Mention the key points taken into consideration to determine the status. Include links that support your conclusion.",
     }`
 
-    console.log(`prompt: ${prompt}`)
+    //console.log(`prompt: ${prompt}`)
     let lastError: Error | null = null as Error | null
 
     // Retry loop
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const response = await openAI.chat.completions.create({
+        const response = await together.chat.completions.create({
+          messages: [{ role: 'user', content: prompt }],
           model: model,
-          messages: [{ role: 'system', content: prompt }],
+          max_tokens: 1500,
           temperature: 0.0,
-          response_format: { type: 'json_object' }
+          top_p: 0.7,
+          top_k: 50,
+          repetition_penalty: 1,
+          stop: ['<｜end▁of▁sentence｜>']
         })
 
         const content = response.choices[0]?.message?.content
-
+        console.log(`Content: ${content}`)
         if (!content) {
           console.warn(`Attempt ${attempt + 1}: No content received from LLM`)
           const delay = calculateBackoffDelay(attempt)
@@ -123,8 +82,9 @@ export async function POST(request: Request) {
         }
 
         try {
-          const result = JSON.parse(content)
-
+          //const result = JSON.parse(content)
+          const result = parseResponse(content);
+          console.log(`Restuls: ${result}`)
           if (
             !['verified', 'unverified', 'error'].includes(result.status) ||
             typeof result.message !== 'string'
@@ -159,8 +119,7 @@ export async function POST(request: Request) {
       } catch (error) {
         const isRateLimit =
           error instanceof Error &&
-          (('status' in error && error.status === 429) ||
-            error.message.includes('429') ||
+          (error.message.includes('429') ||
             error.message.toLowerCase().includes('rate limit'))
 
         if (isRateLimit) {
@@ -211,6 +170,19 @@ export async function POST(request: Request) {
   }
 }
 
+// Helper function to calculate delay with jitter
+const calculateBackoffDelay = (attempt: number): number => {
+  const delay = Math.min(
+    INITIAL_RETRY_DELAY * Math.pow(BACKOFF_FACTOR, attempt),
+    MAX_RETRY_DELAY
+  )
+  // Add random jitter of up to 25% of the delay
+  return delay + Math.random() * delay * 0.25
+}
+
+// Helper function to handle the delay
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 function formatSearchResults(searchResults: any) {
   try {
     const formattedResults = (searchResults.organic || []).map(
@@ -225,5 +197,36 @@ function formatSearchResults(searchResults: any) {
   } catch (error) {
     console.warn('Error formatting search results:', error)
     return JSON.stringify([])
+  }
+}
+
+function parseResponse(content: string): any {
+  try {
+    // Find the JSON part by looking for content between ```json and ```
+    const jsonMatch = content.match(/```json\s*(\{[\s\S]*?\})\s*```/)
+    if (jsonMatch && jsonMatch[1]) {
+      return JSON.parse(jsonMatch[1])
+    }
+
+    // If no ```json block found, try to find any valid JSON object
+    const jsonRegex = /(\{[\s\S]*?\})/g
+    const matches = content.match(jsonRegex)
+    if (matches) {
+      // Try each match until we find valid JSON
+      for (const match of matches) {
+        try {
+          const parsed = JSON.parse(match)
+          if (parsed.status && parsed.message) {
+            return parsed
+          }
+        } catch (e) {
+          continue
+        }
+      }
+    }
+
+    throw new Error('No valid JSON found in response')
+  } catch (error) {
+    throw error
   }
 }

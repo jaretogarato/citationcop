@@ -12,7 +12,7 @@ async function analyzePage({
   imageData: string
   parsedText: string
 }) {
-  console.log('LLM input:', parsedText)
+  //console.log('LLM input:', parsedText)
 
   const systemPrompt = `Extracted text from the page: ${parsedText}
 
@@ -52,12 +52,12 @@ async function analyzePage({
     ]
   })
 
-  console.log('LLM output:', output.choices[0]?.message?.content)
+  //console.log('LLM output:', output.choices[0]?.message?.content)
 
   if (output.choices?.[0]?.message?.content) {
     try {
       const response = JSON.parse(output.choices[0].message.content)
-      console.log('LLM response:', response)
+      //console.log('LLM response:', response)
       return {
         isReferencesStart: response.isReferencesStart.toLowerCase() === 'yes',
         isNewSectionStart: response.isNewSectionStart.toLowerCase() === 'yes',

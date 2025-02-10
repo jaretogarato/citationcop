@@ -48,7 +48,7 @@ async function verifyDOI(reference: Reference): Promise<Reference> {
     return reference
   }
   
-  console.log('******  Verifying DOI:', reference.DOI)
+  //console.log('******  Verifying DOI:', reference.DOI)
   try {
     const response = await fetch(
       `https://api.crossref.org/works/${encodeURIComponent(reference.DOI)}?mailto=${EMAIL}`,

@@ -78,10 +78,10 @@ export class PDFQueueService {
         break
 
       case 'references':
-        console.log(`Message: ${message.message}`)
+        //console.log(`Message: ${message.message}`)
         // Update state or UI with the batch results
         if (this.updateListener) {
-          console.log('updating listener')
+          //console.log('updating listener')
           this.updateListener(message)
         }
         break
