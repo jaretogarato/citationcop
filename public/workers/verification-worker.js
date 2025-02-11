@@ -40160,7 +40160,7 @@
 
   // app/services/reference-extract-from-text-service.ts
   var ReferenceExtractFromTextService = class _ReferenceExtractFromTextService {
-    static CHUNK_SIZE = 4e3;
+    static CHUNK_SIZE = 2e3;
     splitIntoChunks(text) {
       const references = text.split(/\n/).map((ref) => ref.trim()).filter((ref) => ref.length > 0);
       const chunks = [];

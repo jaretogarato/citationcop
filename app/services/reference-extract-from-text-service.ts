@@ -1,7 +1,7 @@
 import type { Reference } from '@/app/types/reference'
 
 export class ReferenceExtractFromTextService {
-  private static CHUNK_SIZE = 4000
+  private static CHUNK_SIZE = 2000
 
   private splitIntoChunks(text: string): string[] {
     const references = text
