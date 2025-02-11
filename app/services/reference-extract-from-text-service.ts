@@ -5,6 +5,7 @@ export class ReferenceExtractFromTextService {
   private static BATCH_SIZE = 5
 
   private splitIntoChunks(text: string): string[] {
+    console.log('Splitting text into chunks:', text)
     const references = text
       .split(/\n/)
       .map((ref) => ref.trim())

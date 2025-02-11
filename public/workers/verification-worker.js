@@ -40163,6 +40163,7 @@
     static CHUNK_SIZE = 2e3;
     static BATCH_SIZE = 5;
     splitIntoChunks(text) {
+      console.log("Splitting text into chunks:", text);
       const references = text.split(/\n/).map((ref) => ref.trim()).filter((ref) => ref.length > 0);
       const chunks = [];
       let currentChunk = "";
