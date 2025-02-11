@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import type { Reference } from '@/app/types/reference'
 import ReferenceGrid from '@/app/components/reference-display/ReferenceGrid'
 

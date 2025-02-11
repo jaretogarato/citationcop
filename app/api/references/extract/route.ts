@@ -2,7 +2,8 @@
 import OpenAI from 'openai'
 import { NextResponse } from 'next/server'
 
-export const runtime = 'edge' /// will have to switch to serverless when go pro.
+export const maxDuration = 60
+export const runtime = 'edge'
 
 const openAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -10,16 +11,7 @@ const openAI = new OpenAI({
 
 const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
 
-export async function POST(request: Request) {
-  try {
-    //console.log('*** Extracting references request received. In edge Function *** ');
-    const { text } = await request.json()
-
-    if (!text) {
-      return NextResponse.json({ error: 'Text is required' }, { status: 400 })
-    }
-
-    const prompt = `Extract the references from the following document. Provide them in the following JSON format:
+const REFERENCE_EXTRACTION_PROMPT = `Extract the references from the following document. Provide them in the following JSON format:
 
 {
   "references": [
@@ -42,57 +34,62 @@ export async function POST(request: Request) {
   ]
 }
 
-Do not include the the article itself as a reference. It is OK to have 0 references found.
+Do not include the article itself as a reference. It is OK to have 0 references found.
 
 Text:
 
-${text}
+{text}
 
 References (in JSON format):`
 
+export async function POST(request: Request) {
+  const startTime = performance.now()
+  
+  try {
+    const { text } = await request.json()
+
+    if (!text) {
+      return NextResponse.json({ error: 'Text is required' }, { status: 400 })
+    }
+
+    const llmStartTime = performance.now()
     const response = await openAI.chat.completions.create({
       model: model,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        {
+          role: 'user',
+          content: REFERENCE_EXTRACTION_PROMPT.replace('{text}', text)
+        }
+      ],
       temperature: 0,
       response_format: { type: 'json_object' }
     })
+    const llmEndTime = performance.now()
 
-    let content = response.choices[0]?.message?.content
-
+    const content = response.choices[0]?.message?.content
     if (!content) {
-      return NextResponse.json(
-        { error: 'No content received from LLM' },
-        { status: 500 }
-      )
+      throw new Error('Empty response from OpenAI')
     }
 
-    // Extract JSON content
-    const jsonStartIndex = content.indexOf('{')
-    const jsonEndIndex = content.lastIndexOf('}')
+    const result = JSON.parse(content)
+    const endTime = performance.now()
+    
+    console.log(`📊 Reference extraction timing:
+      Total time: ${(endTime - startTime).toFixed(2)}ms
+      LLM time: ${(llmEndTime - llmStartTime).toFixed(2)}ms
+      Input length: ${text.length} chars
+      References found: ${result.references?.length || 0}`)
 
-    if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-      content = content.slice(jsonStartIndex, jsonEndIndex + 1)
-    } else {
-      return NextResponse.json(
-        { error: 'Response does not contain recognizable JSON structure' },
-        { status: 500 }
-      )
-    }
-
-    const parsedContent = JSON.parse(content)
-
-    if (!parsedContent.references || !Array.isArray(parsedContent.references)) {
-      return NextResponse.json(
-        { error: 'Parsed JSON does not contain a references array' },
-        { status: 500 }
-      )
-    }
-    //console.log('*** Extracted content :', parsedContent)
-    return NextResponse.json(parsedContent)
+    return NextResponse.json(result)
   } catch (error) {
+    const endTime = performance.now()
     console.error('Error in reference extraction:', error)
+    console.log(`❌ Failed extraction after ${(endTime - startTime).toFixed(2)}ms`)
+    
     return NextResponse.json(
-      { error: 'Failed to extract references' },
+      {
+        error: error instanceof Error ? error.message : 'Failed to extract references'
+      },
       { status: 500 }
     )
   }

@@ -40158,7 +40158,108 @@
     }
   };
 
+  // app/services/reference-extract-from-text-service.ts
+  var ReferenceExtractFromTextService = class _ReferenceExtractFromTextService {
+    static CHUNK_SIZE = 2e3;
+    static BATCH_SIZE = 5;
+    splitIntoChunks(text) {
+      console.log("Splitting text into chunks:", text);
+      const references = text.split(/\n/).map((ref) => ref.trim()).filter((ref) => ref.length > 0);
+      const chunks = [];
+      let currentChunk = "";
+      for (const ref of references) {
+        if ((currentChunk + "\n" + ref).length > _ReferenceExtractFromTextService.CHUNK_SIZE && currentChunk) {
+          chunks.push(currentChunk);
+          currentChunk = ref;
+        } else {
+          currentChunk += (currentChunk ? "\n" : "") + ref;
+        }
+      }
+      if (currentChunk) {
+        chunks.push(currentChunk);
+      }
+      return chunks;
+    }
+    async processChunk(chunk) {
+      const response = await fetch("/api/references/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: chunk })
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to process chunk: ${response.statusText}`);
+      }
+      const { references } = await response.json();
+      return references || [];
+    }
+    async processBatch(chunks, startIndex, onProgress, totalChunks) {
+      const batchPromises = chunks.map(async (chunk, index) => {
+        try {
+          const references = await this.processChunk(chunk);
+          if (onProgress) {
+            onProgress(startIndex + index + 1, totalChunks || chunks.length);
+          }
+          return references;
+        } catch (error2) {
+          console.error(`Error processing chunk ${startIndex + index + 1}:`, error2);
+          return [];
+        }
+      });
+      const batchResults = await Promise.all(batchPromises);
+      return batchResults.flat();
+    }
+    async processText(text) {
+      if (text.length <= _ReferenceExtractFromTextService.CHUNK_SIZE) {
+        return this.processChunk(text);
+      }
+      const chunks = this.splitIntoChunks(text);
+      const allReferences = [];
+      for (let i = 0; i < chunks.length; i += _ReferenceExtractFromTextService.BATCH_SIZE) {
+        const batchChunks = chunks.slice(i, i + _ReferenceExtractFromTextService.BATCH_SIZE);
+        const batchReferences = await this.processBatch(batchChunks, i);
+        allReferences.push(...batchReferences);
+      }
+      const seen = /* @__PURE__ */ new Set();
+      const uniqueReferences = allReferences.filter((ref) => {
+        const key = ref.DOI || ref.raw;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return uniqueReferences;
+    }
+    async processTextWithProgress(text, onProgress) {
+      if (text.length <= _ReferenceExtractFromTextService.CHUNK_SIZE) {
+        const references = await this.processChunk(text);
+        onProgress?.(1, 1);
+        return references;
+      }
+      const chunks = this.splitIntoChunks(text);
+      const allReferences = [];
+      const totalChunks = chunks.length;
+      console.log(`Processing ${totalChunks} chunks in batches of ${_ReferenceExtractFromTextService.BATCH_SIZE}`);
+      for (let i = 0; i < chunks.length; i += _ReferenceExtractFromTextService.BATCH_SIZE) {
+        const batchChunks = chunks.slice(i, i + _ReferenceExtractFromTextService.BATCH_SIZE);
+        console.log(`Processing batch ${Math.floor(i / _ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`);
+        const startTime = performance.now();
+        const batchReferences = await this.processBatch(batchChunks, i, onProgress, totalChunks);
+        const endTime = performance.now();
+        console.log(`Batch completed in ${(endTime - startTime).toFixed(2)}ms`);
+        allReferences.push(...batchReferences);
+      }
+      const seen = /* @__PURE__ */ new Set();
+      const uniqueReferences = allReferences.filter((ref) => {
+        const key = ref.DOI || ref.raw;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return uniqueReferences;
+    }
+  };
+
   // app/services/workers/verification.worker.ts
+  var extractionService = new ReferenceExtractFromTextService();
   var searchReferenceService = new SearchReferenceService();
   var verifyReferenceService = new VerifyReferenceService();
   var refPageDetectionService = new ReferencePageDetectionService();
@@ -40218,15 +40319,16 @@
           message: "Extracting structured references"
         });
         const referencePagesMarkdown = markdownContents.map((content) => content.markdown).join("\n\n");
-        const extractResponse = await fetch("/api/references/extract/chunk", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: referencePagesMarkdown })
-        });
-        if (!extractResponse.ok) {
-          throw new Error("Failed to extract references");
-        }
-        const { references: extractedReferences } = await extractResponse.json();
+        const extractedReferences = await extractionService.processTextWithProgress(
+          referencePagesMarkdown,
+          (processed, total) => {
+            self.postMessage({
+              type: "update",
+              pdfId,
+              message: `Processing references ${processed}/${total}`
+            });
+          }
+        );
         self.postMessage({
           type: "references",
           pdfId,
