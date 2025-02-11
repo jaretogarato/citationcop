@@ -40158,7 +40158,92 @@
     }
   };
 
+  // app/services/reference-extract-from-text-service.ts
+  var ReferenceExtractFromTextService = class _ReferenceExtractFromTextService {
+    static CHUNK_SIZE = 4e3;
+    splitIntoChunks(text) {
+      const references = text.split(/\n/).map((ref) => ref.trim()).filter((ref) => ref.length > 0);
+      const chunks = [];
+      let currentChunk = "";
+      for (const ref of references) {
+        if ((currentChunk + "\n" + ref).length > _ReferenceExtractFromTextService.CHUNK_SIZE && currentChunk) {
+          chunks.push(currentChunk);
+          currentChunk = ref;
+        } else {
+          currentChunk += (currentChunk ? "\n" : "") + ref;
+        }
+      }
+      if (currentChunk) {
+        chunks.push(currentChunk);
+      }
+      return chunks;
+    }
+    async processChunk(chunk) {
+      const response = await fetch("/api/references/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: chunk })
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to process chunk: ${response.statusText}`);
+      }
+      const { references } = await response.json();
+      return references || [];
+    }
+    async processText(text) {
+      if (text.length <= _ReferenceExtractFromTextService.CHUNK_SIZE) {
+        return this.processChunk(text);
+      }
+      const chunks = this.splitIntoChunks(text);
+      const allReferences = [];
+      for (const chunk of chunks) {
+        try {
+          const references = await this.processChunk(chunk);
+          allReferences.push(...references);
+        } catch (error2) {
+          console.error("Error processing chunk:", error2);
+        }
+      }
+      const seen = /* @__PURE__ */ new Set();
+      const uniqueReferences = allReferences.filter((ref) => {
+        const key = ref.DOI || ref.raw;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return uniqueReferences;
+    }
+    // Optional progress callback for the worker
+    async processTextWithProgress(text, onProgress) {
+      if (text.length <= _ReferenceExtractFromTextService.CHUNK_SIZE) {
+        const references = await this.processChunk(text);
+        onProgress?.(1, 1);
+        return references;
+      }
+      const chunks = this.splitIntoChunks(text);
+      const allReferences = [];
+      for (let i = 0; i < chunks.length; i++) {
+        try {
+          const references = await this.processChunk(chunks[i]);
+          allReferences.push(...references);
+          onProgress?.(i + 1, chunks.length);
+        } catch (error2) {
+          console.error(`Error processing chunk ${i + 1}/${chunks.length}:`, error2);
+        }
+      }
+      const seen = /* @__PURE__ */ new Set();
+      const uniqueReferences = allReferences.filter((ref) => {
+        const key = ref.DOI || ref.raw;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return uniqueReferences;
+    }
+  };
+
   // app/services/workers/verification.worker.ts
+  var extractionService = new ReferenceExtractFromTextService();
   var searchReferenceService = new SearchReferenceService();
   var verifyReferenceService = new VerifyReferenceService();
   var refPageDetectionService = new ReferencePageDetectionService();
@@ -40218,15 +40303,16 @@
           message: "Extracting structured references"
         });
         const referencePagesMarkdown = markdownContents.map((content) => content.markdown).join("\n\n");
-        const extractResponse = await fetch("/api/references/extract/chunk", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: referencePagesMarkdown })
-        });
-        if (!extractResponse.ok) {
-          throw new Error("Failed to extract references");
-        }
-        const { references: extractedReferences } = await extractResponse.json();
+        const extractedReferences = await extractionService.processTextWithProgress(
+          referencePagesMarkdown,
+          (processed, total) => {
+            self.postMessage({
+              type: "update",
+              pdfId,
+              message: `Processing references ${processed}/${total}`
+            });
+          }
+        );
         self.postMessage({
           type: "references",
           pdfId,

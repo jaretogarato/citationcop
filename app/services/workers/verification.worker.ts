@@ -4,11 +4,13 @@ import { WorkerMessage } from '../types'
 import { SearchReferenceService } from '@/app/services/search-reference-service'
 import { VerifyReferenceService } from '../verify-reference-service'
 import { ReferencePageDetectionService } from '../reference-page-detection-service'
+import { ReferenceExtractFromTextService } from '../reference-extract-from-text-service'
 
 import type { Reference } from '@/app/types/reference'
 
 declare const self: DedicatedWorkerGlobalScope
 
+const extractionService = new ReferenceExtractFromTextService()
 const searchReferenceService = new SearchReferenceService()
 const verifyReferenceService = new VerifyReferenceService()
 const refPageDetectionService = new ReferencePageDetectionService()
@@ -84,23 +86,23 @@ self.onmessage = async (e: MessageEvent) => {
         message: 'Extracting structured references'
       })
 
+      
       const referencePagesMarkdown = markdownContents
         .map((content) => content.markdown)
         .join('\n\n')
 
       //console.log('📄 Extracted markdown contents:', referencePagesMarkdown)
 
-      const extractResponse = await fetch('/api/references/extract/chunk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: referencePagesMarkdown })
-      })
-
-      if (!extractResponse.ok) {
-        throw new Error('Failed to extract references')
-      }
-
-      const { references: extractedReferences } = await extractResponse.json()
+      const extractedReferences = await extractionService.processTextWithProgress(
+        referencePagesMarkdown,
+        (processed: number, total: number) => {
+          self.postMessage({
+            type: 'update',
+            pdfId,
+            message: `Processing references ${processed}/${total}`
+          })
+        }
+      )
 
       //console.log('📚 Extracted references:', extractedReferences)
 

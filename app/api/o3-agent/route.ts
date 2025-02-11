@@ -99,6 +99,9 @@ export async function POST(request: Request) {
     const message = completion.choices[0].message
     console.log('LLM Response received')
 
+    const tokenUsage = completion.usage
+    console.log('Token usage:', tokenUsage)
+
     // If no tool_calls, we have our final answer
     if (!message.tool_calls) {
       console.log('Final answer received')
@@ -110,13 +113,15 @@ export async function POST(request: Request) {
         return NextResponse.json({
           status: 'complete',
           result,
-          messages: [...messages, message]
+          messages: [...messages, message],
+          tokenUsage: tokenUsage // Add token usage here too
         })
       } catch (e) {
         return NextResponse.json({
           status: 'error',
           error: 'Invalid final response format',
-          messages: [...messages, message]
+          messages: [...messages, message],
+          tokenUsage: tokenUsage // And here for consistency
         })
       }
     }
@@ -134,7 +139,8 @@ export async function POST(request: Request) {
         name: toolCall.function.name,
         arguments: JSON.parse(toolCall.function.arguments)
       },
-      lastToolCallId: toolCall.id // Send this back so we can use it in the next iteration
+      lastToolCallId: toolCall.id,
+      tokenUsage: tokenUsage // Add the token usage information
     })
   } catch (error) {
     console.error('Error:', error)

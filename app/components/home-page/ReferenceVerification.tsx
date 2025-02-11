@@ -8,17 +8,34 @@ import {
 } from '@/app/components/ui/accordion'
 import Button from '@/app/components/ui/Button'
 import { Textarea } from '@/app/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from '@/app/components/ui/card'
 import { Badge } from '@/app/components/ui/badge'
 
+type TokenUsage = {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+}
+
 type VerificationStatus = {
-  status: 'pending' | 'complete' | 'error'
+  status: 'pending' | 'complete' | 'human-check-needed' | 'error'
   messages?: any[]
   iteration?: number
-  result?: any
-  error?: string
-  functionResult?: string
+  functionResult?: any
   lastToolCallId?: string
+  error?: string
+  result?: {
+    status: 'verified' | 'unverified' | 'human-check' | 'error'
+    message: string
+    checks_performed: string[]
+    reference: string
+  }
+  tokenUsage?: TokenUsage
 }
 
 export default function ReferenceVerification() {
@@ -142,7 +159,7 @@ export default function ReferenceVerification() {
               className="w-full p-4 bg-gray-900/50 border-gray-700 text-gray-100 rounded-xl"
               rows={4}
               value={reference}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReference(e.target.value)}
+              onChange={(e) => setReference(e.target.value)}
               placeholder="Paste your reference here..."
             />
           </div>
@@ -245,6 +262,104 @@ export default function ReferenceVerification() {
                               <p className="text-gray-300 font-mono text-sm">
                                 {verificationStatus.result.reference}
                               </p>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )}
+
+                    {verificationStatus.tokenUsage && (
+                      <AccordionItem value="usage">
+                        <AccordionTrigger className="text-gray-100">
+                          View Token Usage
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="bg-gray-800/50 p-4 rounded-xl space-y-2">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-300">
+                                    Prompt Tokens:
+                                  </span>
+                                  <span className="text-gray-200 font-mono">
+                                    {
+                                      verificationStatus.tokenUsage
+                                        .prompt_tokens
+                                    }
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-400">
+                                    Cost ($1.10/M):
+                                  </span>
+                                  <span className="text-gray-300 font-mono">
+                                    $
+                                    {(
+                                      (verificationStatus.tokenUsage
+                                        .prompt_tokens /
+                                        1000000) *
+                                      1.1
+                                    ).toFixed(6)}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-300">
+                                    Completion Tokens:
+                                  </span>
+                                  <span className="text-gray-200 font-mono">
+                                    {
+                                      verificationStatus.tokenUsage
+                                        .completion_tokens
+                                    }
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-400">
+                                    Cost ($4.40/M):
+                                  </span>
+                                  <span className="text-gray-300 font-mono">
+                                    $
+                                    {(
+                                      (verificationStatus.tokenUsage
+                                        .completion_tokens /
+                                        1000000) *
+                                      4.4
+                                    ).toFixed(6)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="border-t border-gray-700 pt-2 mt-4">
+                              <div className="flex justify-between">
+                                <span className="text-gray-300">
+                                  Total Tokens:
+                                </span>
+                                <span className="text-gray-200 font-mono">
+                                  {verificationStatus.tokenUsage.total_tokens}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-400">
+                                  Total Cost:
+                                </span>
+                                <span className="text-gray-300 font-mono">
+                                  $
+                                  {(
+                                    (verificationStatus.tokenUsage
+                                      .prompt_tokens /
+                                      1000000) *
+                                      1.1 +
+                                    (verificationStatus.tokenUsage
+                                      .completion_tokens /
+                                      1000000) *
+                                      4.4
+                                  ).toFixed(6)}
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </AccordionContent>
