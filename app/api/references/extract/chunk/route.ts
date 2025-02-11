@@ -2,6 +2,8 @@
 import OpenAI from 'openai'
 import { NextResponse } from 'next/server'
 
+// ENDPOINT NO LONGER USED --- DEPRECATED //
+
 export const maxDuration = 60
 export const runtime = 'edge'
 
