@@ -40161,6 +40161,7 @@
   // app/services/reference-extract-from-text-service.ts
   var ReferenceExtractFromTextService = class _ReferenceExtractFromTextService {
     static CHUNK_SIZE = 2e3;
+    static BATCH_SIZE = 5;
     splitIntoChunks(text) {
       const references = text.split(/\n/).map((ref) => ref.trim()).filter((ref) => ref.length > 0);
       const chunks = [];
@@ -40190,19 +40191,32 @@
       const { references } = await response.json();
       return references || [];
     }
+    async processBatch(chunks, startIndex, onProgress, totalChunks) {
+      const batchPromises = chunks.map(async (chunk, index) => {
+        try {
+          const references = await this.processChunk(chunk);
+          if (onProgress) {
+            onProgress(startIndex + index + 1, totalChunks || chunks.length);
+          }
+          return references;
+        } catch (error2) {
+          console.error(`Error processing chunk ${startIndex + index + 1}:`, error2);
+          return [];
+        }
+      });
+      const batchResults = await Promise.all(batchPromises);
+      return batchResults.flat();
+    }
     async processText(text) {
       if (text.length <= _ReferenceExtractFromTextService.CHUNK_SIZE) {
         return this.processChunk(text);
       }
       const chunks = this.splitIntoChunks(text);
       const allReferences = [];
-      for (const chunk of chunks) {
-        try {
-          const references = await this.processChunk(chunk);
-          allReferences.push(...references);
-        } catch (error2) {
-          console.error("Error processing chunk:", error2);
-        }
+      for (let i = 0; i < chunks.length; i += _ReferenceExtractFromTextService.BATCH_SIZE) {
+        const batchChunks = chunks.slice(i, i + _ReferenceExtractFromTextService.BATCH_SIZE);
+        const batchReferences = await this.processBatch(batchChunks, i);
+        allReferences.push(...batchReferences);
       }
       const seen = /* @__PURE__ */ new Set();
       const uniqueReferences = allReferences.filter((ref) => {
@@ -40213,7 +40227,6 @@
       });
       return uniqueReferences;
     }
-    // Optional progress callback for the worker
     async processTextWithProgress(text, onProgress) {
       if (text.length <= _ReferenceExtractFromTextService.CHUNK_SIZE) {
         const references = await this.processChunk(text);
@@ -40222,14 +40235,16 @@
       }
       const chunks = this.splitIntoChunks(text);
       const allReferences = [];
-      for (let i = 0; i < chunks.length; i++) {
-        try {
-          const references = await this.processChunk(chunks[i]);
-          allReferences.push(...references);
-          onProgress?.(i + 1, chunks.length);
-        } catch (error2) {
-          console.error(`Error processing chunk ${i + 1}/${chunks.length}:`, error2);
-        }
+      const totalChunks = chunks.length;
+      console.log(`Processing ${totalChunks} chunks in batches of ${_ReferenceExtractFromTextService.BATCH_SIZE}`);
+      for (let i = 0; i < chunks.length; i += _ReferenceExtractFromTextService.BATCH_SIZE) {
+        const batchChunks = chunks.slice(i, i + _ReferenceExtractFromTextService.BATCH_SIZE);
+        console.log(`Processing batch ${Math.floor(i / _ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`);
+        const startTime = performance.now();
+        const batchReferences = await this.processBatch(batchChunks, i, onProgress, totalChunks);
+        const endTime = performance.now();
+        console.log(`Batch completed in ${(endTime - startTime).toFixed(2)}ms`);
+        allReferences.push(...batchReferences);
       }
       const seen = /* @__PURE__ */ new Set();
       const uniqueReferences = allReferences.filter((ref) => {
