@@ -40223,7 +40223,7 @@
         reference.fixedReference = currentState.result.reference;
       } else if (currentState.status === "error") {
         reference.status = "error";
-        reference.message = "Process error during verification";
+        reference.message = "Hmm, something went wrong during verification";
       }
       return {
         reference,

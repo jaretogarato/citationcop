@@ -116,7 +116,7 @@ export class o3ReferenceVerificationService {
     } else if (currentState.status === 'error') {
       // Only set to error if process failed
       reference.status = 'error'
-      reference.message = 'Process error during verification'
+      reference.message = 'Hmm, something went wrong during verification'
     }
 
     return {

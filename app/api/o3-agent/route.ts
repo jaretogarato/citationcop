@@ -108,7 +108,6 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
           status: 'complete',
           result,
           messages: [...messages, message],
-          fullReference: result.reference,
           tokenUsage: tokenUsage // Add token usage here too
         })
       } catch (e) {
