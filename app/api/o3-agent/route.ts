@@ -46,7 +46,6 @@ A reference status must be one of:
 - "verified": if validity can be confirmed with high confidence
 - "unverified": if there is no evidence of its existence
 - "needs-human": if the reference exists but has discrepancies or missing information that requires human verification
-- "error": if the reference is malformed or missing critical information
 
 When searching:
 1. First identify key elements from the reference (authors, title, year, publication)
@@ -61,8 +60,9 @@ When searching:
 
 Return a final JSON response only when you have sufficient evidence:
 {
-  "status": "verified" | "unverified" | "needs-human" | "error",
-  "message": "detailed explanation of findings. Include relevant links if available."
+  "status": "verified" | "unverified" | "needs-human" ,
+  "message": "Detailed explanation of findings. Include relevant links if available. Use formatting if helpful."
+  "reference": "Reference in APA format including any new information found."
 }
 
 Do NOT use tool_calls when giving your final response. Make sure to try multiple searches if the first attempt is inconclusive.`
@@ -108,6 +108,7 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
           status: 'complete',
           result,
           messages: [...messages, message],
+          fullReference: result.reference,
           tokenUsage: tokenUsage // Add token usage here too
         })
       } catch (e) {

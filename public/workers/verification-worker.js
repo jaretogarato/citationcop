@@ -40220,6 +40220,7 @@
       if (currentState.status === "complete" && currentState.result) {
         reference.status = currentState.result.status;
         reference.message = currentState.result.message;
+        reference.fixedReference = currentState.result.reference;
       } else if (currentState.status === "error") {
         reference.status = "error";
         reference.message = "Process error during verification";

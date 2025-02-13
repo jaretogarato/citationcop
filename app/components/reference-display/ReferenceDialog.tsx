@@ -2,7 +2,7 @@ import React from 'react'
 import {
   Reference,
   ReferenceStatus,
-  SearchResultItem
+  //SearchResultItem
 } from '@/app/types/reference'
 import {
   DialogContent,
@@ -27,7 +27,7 @@ import {
   Book,
   Calendar,
   Building,
-  Search,
+  //Search,
   ExternalLink
 } from 'lucide-react'
 
@@ -54,7 +54,18 @@ const tabColors = {
     ring: 'ring-emerald-400',
     focusColor: 'focus-visible:ring-emerald-400'
   },
-  search: {
+  /*search: {
+    gradient: 'from-rose-900/50 to-rose-800/50',
+    text: 'text-rose-300',
+    activeText: 'text-rose-200',
+    accent: 'bg-rose-400/10',
+    border: 'border-rose-400',
+    activeBg: 'bg-rose-400/10',
+    hoverBg: 'hover:bg-rose-400/5',
+    ring: 'ring-rose-400',
+    focusColor: 'focus-visible:ring-rose-400'
+  },*/
+  'Full Reference': {
     gradient: 'from-rose-900/50 to-rose-800/50',
     text: 'text-rose-300',
     activeText: 'text-rose-200',
@@ -70,33 +81,44 @@ const tabColors = {
 export interface ReferenceDialogProps {
   reference: Reference
 }
-
+const statusConfig = {
+  verified: {
+    text: 'text-emerald-300',
+    icon: <CheckCircle className="h-6 w-6 text-emerald-400" />,
+    displayText: 'Verified'
+  },
+  'needs-human': {
+    text: 'text-amber-300',
+    icon: <AlertTriangle className="h-6 w-6 text-amber-400" />,
+    displayText: 'Needs human verification'
+  },
+  error: {
+    text: 'text-slate-300',
+    icon: <AlertTriangle className="h-6 w-6 text-slate-400" />,
+    displayText: 'Oops, something went wrong'
+  },
+  unverified: {
+    text: 'text-rose-300',
+    icon: <XCircle className="h-6 w-6 text-rose-400" />,
+    displayText: 'Could not be verified'
+  },
+  pending: {
+    text: 'text-indigo-300',
+    icon: <AlertTriangle className="h-6 w-6 text-indigo-400" />,
+    displayText: 'Pending'
+  }
+}
 export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
   const [activeTab, setActiveTab] = React.useState('details')
 
   const getStatusTextColor = (status: ReferenceStatus): string =>
-    ({
-      verified: 'text-emerald-300',
-      unverified: 'text-rose-300',
-      error: 'text-amber-300',
-      pending: 'text-indigo-300'
-    })[status] || 'text-gray-300'
+    statusConfig[status]?.text || 'text-gray-300'
 
   const getStatusIcon = (status: ReferenceStatus): JSX.Element | null =>
-    ({
-      verified: <CheckCircle className="h-6 w-6 text-emerald-400" />,
-      error: <AlertTriangle className="h-6 w-6 text-amber-400" />,
-      pending: <AlertTriangle className="h-6 w-6 text-indigo-400" />,
-      unverified: <XCircle className="h-6 w-6 text-rose-400" />
-    })[status] || null
+    statusConfig[status]?.icon || null
 
   const getStatusText = (status: ReferenceStatus): string =>
-    ({
-      verified: 'Verified',
-      error: 'Needs Review',
-      pending: 'Pending',
-      unverified: 'Could not be verified'
-    })[status] || status
+    statusConfig[status]?.displayText || status
 
   const formatAuthors = (authors: string[] = []) => {
     if (authors.length === 0) return ''
@@ -155,7 +177,7 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
     )
   }
 
-  const renderSearchResults = (results: SearchResultItem[]) => {
+  /*const renderSearchResults = (results: SearchResultItem[]) => {
     return results.map((result, index) => (
       <div key={index} className="p-3 bg-black/10 rounded-lg space-y-2">
         <a
@@ -172,7 +194,7 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
         </p>
       </div>
     ))
-  }
+  }*/
 
   return (
     <DialogContent className="max-w-2xl bg-gray-900">
@@ -263,7 +285,21 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
             {renderField('Verification Notes', reference.message, <Info />)}
           </TabsContent>
 
-          <TabsContent value="search" className="space-y-4 pr-4">
+          <TabsContent value="full" className="space-y-4 pr-4">
+            {reference.fixedReference ? (
+              <div className="p-6 bg-black/10 rounded-lg">
+                <p className="text-white whitespace-pre-wrap break-words text-lg leading-relaxed">
+                  {reference.fixedReference}
+                </p>
+              </div>
+            ) : (
+              <div className="text-center text-gray-300 py-8">
+                <Book className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No formatted reference available</p>
+              </div>
+            )}
+          </TabsContent>
+          {/*<TabsContent value="search" className="space-y-4 pr-4">
             {reference.searchResults?.organic ? (
               <div className="space-y-4">
                 {renderSearchResults(reference.searchResults.organic)}
@@ -274,7 +310,7 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
                 <p>No search results available</p>
               </div>
             )}
-          </TabsContent>
+          </TabsContent>*/}
         </ScrollArea>
       </Tabs>
     </DialogContent>

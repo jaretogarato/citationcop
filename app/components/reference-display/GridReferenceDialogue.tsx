@@ -3,12 +3,7 @@ import { Reference } from '@/app/types/reference'
 import { Dialog, DialogTrigger } from '@/app/components/ui/dialog'
 import { ReferenceDialog } from '@/app/components/reference-display/ReferenceDialog'
 import { renderMessageWithLinks } from '@/app/utils/ui/ui-utils'
-import {
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Info
-} from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react'
 
 const statusStyles = {
   verified: {
@@ -17,11 +12,17 @@ const statusStyles = {
     text: 'text-emerald-300',
     icon: <CheckCircle className="h-6 w-6 text-emerald-400" />
   },
-  error: {
+  'needs-human': {
     gradient: 'from-amber-900/50 to-amber-800/50',
     accent: 'bg-amber-400/10',
     text: 'text-amber-300',
     icon: <AlertTriangle className="h-6 w-6 text-amber-400" />
+  },
+  error: {
+    gradient: 'from-slate-900/50 to-slate-800/50',
+    accent: 'bg-slate-400/10',
+    text: 'text-slate-300',
+    icon: <AlertTriangle className="h-6 w-6 text-slate-400" />
   },
   unverified: {
     gradient: 'from-rose-900/50 to-rose-800/50',
@@ -45,68 +46,75 @@ const formatAuthors = (authors: string[] = []) => {
 
 const GridReferenceDialog = ({ reference }: { reference: Reference }) => {
   const status = statusStyles[reference.status]
-  
-  return (
 
+  return (
     <Dialog>
       <DialogTrigger asChild>
-    <div className={`w-full bg-gradient-to-br ${status.gradient} rounded-[1.5rem] overflow-hidden shadow-xl`}>
-      <div className="p-6 space-y-4">
-        {/* Status Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 bg-black/20 rounded-xl p-3 flex-1">
-            {status.icon}
-            <span className="text-lg font-semibold text-white">
-              {reference.status === 'error' ? 'Needs Human Review' : reference.status}
-            </span>
-          </div>
-          {reference.sourceDocument && (
-            <div className={`p-2 rounded-xl ${status.accent}`}>
-              <Info className={`h-5 w-5 ${status.text}`} />
+        <div
+          className={`w-full bg-gradient-to-br ${status.gradient} rounded-[1.5rem] overflow-hidden shadow-xl`}
+        >
+          <div className="p-6 space-y-4">
+            {/* Status Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 bg-black/20 rounded-xl p-3 flex-1">
+                {status.icon}
+                <span className="text-lg font-semibold text-white">
+                  {reference.status === 'error'
+                    ? 'Needs Human Review'
+                    : reference.status}
+                </span>
+              </div>
+              {reference.sourceDocument && (
+                <div className={`p-2 rounded-xl ${status.accent}`}>
+                  <Info className={`h-5 w-5 ${status.text}`} />
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Reference Details */}
-        <div className={`space-y-3 ${status.accent} rounded-xl p-4`}>
-          <div>
-            <h3 className={`text-sm font-medium ${status.text}`}>Title</h3>
-            <p className="text-white font-medium leading-tight">
-              {reference.title}
-            </p>
-          </div>
-          <div>
-            <h3 className={`text-sm font-medium ${status.text}`}>Authors</h3>
-            <p className="text-white font-medium leading-tight">
-              {formatAuthors(reference.authors)}
-            </p>
-          </div>
-          {reference.sourceDocument && (
-            <div>
-              <h3 className={`text-sm font-medium ${status.text}`}>Source Document</h3>
-              <p className="text-white font-medium leading-tight">
-                {reference.sourceDocument}
-              </p>
+            {/* Reference Details */}
+            <div className={`space-y-3 ${status.accent} rounded-xl p-4`}>
+              <div>
+                <h3 className={`text-sm font-medium ${status.text}`}>Title</h3>
+                <p className="text-white font-medium leading-tight">
+                  {reference.title}
+                </p>
+              </div>
+              <div>
+                <h3 className={`text-sm font-medium ${status.text}`}>
+                  Authors
+                </h3>
+                <p className="text-white font-medium leading-tight">
+                  {formatAuthors(reference.authors)}
+                </p>
+              </div>
+              {reference.sourceDocument && (
+                <div>
+                  <h3 className={`text-sm font-medium ${status.text}`}>
+                    Source Document
+                  </h3>
+                  <p className="text-white font-medium leading-tight">
+                    {reference.sourceDocument}
+                  </p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Verification Message */}
-        {reference.message && (
-          <div className={`${status.accent} rounded-xl p-4`}>
-            <h3 className={`text-sm font-medium ${status.text} mb-1`}>
-              Verification Notes
-            </h3>
-            <div className="max-h-24 overflow-y-auto">
-              <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
-                {renderMessageWithLinks(reference.message)}
-              </p>
-            </div>
+            {/* Verification Message */}
+            {reference.message && (
+              <div className={`${status.accent} rounded-xl p-4`}>
+                <h3 className={`text-sm font-medium ${status.text} mb-1`}>
+                  Verification Notes
+                </h3>
+                <div className="max-h-24 overflow-y-auto">
+                  <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
+                    {renderMessageWithLinks(reference.message)}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </div>
-    </DialogTrigger>
+        </div>
+      </DialogTrigger>
 
       <ReferenceDialog reference={reference} />
     </Dialog>

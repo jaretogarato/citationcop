@@ -112,6 +112,7 @@ export class o3ReferenceVerificationService {
       // Update the original reference with verification result
       reference.status = currentState.result.status
       reference.message = currentState.result.message
+      reference.fixedReference = currentState.result.reference
     } else if (currentState.status === 'error') {
       // Only set to error if process failed
       reference.status = 'error'
