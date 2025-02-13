@@ -106,6 +106,9 @@ export class o3ReferenceVerificationService {
       }
     }
 
+
+   
+    console.log('fixed reference:', currentState.result.reference)
     // If process errors, update the reference's status to error
     // When process completes, get the LLM's verification status and message
     if (currentState.status === 'complete' && currentState.result) {

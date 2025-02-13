@@ -285,7 +285,7 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
             {renderField('Verification Notes', reference.message, <Info />)}
           </TabsContent>
 
-          <TabsContent value="full" className="space-y-4 pr-4">
+          <TabsContent value="Full Reference" className="space-y-4 pr-4">
             {reference.fixedReference ? (
               <div className="p-6 bg-black/10 rounded-lg">
                 <p className="text-white whitespace-pre-wrap break-words text-lg leading-relaxed">
