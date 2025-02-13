@@ -1,19 +1,21 @@
 /// <reference lib="webworker" />
 
 import { WorkerMessage } from '../types'
-import { SearchReferenceService } from '@/app/services/search-reference-service'
-import { VerifyReferenceService } from '../verify-reference-service'
+//import { SearchReferenceService } from '@/app/services/search-reference-service'
+//import { VerifyReferenceService } from '../verify-reference-service'
 import { ReferencePageDetectionService } from '../reference-page-detection-service'
 import { ReferenceExtractFromTextService } from '../reference-extract-from-text-service'
+import { o3ReferenceVerificationService } from '../o3-reference-verification-service'
 
 import type { Reference } from '@/app/types/reference'
 
 declare const self: DedicatedWorkerGlobalScope
 
 const extractionService = new ReferenceExtractFromTextService()
-const searchReferenceService = new SearchReferenceService()
-const verifyReferenceService = new VerifyReferenceService()
+//const searchReferenceService = new SearchReferenceService()
+//const verifyReferenceService = new VerifyReferenceService()
 const refPageDetectionService = new ReferencePageDetectionService()
+const o3VerificationService = new o3ReferenceVerificationService()
 
 self.onmessage = async (e: MessageEvent) => {
   const { type, pdfId, file } = e.data
@@ -86,23 +88,23 @@ self.onmessage = async (e: MessageEvent) => {
         message: 'Extracting structured references'
       })
 
-      
       const referencePagesMarkdown = markdownContents
         .map((content) => content.markdown)
         .join('\n\n')
 
       //console.log('📄 Extracted markdown contents:', referencePagesMarkdown)
 
-      const extractedReferences = await extractionService.processTextWithProgress(
-        referencePagesMarkdown,
-        (processed: number, total: number) => {
-          self.postMessage({
-            type: 'update',
-            pdfId,
-            message: `Processing references ${processed}/${total}`
-          })
-        }
-      )
+      const extractedReferences =
+        await extractionService.processTextWithProgress(
+          referencePagesMarkdown,
+          (processed: number, total: number) => {
+            self.postMessage({
+              type: 'update',
+              pdfId,
+              message: `Processing references ${processed}/${total}`
+            })
+          }
+        )
 
       //console.log('📚 Extracted references:', extractedReferences)
 
@@ -145,7 +147,20 @@ self.onmessage = async (e: MessageEvent) => {
       //('📚 References with DOIs:', referencesWithDOI)
 
       // STEP 5: Search and verification
-      const referencesWithSearch: Reference[] =
+
+      const verificationResults = await o3VerificationService.processBatch(
+        referencesWithDOI,
+        (batchResults) => {
+          self.postMessage({
+            type: 'verification-update',
+            pdfId,
+            message: 'Verifying references...',
+            batchResults
+          })
+        }
+      )
+
+      /*const referencesWithSearch: Reference[] =
         await searchReferenceService.processBatch(
           referencesWithDOI,
           (batchResults) => {
@@ -168,12 +183,18 @@ self.onmessage = async (e: MessageEvent) => {
               batchResults
             })
           }
-        )
+        )*/
+      const processedReferences = verificationResults.map((result) => ({
+        ...result.reference,
+        message: result.result?.message,
+        verificationDetails: result.result
+      }))
 
       self.postMessage({
         type: 'complete',
         pdfId,
-        references: verifiedReferences
+        references: processedReferences,
+        message: `Completed verification of ${processedReferences.length} references`
       } as WorkerMessage)
     } catch (error) {
       console.error('❌ Error processing PDF:', error)

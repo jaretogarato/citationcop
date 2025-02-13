@@ -4273,121 +4273,6 @@
     }
   });
 
-  // app/services/search-reference-service.ts
-  var BATCH_SIZE = 3;
-  var SearchReferenceService = class {
-    async processReference(reference) {
-      if (reference.status === "verified") {
-        return reference;
-      }
-      const query = `${reference.title} ${reference.authors.join(" ")}`;
-      try {
-        const response = await fetch("/api/serper", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-            Pragma: "no-cache"
-          },
-          body: JSON.stringify({ q: query })
-        });
-        if (!response.ok) {
-          console.error("Search API error:", await response.text());
-          throw new Error("Failed to process reference");
-        }
-        const results = await response.json();
-        return {
-          ...reference,
-          status: (results.organic?.length ?? 0) > 0 ? "pending" : "error",
-          verification_source: "google",
-          message: (results.organic?.length ?? 0) > 0 ? "Found matching results" : "No matching results found",
-          searchResults: results
-        };
-      } catch (error2) {
-        console.error("Error processing reference:", reference.id, error2);
-        return {
-          ...reference,
-          status: "error",
-          verification_source: "google",
-          message: "Failed to verify reference"
-        };
-      }
-    }
-    async processBatch(references, onBatchComplete) {
-      const processedRefs = [];
-      let currentIndex = 0;
-      while (currentIndex < references.length) {
-        const batch = references.slice(currentIndex, currentIndex + BATCH_SIZE);
-        const results = await Promise.all(
-          batch.map((ref) => this.processReference(ref))
-        );
-        processedRefs.push(...results);
-        onBatchComplete(results);
-        currentIndex += BATCH_SIZE;
-        await new Promise((resolve) => setTimeout(resolve, 250));
-      }
-      return processedRefs;
-    }
-  };
-
-  // app/services/verify-reference-service.ts
-  var BATCH_SIZE2 = 3;
-  var VerifyReferenceService = class {
-    async processReference(reference, keyIndex) {
-      if (reference.status === "verified") {
-        return reference;
-      }
-      try {
-        const response = await fetch("/api/references/deepseek-verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reference,
-            searchResults: reference.searchResults,
-            keyIndex,
-            maxRetries: 2
-          })
-        });
-        if (!response.ok) {
-          throw new Error("Failed to verify reference");
-        }
-        const result = await response.json();
-        return {
-          ...reference,
-          status: result.status,
-          verification_source: "analysis of search results",
-          message: result.message
-        };
-      } catch (error2) {
-        return {
-          ...reference,
-          status: "error",
-          verification_source: "analysis of search results",
-          message: error2 instanceof Error ? error2.message : "Failed to verify reference"
-        };
-      }
-    }
-    async processBatch(references, onBatchComplete) {
-      const result = [...references];
-      const unverifiedRefs = references.map((ref, index) => ({ ref, originalIndex: index })).filter(({ ref }) => ref.status !== "verified");
-      for (let i = 0; i < unverifiedRefs.length; i += BATCH_SIZE2) {
-        const currentBatch = unverifiedRefs.slice(i, i + BATCH_SIZE2);
-        const processedResults = await Promise.all(
-          currentBatch.map(
-            ({ ref }, batchIndex) => this.processReference(ref, batchIndex)
-          )
-        );
-        processedResults.forEach((processedRef, batchIndex) => {
-          const originalIndex = currentBatch[batchIndex].originalIndex;
-          result[originalIndex] = processedRef;
-        });
-        onBatchComplete(processedResults);
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-      return result;
-    }
-  };
-
   // node_modules/pdf-lib/node_modules/tslib/tslib.es6.js
   var extendStatics = function(d, b) {
     extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d2, b2) {
@@ -40258,11 +40143,119 @@
     }
   };
 
+  // app/services/o3-reference-verification-service.ts
+  var o3ReferenceVerificationService = class {
+    async checkDOI(doi, title) {
+      const response = await fetch("/api/references/verify-doi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ references: [{ DOI: doi, title }] })
+      });
+      return await response.json();
+    }
+    async searchReference(reference) {
+      const response = await fetch("/api/references/verify-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference })
+      });
+      return await response.json();
+    }
+    async checkURL(url, reference) {
+      const response = await fetch("/api/fetch-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      });
+      return await response.json();
+    }
+    async verifyReference(reference, onUpdate) {
+      let currentState = {
+        status: "pending",
+        messages: [],
+        iteration: 0
+      };
+      if (onUpdate) {
+        onUpdate(currentState);
+      }
+      while (currentState.status === "pending" && currentState.iteration < 5) {
+        const response = await fetch("/api/o3-agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reference: reference.raw || JSON.stringify(reference),
+            iteration: currentState.iteration,
+            previousMessages: currentState.messages,
+            functionResult: currentState.functionResult,
+            lastToolCallId: currentState.lastToolCallId
+          })
+        });
+        const llmResponse = await response.json();
+        if (llmResponse.functionToCall) {
+          const { name, arguments: args } = llmResponse.functionToCall;
+          let functionResult;
+          switch (name) {
+            case "check_doi":
+              functionResult = await this.checkDOI(args.doi, args.title);
+              break;
+            case "search_reference":
+              functionResult = await this.searchReference(args.reference);
+              break;
+            case "check_url":
+              functionResult = await this.checkURL(args.url, args.reference);
+              break;
+          }
+          currentState = {
+            ...llmResponse,
+            functionResult,
+            lastToolCallId: llmResponse.lastToolCallId
+          };
+        } else {
+          currentState = llmResponse;
+        }
+        if (onUpdate) {
+          onUpdate(currentState);
+        }
+      }
+      if (currentState.status === "complete" && currentState.result) {
+        reference.status = currentState.result.status;
+        reference.message = currentState.result.message;
+      } else if (currentState.status === "error") {
+        reference.status = "error";
+        reference.message = "Process error during verification";
+      }
+      return {
+        reference,
+        status: currentState.status,
+        result: currentState.result
+      };
+    }
+    async processBatch(references, onBatchProgress) {
+      const verifiedReferences = [];
+      const batchSize = 5;
+      for (let i = 0; i < references.length; i += batchSize) {
+        const batch = references.slice(i, i + batchSize);
+        const batchPromises = batch.map(
+          (ref) => this.verifyReference(ref, (state) => {
+            console.log(
+              `Verifying reference ${i + verifiedReferences.length + 1}/${references.length}`
+            );
+          })
+        );
+        const batchResults = await Promise.all(batchPromises);
+        verifiedReferences.push(...batchResults);
+        if (onBatchProgress) {
+          onBatchProgress(verifiedReferences);
+        }
+      }
+      return verifiedReferences;
+    }
+  };
+
   // app/services/workers/verification.worker.ts
   var extractionService = new ReferenceExtractFromTextService();
-  var searchReferenceService = new SearchReferenceService();
-  var verifyReferenceService = new VerifyReferenceService();
   var refPageDetectionService = new ReferencePageDetectionService();
+  var o3VerificationService = new o3ReferenceVerificationService();
   self.onmessage = async (e) => {
     const { type, pdfId, file } = e.data;
     if (type === "process") {
@@ -40359,18 +40352,8 @@
             message: "No DOIs found, skipping verification"
           });
         }
-        const referencesWithSearch = await searchReferenceService.processBatch(
+        const verificationResults = await o3VerificationService.processBatch(
           referencesWithDOI,
-          (batchResults) => {
-            self.postMessage({
-              type: "update",
-              pdfId,
-              message: `\u2705 search batch complete for ${pdfId}`
-            });
-          }
-        );
-        const verifiedReferences = await verifyReferenceService.processBatch(
-          referencesWithSearch,
           (batchResults) => {
             self.postMessage({
               type: "verification-update",
@@ -40380,10 +40363,16 @@
             });
           }
         );
+        const processedReferences = verificationResults.map((result) => ({
+          ...result.reference,
+          message: result.result?.message,
+          verificationDetails: result.result
+        }));
         self.postMessage({
           type: "complete",
           pdfId,
-          references: verifiedReferences
+          references: processedReferences,
+          message: `Completed verification of ${processedReferences.length} references`
         });
       } catch (error2) {
         console.error("\u274C Error processing PDF:", error2);

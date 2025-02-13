@@ -132,7 +132,7 @@ export default function TestReferences() {
 
       // Step 3: Process the references section and get markdown content
       setProgress(
-        `Found references section starting on page ${referencesSectionStart + 1}`
+        `Found references section starting on page ${referencesSectionStart + 1} out of ${images.length} pages`
       )
 
       const collectedResults: PageResult[] = []

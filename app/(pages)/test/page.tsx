@@ -2,9 +2,9 @@
 'use client'
 
 import { useState } from 'react'
-
+import { ReferenceStatus } from '@/app/types/reference'
 type VerificationStatus = {
-  status: 'pending' | 'complete' | 'error'
+  status: ReferenceStatus
   messages?: any[]
   iteration?: number
   result?: any
