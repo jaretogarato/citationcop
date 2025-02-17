@@ -41,37 +41,31 @@ export async function POST(request: Request) {
         {
           role: 'system',
           content: `You are a reference verification assistant. Your task is to verify academic and web references using available tools.
-  
-          A reference status is:
-    - verified if its validity can be confirmed 
-    - unverified if there is no evidence of its existance
-    - needs-human if there are some things that suggest that perhaps the reference is has some missing or incorrect info that a human should verify.
 
-  When searching:
-  1. First identify key elements from the reference (authors, title, year, publication)
-  2. Create specific search queries using these elements - prioritize exact titles and author names
-  3. If the first search isn't conclusive, try alternative queries focusing on different elements
-  4. Analyze search results by looking for:
-     - Exact title matches
-     - Author name matches
-     - Publication/venue matches
-     - Year matches
-     - Similar content descriptions
-  
-  Return a final JSON response only when you have sufficient evidence:
-  {
-    "status": "verified|unverified|needs-human",
-    "message": "detailed explanation of findings. Include relevant links if available.",
-    "checks_performed": ["list of verification methods used"]
-    "reference": "Complete reference in APA format. Add information if the original reference was incomplete."
-  }
-  
-  Example search strategies:
-  - For papers: "title in quotes" + author name + year
-  - For web content: exact title + source/domain
-  - For books: title + author + "book"
-  
-  Do NOT use tool_calls when giving your final response. Make sure to try multiple searches if the first attempt is inconclusive.`
+A reference status must be one of:
+- "verified": if validity can be confirmed with high confidence
+- "unverified": if there is no evidence of its existence
+- "needs-human": if the reference exists but has discrepancies or missing information that requires human verification
+
+When searching:
+1. First identify key elements from the reference (authors, title, year, publication)
+2. Create specific search queries using these elements - prioritize exact titles and author names
+3. If the first search isn't conclusive, try alternative queries focusing on different elements
+4. Analyze search results by looking for:
+   - Exact title matches
+   - Author name matches
+   - Publication/venue matches
+   - Year matches
+   - Similar content descriptions
+
+Return a final JSON response only when you have sufficient evidence:
+{
+  "status": "verified" | "unverified" | "needs-human" ,
+  "message": "Detailed explanation of findings. Include relevant links if available. Use formatting if helpful."
+  "reference": "Reference in APA format including any new information found."
+}
+
+Do NOT use tool_calls when giving your final response. Make sure to try multiple searches if the first attempt is inconclusive.`
         },
         {
           role: 'user',
@@ -97,7 +91,7 @@ export async function POST(request: Request) {
     })
 
     const message = completion.choices[0].message
-    console.log('LLM Response received')
+    console.log('LLM Response received :', message.content)
 
     const tokenUsage = completion.usage
     console.log('Token usage:', tokenUsage)

@@ -31,7 +31,7 @@ export interface MetadataResponse {
 // references
 //export type ReferenceStatus = 'verified' | 'unverified' | 'error' | 'pending'
 
-export type ReferenceStatus = 'verified' | 'unverified' | 'error' | 'pending' 
+export type ReferenceStatus = 'verified' | 'unverified' | 'needs-human' | 'error' | 'pending' 
 
 
 export type ReferenceType =
@@ -74,7 +74,7 @@ export interface Reference {
   authors: string[]
   title: string
 
-  // Identifiers GROBID can extract
+
   DOI?: string | null
   arxivId?: string | null
   PMID?: string | null
@@ -82,7 +82,6 @@ export interface Reference {
   url?: string | null
   sourceDocument?: string | null // Add this line
 
-  // Publication details
   journal?: string | null
   year?: string | null
   publisher?: string | null
@@ -103,6 +102,8 @@ export interface Reference {
 
   // New field for search results
   searchResults?: GoogleSearchResult
+
+  fixedReference?: string | null
 }
 
 // Type definitions for helper functions
@@ -115,11 +116,11 @@ export type StatusTextMap = {
 }
 
 // Main article metadata
-interface ArticleMetadata {
+/*interface ArticleMetadata {
   title: string | null
   authors: string[]
   year?: string | null
-}
+}*/
 
 export interface VerificationResults {
   verified: number

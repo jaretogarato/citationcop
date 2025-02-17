@@ -21,15 +21,17 @@ const ANIMATION_DELAY = 100 // ms between each reference appearance
 const statusColors: Record<ReferenceStatus, string> = {
   verified: 'bg-emerald-400/60',
   unverified: 'bg-rose-400/60',
-  error: 'bg-amber-400/60',
+  "needs-human": 'bg-amber-400/60',
+  error: 'bg-slate-400/60',
   pending: 'bg-indigo-400/60'
 }
 
 const statusDisplayNames: Record<ReferenceStatus | 'no_status', string> = {
   verified: 'Verified',
-  error: 'Needs Human Review',
+  'needs-human': 'Needs Human review',
+  error: 'Oops! Something went wrong',
   pending: 'Pending',
-  unverified: 'Could not be verified',
+  unverified: 'Reference does not appear to exist',
   no_status: 'No Status'
 }
 

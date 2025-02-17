@@ -23,7 +23,7 @@ export const renderMessageWithLinks = (message: string) => {
           href={cleanUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-400 hover:text-blue-300 underline"
+          className="text-blue-400 hover:text-blue-300 underline inline-block"
           title={cleanUrl}
         >
           here
@@ -42,15 +42,17 @@ export const renderMessageWithLinks = (message: string) => {
   }
 
   return (
-    <React.Fragment>
+    <div className="whitespace-pre-wrap break-words">
       {parts.map((part, index) =>
         typeof part === 'string' ? (
-          <span key={`text-${index}`}>{part}</span>
+          <span key={`text-${index}`} className="inline-block">
+            {part}
+          </span>
         ) : (
           part
         )
       )}
-    </React.Fragment>
+    </div>
   )
 }
 
