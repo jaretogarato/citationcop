@@ -1,121 +1,183 @@
+// app/test/page.tsx
 'use client'
 
 import { useState } from 'react'
+import { ReferenceStatus } from '@/app/types/reference'
+type VerificationStatus = {
+  status: ReferenceStatus
+  messages?: any[]
+  iteration?: number
+  result?: any
+  error?: string
+  functionResult?: string
+  lastToolCallId?: string
+}
 
-export default function Home() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [responseData, setResponseData] = useState(null)
-  const [imageSrc, setImageSrc] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+export default function ReferenceTest() {
+  const [reference, setReference] = useState('')
+  const [verificationStatus, setVerificationStatus] =
+    useState<VerificationStatus | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files.length > 0) {
-      setSelectedFile(event.target.files[0])
-    }
-    setResponseData(null)
-    setImageSrc(null)
-    setError(null)
-  }
-
-  const handleProcessPdf = async () => {
-    if (!selectedFile) {
-      setError('Please select a PDF file.')
-      return
-    }
-
+  // Modify the verifyReference function:
+  const verifyReference = async () => {
     setLoading(true)
-    setError(null)
-
     try {
-      // Read the file as an ArrayBuffer
-      const arrayBuffer = await selectedFile.arrayBuffer()
-      const uint8Array = new Uint8Array(arrayBuffer)
-
-      // Convert PDF to image
-      const imageDataUrl: any = [] // await extractPDFPageAsImage(uint8Array)
-      
-      setImageSrc(imageDataUrl)
-
-      // Send the image for reference extraction
-      const visionResponse = await fetch('/api/open-ai-vision', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ imageData: imageDataUrl })
-      })
-
-      if (!visionResponse.ok) {
-        throw new Error('Failed to get a valid response from the API.')
+      let currentState: VerificationStatus = {
+        status: 'pending',
+        messages: [],
+        iteration: 0
       }
 
-      const data = await visionResponse.json()
-      setResponseData(data)
+      setVerificationStatus(currentState)
+
+      while (currentState.status === 'pending' && currentState.iteration! < 5) {
+        const response = await fetch('/api/o3-agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reference,
+            iteration: currentState.iteration,
+            previousMessages: currentState.messages,
+            functionResult: currentState.functionResult, // Add these new fields
+            lastToolCallId: currentState.lastToolCallId
+          })
+        })
+
+        const llmResponse = await response.json()
+
+        // If we get a function to call
+        if (llmResponse.functionToCall) {
+          const { name, arguments: args } = llmResponse.functionToCall
+          let functionResult
+
+          switch (name) {
+            case 'check_doi':
+              functionResult = await checkDOI(args.doi, args.title)
+              break
+            case 'search_reference':
+              functionResult = await searchReference(args.reference)
+              break
+            case 'check_url':
+              functionResult = await checkURL(args.url, args.reference)
+              break
+          }
+
+          currentState = {
+            ...llmResponse,
+            functionResult,
+            lastToolCallId: llmResponse.lastToolCallId
+          }
+        } else {
+          currentState = llmResponse
+        }
+
+        setVerificationStatus(currentState)
+      }
     } catch (error) {
-      console.error(error)
-      setError(error instanceof Error ? error.message : 'An error occurred')
-    } finally {
-      setLoading(false)
+      console.error('Error:', error)
+      setVerificationStatus({
+        status: 'error',
+        error: 'Failed to verify reference'
+      })
     }
+    setLoading(false)
   }
 
-  // Rest of the component remains the same as in your original code
+  async function checkDOI(doi: string, title: string) {
+    const response = await fetch('/api/references/verify-doi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ references: [{ DOI: doi, title }] })
+    })
+    return await response.json()
+  }
+
+  async function searchReference(reference: string) {
+    const response = await fetch('/api/references/verify-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reference })
+    })
+    return await response.json()
+  }
+
+  async function checkURL(url: string, reference: string) {
+    const response = await fetch('/api/fetch-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    })
+    return await response.json()
+  }
+
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      <h1>PDF to Image Reference Extractor</h1>
-      <input type="file" accept="application/pdf" onChange={handleFileChange} />
+    <div className="p-4 max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4 text-gray-800">
+        Reference Verification Test
+      </h1>
+
+      <div className="mb-4">
+        <label className="block mb-2 text-gray-800">Enter Reference:</label>
+        <textarea
+          className="w-full p-2 border rounded text-gray-800"
+          rows={4}
+          value={reference}
+          onChange={(e) => setReference(e.target.value)}
+          placeholder="Paste your reference here..."
+        />
+      </div>
+
       <button
-        onClick={handleProcessPdf}
-        style={{
-          marginTop: '10px',
-          padding: '10px',
-          backgroundColor: '#0070f3',
-          color: '#fff',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer'
-        }}
-        disabled={!selectedFile || loading}
+        className="bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400"
+        onClick={verifyReference}
+        disabled={loading || !reference}
       >
-        {loading ? 'Processing...' : 'Extract References'}
+        {loading ? 'Verifying...' : 'Verify Reference'}
       </button>
 
-      {error && <p style={{ color: 'red', marginTop: '20px' }}>{error}</p>}
+      {verificationStatus && (
+        <div className="mt-4 space-y-4">
+          <div className="p-4 border rounded bg-white">
+            <h2 className="font-bold mb-2 text-gray-800">
+              Status: {verificationStatus.status}
+            </h2>
+            {verificationStatus.iteration !== undefined && (
+              <p className="text-gray-700">
+                Iteration: {verificationStatus.iteration}
+              </p>
+            )}
+            {verificationStatus.error && (
+              <p className="text-red-500">{verificationStatus.error}</p>
+            )}
+            {verificationStatus.result && (
+              <div className="mt-2">
+                <h3 className="font-bold text-gray-800">Result:</h3>
+                <pre className="whitespace-pre-wrap bg-gray-50 p-2 rounded text-gray-700">
+                  {JSON.stringify(verificationStatus.result, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
 
-      {imageSrc && (
-        <div
-          style={{
-            marginTop: '20px',
-            padding: '10px',
-            border: '1px solid #ddd'
-          }}
-        >
-          <h2>Generated PDF Image</h2>
-          <img
-            src={imageSrc}
-            alt="Generated PDF page"
-            style={{
-              maxWidth: '100%',
-              height: 'auto',
-              border: '1px solid #ccc'
-            }}
-          />
-        </div>
-      )}
-
-      {responseData && (
-        <div
-          style={{
-            marginTop: '20px',
-            padding: '10px',
-            border: '1px solid #ddd'
-          }}
-        >
-          <h2>Extracted References</h2>
-          <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-            {JSON.stringify(responseData, null, 2)}
-          </pre>
+          {verificationStatus.messages &&
+            verificationStatus.messages.length > 0 && (
+              <div className="p-4 border rounded bg-white">
+                <h2 className="font-bold mb-2 text-gray-800">
+                  Verification Steps:
+                </h2>
+                {verificationStatus.messages.map((msg, index) => (
+                  <div key={index} className="mb-2 p-2 rounded bg-gray-50">
+                    <strong className="text-gray-800">{msg.role}:</strong>
+                    <pre className="whitespace-pre-wrap text-gray-700">
+                      {typeof msg.content === 'string'
+                        ? msg.content
+                        : JSON.stringify(msg.content, null, 2)}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            )}
         </div>
       )}
     </div>

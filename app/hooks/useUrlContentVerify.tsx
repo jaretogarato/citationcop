@@ -74,9 +74,9 @@ export function useUrlContentVerify(): UseUrlContentVerifyResult {
         return references
       }
 
-      console.log(
+      /*console.log(
         `Attempting URL verification for ${failedRefs.length} failed references`
-      )
+      )*/
 
       // Process all references, but only attempt URL verification for failed ones
       const results = await Promise.all(

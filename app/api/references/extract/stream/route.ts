@@ -1,6 +1,9 @@
 // app/api/references/extract/stream/route.ts
 import OpenAI from 'openai'
 
+
+/// DEPRECATED ENDPOINT --- NO LONGER USED ///
+
 export const runtime = 'edge'
 
 const openAI = new OpenAI({

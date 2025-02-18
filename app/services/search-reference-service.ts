@@ -33,7 +33,7 @@ export class SearchReferenceService {
       const results: GoogleSearchResult = await response.json()
 
       // Log the raw results for debugging
-      console.log('Search API results for reference:', reference.id, results)
+      //console.log('Search API results for reference:', reference.id, results)
 
       // Return updated reference with search results
       return {

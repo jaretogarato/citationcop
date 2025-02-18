@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       imageData.startsWith(prefix)
     )
     if (!isValidFormat) {
-      console.log('not valid format.')
+      //console.log('not valid format.')
       return NextResponse.json(
         {
           error:
