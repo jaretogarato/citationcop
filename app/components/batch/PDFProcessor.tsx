@@ -37,6 +37,10 @@ const PDFProcessor = () => {
           break
 
         case 'complete':
+          console.log('Complete message received:', message)
+          console.log('Processed references:', message.references?.length) // Add this
+
+
           setLogMessages((prev) => [
             ...prev,
             `✅ Processing complete for PDF ${message.pdfId}`

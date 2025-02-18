@@ -106,8 +106,6 @@ export class o3ReferenceVerificationService {
       }
     }
 
-
-   
     console.log('fixed reference:', currentState.result.reference)
     // If process errors, update the reference's status to error
     // When process completes, get the LLM's verification status and message
@@ -141,7 +139,7 @@ export class o3ReferenceVerificationService {
       const batchPromises = batch.map((ref) =>
         this.verifyReference(ref, (state) => {
           console.log(
-            `Verifying reference ${i + verifiedReferences.length + 1}/${references.length}`
+            `Verifying reference ${i + batch.indexOf(ref) + 1}/${references.length}`
           )
         })
       )

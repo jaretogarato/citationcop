@@ -40217,6 +40217,7 @@
           onUpdate(currentState);
         }
       }
+      console.log("fixed reference:", currentState.result.reference);
       if (currentState.status === "complete" && currentState.result) {
         reference.status = currentState.result.status;
         reference.message = currentState.result.message;
@@ -40239,7 +40240,7 @@
         const batchPromises = batch.map(
           (ref) => this.verifyReference(ref, (state) => {
             console.log(
-              `Verifying reference ${i + verifiedReferences.length + 1}/${references.length}`
+              `Verifying reference ${i + batch.indexOf(ref) + 1}/${references.length}`
             );
           })
         );
