@@ -15,6 +15,7 @@ import {
   CardTitle
 } from '@/app/components/ui/card'
 import { Badge } from '@/app/components/ui/badge'
+import TokenPricing from './TokenPricing'
 
 type TokenUsage = {
   prompt_tokens: number
@@ -40,7 +41,8 @@ type VerificationStatus = {
 
 export default function ReferenceVerification() {
   const [reference, setReference] = useState('')
-  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus | null>(null)
+  const [verificationStatus, setVerificationStatus] =
+    useState<VerificationStatus | null>(null)
   const [loading, setLoading] = useState(false)
 
   const verifyReference = async () => {
@@ -185,7 +187,9 @@ export default function ReferenceVerification() {
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3 mb-4">
                     <h2 className="font-bold text-gray-100">Status:</h2>
-                    <Badge className={getStatusColor(verificationStatus.status)}>
+                    <Badge
+                      className={getStatusColor(verificationStatus.status)}
+                    >
                       {verificationStatus.status}
                     </Badge>
                   </div>
@@ -205,19 +209,21 @@ export default function ReferenceVerification() {
                   <Accordion type="single" collapsible className="w-full">
                     {verificationStatus.result && (
                       <AccordionItem value="result">
-                        <AccordionTrigger className="text-gray-100">
+                        <AccordionTrigger className="text-gray-100 text-left">
                           View Verification Results
                         </AccordionTrigger>
                         <AccordionContent>
                           <div className="space-y-4">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-start gap-2">
                               <Badge
                                 className={`${
-                                  verificationStatus.result.status === 'verified'
+                                  verificationStatus.result.status ===
+                                  'verified'
                                     ? 'bg-gradient-to-r from-green-400 to-emerald-400'
-                                    : verificationStatus.result.status === 'unverified'
-                                    ? 'bg-gradient-to-r from-red-400 to-rose-400'
-                                    : 'bg-gradient-to-r from-yellow-400 to-amber-400'
+                                    : verificationStatus.result.status ===
+                                        'unverified'
+                                      ? 'bg-gradient-to-r from-red-400 to-rose-400'
+                                      : 'bg-gradient-to-r from-yellow-400 to-amber-400'
                                 }`}
                               >
                                 {verificationStatus.result.status.toUpperCase()}
@@ -225,34 +231,36 @@ export default function ReferenceVerification() {
                             </div>
 
                             <div className="bg-gray-800/50 p-4 rounded-xl">
-                              <h3 className="text-gray-200 font-semibold mb-2">
+                              <h3 className="text-gray-200 font-semibold mb-2 text-left">
                                 Message
                               </h3>
-                              <p className="text-gray-300">
+                              <p className="text-gray-300 text-left">
                                 {verificationStatus.result.message}
                               </p>
                             </div>
 
-                            {verificationStatus.result.checks_performed && verificationStatus.result.checks_performed.length > 0 && (
-                              <div className="bg-gray-800/50 p-4 rounded-xl">
-                                <h3 className="text-gray-200 font-semibold mb-2">
-                                  Checks Performed
-                                </h3>
-                                <ul className="list-disc list-inside text-gray-300">
-                                  {verificationStatus.result.checks_performed.map(
-                                    (check: string, index: number) => (
-                                      <li key={index}>{check}</li>
-                                    )
-                                  )}
-                                </ul>
-                              </div>
-                            )}
+                            {/*verificationStatus.result.checks_performed &&
+                              verificationStatus.result.checks_performed
+                                .length > 0 && (
+                                <div className="bg-gray-800/50 p-4 rounded-xl">
+                                  <h3 className="text-gray-200 font-semibold mb-2 text-left">
+                                    Checks Performed
+                                  </h3>
+                                  <ul className="list-disc list-inside text-gray-300 text-left">
+                                    {verificationStatus.result.checks_performed.map(
+                                      (check: string, index: number) => (
+                                        <li key={index}>{check}</li>
+                                      )
+                                    )}
+                                  </ul>
+                                </div>
+                              )*/}
 
                             <div className="bg-gray-800/50 p-4 rounded-xl">
-                              <h3 className="text-gray-200 font-semibold mb-2">
+                              <h3 className="text-gray-200 font-semibold mb-2 text-left">
                                 Formatted Reference
                               </h3>
-                              <p className="text-gray-300 font-mono text-sm">
+                              <p className="text-gray-300 font-mono text-sm text-left">
                                 {verificationStatus.result.reference}
                               </p>
                             </div>
@@ -262,103 +270,9 @@ export default function ReferenceVerification() {
                     )}
 
                     {verificationStatus.tokenUsage && (
-                      <AccordionItem value="usage">
-                        <AccordionTrigger className="text-gray-100">
-                          View Token Usage
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <div className="bg-gray-800/50 p-4 rounded-xl space-y-2">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <div className="flex justify-between">
-                                  <span className="text-gray-300">
-                                    Prompt Tokens:
-                                  </span>
-                                  <span className="text-gray-200 font-mono">
-                                    {verificationStatus.tokenUsage.prompt_tokens}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-400">
-                                    Cost ($1.10/M):
-                                  </span>
-                                  <span className="text-gray-300 font-mono">
-                                    ${((verificationStatus.tokenUsage.prompt_tokens / 1000000) * 1.1).toFixed(6)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="space-y-2">
-                                <div className="flex justify-between">
-                                  <span className="text-gray-300">
-                                    Completion Tokens:
-                                  </span>
-                                  <span className="text-gray-200 font-mono">
-                                    {verificationStatus.tokenUsage.completion_tokens}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-400">
-                                    Cost ($4.40/M):
-                                  </span>
-                                  <span className="text-gray-300 font-mono">
-                                    ${((verificationStatus.tokenUsage.completion_tokens / 1000000) * 4.4).toFixed(6)}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="border-t border-gray-700 pt-2 mt-4">
-                              <div className="flex justify-between">
-                                <span className="text-gray-300">
-                                  Total Tokens:
-                                </span>
-                                <span className="text-gray-200 font-mono">
-                                  {verificationStatus.tokenUsage.total_tokens}
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-gray-400">
-                                  Total Cost:
-                                </span>
-                                <span className="text-gray-300 font-mono">
-                                  ${(
-                                    (verificationStatus.tokenUsage.prompt_tokens / 1000000) * 1.1 +
-                                    (verificationStatus.tokenUsage.completion_tokens / 1000000) * 4.4
-                                  ).toFixed(6)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    )}
-
-                    {verificationStatus.messages && verificationStatus.messages.length > 0 && (
-                      <AccordionItem value="steps">
-                        <AccordionTrigger className="text-gray-100">
-                          View Verification Steps
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <div className="space-y-3">
-                            {verificationStatus.messages.map((msg, index) => (
-                              <div
-                                key={index}
-                                className="p-4 rounded-xl bg-gray-800/50"
-                              >
-                                <strong className="text-gray-300">
-                                  {msg.role}:
-                                </strong>
-                                <pre className="mt-2 whitespace-pre-wrap text-gray-400 text-sm">
-                                  {typeof msg.content === 'string'
-                                    ? msg.content
-                                    : JSON.stringify(msg.content, null, 2)}
-                                </pre>
-                              </div>
-                            ))}
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
+                      <TokenPricing
+                        tokenUsage={verificationStatus.tokenUsage}
+                      />
                     )}
                   </Accordion>
                 </CardContent>
