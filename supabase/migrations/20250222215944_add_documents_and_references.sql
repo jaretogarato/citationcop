@@ -9,11 +9,11 @@ CREATE TABLE documents (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE references (
+CREATE TABLE citations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
     type TEXT CHECK (type IN ('article', 'book', 'inbook', 'inproceedings', 'proceedings', 'thesis', 'report', 'webpage')),
-    authors JSONB, -- Store array of author names
+    authors JSONB,
     title TEXT NOT NULL,
     journal TEXT,
     year TEXT,
@@ -27,21 +27,22 @@ CREATE TABLE references (
     verification_status TEXT DEFAULT 'pending' CHECK (verification_status IN ('verified', 'unverified', 'error', 'pending')),
     verification_source TEXT,
     verification_notes TEXT,
-    search_results JSONB, -- Store structured search results
-    parent_reference_id UUID REFERENCES references(id) ON DELETE CASCADE, -- Allow nesting of references
+    search_results JSONB,
+    parent_reference_id UUID REFERENCES citations(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    reference_id UUID REFERENCES references(id) ON DELETE CASCADE,
+    reference_id UUID REFERENCES citations(id) ON DELETE CASCADE,
     action TEXT NOT NULL, -- Example: 'verified', 'updated', 'deleted'
     actor_id UUID REFERENCES auth.users(id),
     timestamp TIMESTAMPTZ DEFAULT NOW(),
     notes TEXT
 );
 
+-- ✅ Fix index names to use "citations" instead of "references"
 CREATE INDEX idx_documents_user_id ON documents(user_id);
-CREATE INDEX idx_references_document_id ON references(document_id);
-CREATE INDEX idx_references_verification_status ON references(verification_status);
+CREATE INDEX idx_citations_document_id ON citations(document_id);
+CREATE INDEX idx_citations_verification_status ON citations(verification_status);
