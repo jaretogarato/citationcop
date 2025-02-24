@@ -6,6 +6,10 @@ import { redirect } from 'next/navigation';
 import { getURL, getErrorRedirect, getStatusRedirect } from '@/app/utils/helpers';
 import { getAuthTypes } from '@/app/utils/auth-helpers/settings';
 
+import type { Database } from '@/types_db';
+import Stripe from 'stripe';
+import { stripe } from '@/app/utils/stripe/config';
+
 function isValidEmail(email: string) {
   var regex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
   return regex.test(email);
@@ -163,11 +167,70 @@ export async function signInWithPassword(formData: FormData) {
   return redirectPath;
 }
 
+//export async function signUp(formData: FormData) {
+//  const callbackURL = getURL('/auth/callback');
+
+//  const email = String(formData.get('email')).trim();
+//  const password = String(formData.get('password')).trim();
+//  let redirectPath: string;
+
+//  if (!isValidEmail(email)) {
+//    redirectPath = getErrorRedirect(
+//      '/signin/signup',
+//      'Invalid email address.',
+//      'Please try again.'
+//    );
+//  }
+
+//  const supabase = createClient();
+//  const { error, data } = await supabase.auth.signUp({
+//    email,
+//    password,
+//    options: {
+//      emailRedirectTo: callbackURL
+//    }
+//  });
+
+//  if (error) {
+//    redirectPath = getErrorRedirect(
+//      '/signin/signup',
+//      'Sign up failed.',
+//      error.message
+//    );
+//  } else if (data.session) {
+//    redirectPath = getStatusRedirect('/', 'Success!', 'You are now signed in.');
+//  } else if (
+//    data.user &&
+//    data.user.identities &&
+//    data.user.identities.length == 0
+//  ) {
+//    redirectPath = getErrorRedirect(
+//      '/signin/signup',
+//      'Sign up failed.',
+//      'There is already an account associated with this email address. Try resetting your password.'
+//    );
+//  } else if (data.user) {
+//    redirectPath = getStatusRedirect(
+//      '/',
+//      'Success!',
+//      'Please check your email for a confirmation link. You may now close this tab.'
+//    );
+//  } else {
+//    redirectPath = getErrorRedirect(
+//      '/signin/signup',
+//      'Hmm... Something went wrong.',
+//      'You could not be signed up.'
+//    );
+//  }
+
+//  return redirectPath;
+//}
+
 export async function signUp(formData: FormData) {
   const callbackURL = getURL('/auth/callback');
-
   const email = String(formData.get('email')).trim();
   const password = String(formData.get('password')).trim();
+  const stripeSessionId = formData.get('stripeSessionId')?.toString();
   let redirectPath: string;
 
   if (!isValidEmail(email)) {
@@ -176,46 +239,100 @@ export async function signUp(formData: FormData) {
       'Invalid email address.',
       'Please try again.'
     );
+    return redirectPath;
   }
 
   const supabase = createClient();
-  const { error, data } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: callbackURL
-    }
-  });
 
-  if (error) {
+  try {
+    // Sign up the user
+    const { error: signUpError, data } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: callbackURL
+      }
+    });
+
+    if (signUpError) throw signUpError;
+
+    // If we have a Stripe session, handle the subscription
+    if (stripeSessionId && data.user) {
+      try {
+        const session = await stripe.checkout.sessions.retrieve(stripeSessionId);
+
+        if (session.subscription) {
+          // Get subscription details from Stripe
+          const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+
+          const subscriptionData: Database['public']['Tables']['subscriptions']['Insert'] = {
+            id: subscription.id,
+            user_id: data.user.id,
+            status: subscription.status as Database['public']['Enums']['subscription_status'],
+            price_id: subscription.items.data[0].price.id,
+            quantity: subscription.items.data[0].quantity,
+            cancel_at_period_end: subscription.cancel_at_period_end,
+            created: new Date(subscription.created * 1000).toISOString(),
+            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            ended_at: subscription.ended_at
+              ? new Date(subscription.ended_at * 1000).toISOString()
+              : null,
+            cancel_at: subscription.cancel_at
+              ? new Date(subscription.cancel_at * 1000).toISOString()
+              : null,
+            canceled_at: subscription.canceled_at
+              ? new Date(subscription.canceled_at * 1000).toISOString()
+              : null,
+            trial_start: subscription.trial_start
+              ? new Date(subscription.trial_start * 1000).toISOString()
+              : null,
+            trial_end: subscription.trial_end
+              ? new Date(subscription.trial_end * 1000).toISOString()
+              : null,
+            metadata: subscription.metadata
+          };
+
+          const { error: subscriptionError } = await supabase
+            .from('subscriptions')
+            .insert(subscriptionData);
+
+          if (subscriptionError) throw subscriptionError;
+        }
+      } catch (stripeError) {
+        console.error('Stripe subscription linking error:', stripeError);
+        // Continue with sign up even if subscription linking fails
+        // You might want to log this for follow-up
+      }
+    }
+
+    if (data.session) {
+      redirectPath = getStatusRedirect('/', 'Success!', 'You are now signed in.');
+    } else if (data.user && data.user.identities && data.user.identities.length == 0) {
+      redirectPath = getErrorRedirect(
+        '/signin/signup',
+        'Sign up failed.',
+        'There is already an account associated with this email address. Try resetting your password.'
+      );
+    } else if (data.user) {
+      redirectPath = getStatusRedirect(
+        '/',
+        'Success!',
+        'Please check your email for a confirmation link. You may now close this tab.'
+      );
+    } else {
+      redirectPath = getErrorRedirect(
+        '/signin/signup',
+        'Hmm... Something went wrong.',
+        'You could not be signed up.'
+      );
+    }
+  } catch (error) {
+    console.error('Signup error:', error);
     redirectPath = getErrorRedirect(
       '/signin/signup',
       'Sign up failed.',
-      error.message
-    );
-  } else if (data.session) {
-    redirectPath = getStatusRedirect('/', 'Success!', 'You are now signed in.');
-  } else if (
-    data.user &&
-    data.user.identities &&
-    data.user.identities.length == 0
-  ) {
-    redirectPath = getErrorRedirect(
-      '/signin/signup',
-      'Sign up failed.',
-      'There is already an account associated with this email address. Try resetting your password.'
-    );
-  } else if (data.user) {
-    redirectPath = getStatusRedirect(
-      '/',
-      'Success!',
-      'Please check your email for a confirmation link. You may now close this tab.'
-    );
-  } else {
-    redirectPath = getErrorRedirect(
-      '/signin/signup',
-      'Hmm... Something went wrong.',
-      'You could not be signed up.'
+      error instanceof Error ? error.message : 'An unexpected error occurred'
     );
   }
 
