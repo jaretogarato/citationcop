@@ -40145,110 +40145,284 @@
 
   // app/services/o3-reference-verification-service.ts
   var o3ReferenceVerificationService = class {
+    config;
+    constructor(config) {
+      this.config = {
+        maxRetries: 3,
+        requestTimeout: 3e4,
+        // 30 seconds
+        maxIterations: 5,
+        batchSize: 5,
+        ...config
+      };
+    }
+    async fetchWithTimeout(url, options, timeout) {
+      const controller = new AbortController();
+      const { signal } = controller;
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      try {
+        const response = await fetch(url, {
+          ...options,
+          signal
+        });
+        return response;
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    }
+    async retryableFetch(url, options) {
+      let lastError = null;
+      let lastResponse = null;
+      for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
+        try {
+          if (attempt > 0) {
+            await new Promise(
+              (resolve) => setTimeout(resolve, 1e3 * Math.pow(2, attempt - 1))
+            );
+          }
+          const response = await this.fetchWithTimeout(
+            url,
+            options,
+            this.config.requestTimeout
+          );
+          lastResponse = response;
+          if (url.includes("/api/fetch-url")) {
+            return response;
+          }
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => "No error details available");
+            throw new Error(
+              `HTTP error ${response.status}: ${response.statusText}. Details: ${errorText}`
+            );
+          }
+          return response;
+        } catch (error2) {
+          console.error(
+            `Attempt ${attempt + 1}/${this.config.maxRetries} failed:`,
+            error2
+          );
+          lastError = error2 instanceof Error ? error2 : new Error(String(error2));
+          if (error2 instanceof DOMException && error2.name === "AbortError") {
+            throw new Error(
+              `Request timed out after ${this.config.requestTimeout}ms`
+            );
+          }
+        }
+      }
+      if (options.body && typeof options.body === "string" && options.body.includes("/api/fetch-url") && lastResponse) {
+        return lastResponse;
+      }
+      throw lastError || new Error("All retry attempts failed");
+    }
     async checkDOI(doi, title) {
-      const response = await fetch("/api/references/verify-doi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ references: [{ DOI: doi, title }] })
-      });
-      return await response.json();
+      try {
+        const response = await this.retryableFetch("/api/references/verify-doi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ references: [{ DOI: doi, title }] })
+        });
+        return await response.json();
+      } catch (error2) {
+        console.error("Error checking DOI:", error2);
+        return {
+          error: `Failed to verify DOI: ${error2 instanceof Error ? error2.message : String(error2)}`
+        };
+      }
     }
     async searchReference(reference) {
-      const response = await fetch("/api/references/verify-search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reference })
-      });
-      return await response.json();
+      try {
+        const response = await this.retryableFetch(
+          "/api/references/verify-search",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reference })
+          }
+        );
+        return await response.json();
+      } catch (error2) {
+        console.error("Error searching reference:", error2);
+        return {
+          error: `Failed to search reference: ${error2 instanceof Error ? error2.message : String(error2)}`
+        };
+      }
     }
     async checkURL(url, reference) {
-      const response = await fetch("/api/fetch-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url })
-      });
-      return await response.json();
+      try {
+        const response = await this.retryableFetch("/api/fetch-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url })
+        });
+        return await response.json();
+      } catch (error2) {
+        console.error("Error checking URL:", error2);
+        return {
+          error: `Failed to access URL: ${error2 instanceof Error ? error2.message : String(error2)}`,
+          statusCode: error2 instanceof Error && "statusCode" in error2 ? error2.statusCode : 500,
+          isURLBroken: true,
+          message: "The URL appears to be broken or inaccessible. This likely indicates an invalid citation URL."
+        };
+      }
     }
     async verifyReference(reference, onUpdate) {
+      if (!reference) {
+        return {
+          reference: reference || {},
+          status: "error",
+          result: { error: "Invalid reference provided" }
+        };
+      }
       let currentState = {
         status: "pending",
         messages: [],
         iteration: 0
       };
       if (onUpdate) {
-        onUpdate(currentState);
-      }
-      while (currentState.status === "pending" && currentState.iteration < 5) {
-        const response = await fetch("/api/o3-agent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reference: reference.raw || JSON.stringify(reference),
-            iteration: currentState.iteration,
-            previousMessages: currentState.messages,
-            functionResult: currentState.functionResult,
-            lastToolCallId: currentState.lastToolCallId
-          })
-        });
-        const llmResponse = await response.json();
-        if (llmResponse.functionToCall) {
-          const { name, arguments: args } = llmResponse.functionToCall;
-          let functionResult;
-          switch (name) {
-            case "check_doi":
-              functionResult = await this.checkDOI(args.doi, args.title);
-              break;
-            case "search_reference":
-              functionResult = await this.searchReference(args.reference);
-              break;
-            case "check_url":
-              functionResult = await this.checkURL(args.url, args.reference);
-              break;
-          }
-          currentState = {
-            ...llmResponse,
-            functionResult,
-            lastToolCallId: llmResponse.lastToolCallId
-          };
-        } else {
-          currentState = llmResponse;
-        }
-        if (onUpdate) {
+        try {
           onUpdate(currentState);
+        } catch (error2) {
+          console.error("Error in onUpdate callback:", error2);
         }
       }
-      console.log("fixed reference:", currentState.result.reference);
-      if (currentState.status === "complete" && currentState.result) {
-        reference.status = currentState.result.status;
-        reference.message = currentState.result.message;
-        reference.fixedReference = currentState.result.reference;
-      } else if (currentState.status === "error") {
+      try {
+        while (currentState.status === "pending" && currentState.iteration < this.config.maxIterations) {
+          try {
+            const response = await this.retryableFetch("/api/o3-agent", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                reference: reference.raw || JSON.stringify(reference),
+                iteration: currentState.iteration,
+                previousMessages: currentState.messages,
+                functionResult: currentState.functionResult,
+                lastToolCallId: currentState.lastToolCallId
+              })
+            });
+            const llmResponse = await response.json();
+            if (llmResponse.functionToCall) {
+              const { name, arguments: args } = llmResponse.functionToCall;
+              let functionResult;
+              switch (name) {
+                case "check_doi":
+                  functionResult = await this.checkDOI(args.doi, args.title);
+                  break;
+                case "search_reference":
+                  functionResult = await this.searchReference(args.reference);
+                  break;
+                case "check_url":
+                  functionResult = await this.checkURL(args.url, args.reference);
+                  break;
+                default:
+                  functionResult = { error: `Unknown function: ${name}` };
+              }
+              currentState = {
+                ...llmResponse,
+                functionResult,
+                lastToolCallId: llmResponse.lastToolCallId
+              };
+            } else {
+              currentState = llmResponse;
+            }
+            currentState.iteration = (currentState.iteration || 0) + 1;
+            if (onUpdate) {
+              try {
+                onUpdate(currentState);
+              } catch (error2) {
+                console.error("Error in onUpdate callback:", error2);
+              }
+            }
+          } catch (error2) {
+            console.error("Iteration error:", error2);
+            currentState.iteration = (currentState.iteration || 0) + 1;
+            if (currentState.iteration >= this.config.maxIterations) {
+              currentState.status = "error";
+              currentState.error = `Max iterations reached with error: ${error2 instanceof Error ? error2.message : String(error2)}`;
+            }
+          }
+        }
+        if (currentState.status === "complete" && currentState.result?.reference) {
+          console.log("fixed reference:", currentState.result.reference);
+        }
+        if (currentState.status === "complete" && currentState.result) {
+          reference.status = currentState.result.status || "verified";
+          reference.message = currentState.result.message || "Verification complete";
+          reference.fixedReference = currentState.result.reference;
+        } else if (currentState.status === "error" || currentState.error) {
+          reference.status = "error";
+          reference.message = currentState.error || "Something went wrong during verification";
+        } else {
+          reference.status = "error";
+          reference.message = "Verification process ended in an undefined state";
+        }
+        return {
+          reference,
+          status: currentState.status,
+          result: currentState.result
+        };
+      } catch (error2) {
+        console.error("Verification process error:", error2);
         reference.status = "error";
-        reference.message = "Hmm, something went wrong during verification";
+        reference.message = `Verification failed: ${error2 instanceof Error ? error2.message : String(error2)}`;
+        return {
+          reference,
+          status: "error",
+          result: {
+            error: error2 instanceof Error ? error2.message : String(error2)
+          }
+        };
       }
-      return {
-        reference,
-        status: currentState.status,
-        result: currentState.result
-      };
     }
     async processBatch(references, onBatchProgress) {
+      if (!Array.isArray(references)) {
+        console.error("Invalid references array provided");
+        return [];
+      }
       const verifiedReferences = [];
-      const batchSize = 5;
-      for (let i = 0; i < references.length; i += batchSize) {
-        const batch = references.slice(i, i + batchSize);
-        const batchPromises = batch.map(
-          (ref) => this.verifyReference(ref, (state) => {
-            console.log(
-              `Verifying reference ${i + batch.indexOf(ref) + 1}/${references.length}`
-            );
-          })
-        );
-        const batchResults = await Promise.all(batchPromises);
-        verifiedReferences.push(...batchResults);
-        if (onBatchProgress) {
-          onBatchProgress(verifiedReferences);
+      const validReferences = references.filter((ref) => ref);
+      if (validReferences.length === 0) {
+        console.warn("No valid references to process");
+        return [];
+      }
+      try {
+        for (let i = 0; i < validReferences.length; i += this.config.batchSize) {
+          const batch = validReferences.slice(i, i + this.config.batchSize);
+          const batchPromises = batch.map(
+            (ref) => this.verifyReference(ref, (state) => {
+              console.log(
+                `Verifying reference ${i + batch.indexOf(ref) + 1}/${validReferences.length}`
+              );
+            }).catch((error2) => {
+              console.error(
+                `Error verifying reference ${i + batch.indexOf(ref) + 1}:`,
+                error2
+              );
+              return {
+                reference: ref,
+                status: "error",
+                // Explicitly cast to ProcessStatus
+                result: {
+                  error: error2 instanceof Error ? error2.message : String(error2)
+                }
+              };
+            })
+          );
+          try {
+            const batchResults = await Promise.all(batchPromises);
+            verifiedReferences.push(...batchResults);
+            if (onBatchProgress) {
+              try {
+                onBatchProgress(verifiedReferences);
+              } catch (progressError) {
+                console.error("Error in batch progress callback:", progressError);
+              }
+            }
+          } catch (batchError) {
+            console.error("Error processing batch:", batchError);
+          }
         }
+      } catch (error2) {
+        console.error("Error in batch processing:", error2);
       }
       return verifiedReferences;
     }
