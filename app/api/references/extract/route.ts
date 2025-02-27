@@ -9,9 +9,9 @@ const openAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
 
-const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
+const model = process.env.LLM_MODEL_ID || 'o3-mini' //'gpt-4o-mini'
 
-const REFERENCE_EXTRACTION_PROMPT = `Extract the references from the following document. Provide them in the following JSON format:
+const REFERENCE_EXTRACTION_PROMPT = `Your rols is to precisely extract references from the following text. ONLY INCLUDE INFORMATION THAT IS ON THE TEXT. Provide information found the following JSON format:
 
 {
   "references": [
@@ -27,14 +27,14 @@ const REFERENCE_EXTRACTION_PROMPT = `Extract the references from the following d
       "issue": "issue number if available",
       "pages": "page range if available",
       "conference": "conference name if applicable",
-      "url": "URL if available and ONLY if starts with https:// or www. otherwise leave blank",
+      "url": "ONLY if URL Is given AND starts with https:// or www. otherwise leave blank",
       "date_of_access": "date of access if applicable, will come after url"
       "raw": the raw text of the reference itself. This is the text that was parsed to create this reference.
     }
   ]
 }
 
-Do not include the article itself as a reference. It is OK to have 0 references found.
+It is OK to have 0 references found.
 
 Text:
 
