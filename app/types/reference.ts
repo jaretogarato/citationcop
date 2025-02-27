@@ -28,9 +28,6 @@ export interface MetadataResponse {
   metadata: DocumentMetadata
 }
 
-// references
-//export type ReferenceStatus = 'verified' | 'unverified' | 'error' | 'pending'
-
 export type ReferenceStatus = 'verified' | 'unverified' | 'needs-human' | 'error' | 'pending' 
 
 

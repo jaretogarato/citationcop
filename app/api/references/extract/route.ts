@@ -27,7 +27,7 @@ const REFERENCE_EXTRACTION_PROMPT = `Extract the references from the following d
       "issue": "issue number if available",
       "pages": "page range if available",
       "conference": "conference name if applicable",
-      "url": "URL if available. Do NOT create a URL if it does not exist.",
+      "url": "URL if available and ONLY if starts with https:// or www. otherwise leave blank",
       "date_of_access": "date of access if applicable, will come after url"
       "raw": the raw text of the reference itself. This is the text that was parsed to create this reference.
     }
@@ -44,7 +44,7 @@ References (in JSON format):`
 
 export async function POST(request: Request) {
   const startTime = performance.now()
-  
+
   try {
     const { text } = await request.json()
 
@@ -72,8 +72,9 @@ export async function POST(request: Request) {
     }
 
     const result = JSON.parse(content)
+    console.log('Reference extraction result:', result)
     const endTime = performance.now()
-    
+
     console.log(`📊 Reference extraction timing:
       Total time: ${(endTime - startTime).toFixed(2)}ms
       LLM time: ${(llmEndTime - llmStartTime).toFixed(2)}ms
@@ -84,11 +85,16 @@ export async function POST(request: Request) {
   } catch (error) {
     const endTime = performance.now()
     console.error('Error in reference extraction:', error)
-    console.log(`❌ Failed extraction after ${(endTime - startTime).toFixed(2)}ms`)
-    
+    console.log(
+      `❌ Failed extraction after ${(endTime - startTime).toFixed(2)}ms`
+    )
+
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : 'Failed to extract references'
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to extract references'
       },
       { status: 500 }
     )

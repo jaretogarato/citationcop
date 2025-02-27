@@ -40146,12 +40146,14 @@
   // app/services/o3-reference-verification-service.ts
   var o3ReferenceVerificationService = class {
     config;
+    errorCounts = {};
+    errorLog = [];
     constructor(config) {
       this.config = {
         maxRetries: 3,
-        requestTimeout: 3e4,
-        // 30 seconds
-        maxIterations: 5,
+        requestTimeout: 6e4,
+        // 60 seconds
+        maxIterations: 15,
         batchSize: 5,
         ...config
       };
@@ -40169,6 +40171,122 @@
       } finally {
         clearTimeout(timeoutId);
       }
+    }
+    // Helper function to get status-specific information
+    getStatusSpecificInfo(status) {
+      let info2 = {
+        meaning: "Unknown error",
+        reasons: ["The URL couldn't be accessed due to an unknown error"],
+        suggestion: "Consider verifying the reference using DOI or literature search instead."
+      };
+      if (status === 404) {
+        info2 = {
+          meaning: "Not Found (404)",
+          reasons: [
+            "The resource no longer exists at this URL",
+            "The URL may have been mistyped or is incorrect",
+            "The content has been moved or deleted"
+          ],
+          suggestion: "This URL is confirmed to not exist. Try verifying the reference through DOI lookup or literature search."
+        };
+      } else if (status === 403) {
+        info2 = {
+          meaning: "Forbidden (403)",
+          reasons: [
+            "Access to this resource is restricted",
+            "The server understood the request but refuses to authorize it",
+            "Authentication may be required"
+          ],
+          suggestion: "This URL exists but is not publicly accessible. Try verifying the reference through other sources."
+        };
+      } else if (status === 401) {
+        info2 = {
+          meaning: "Unauthorized (401)",
+          reasons: [
+            "Authentication is required to access this resource",
+            "The citation may refer to a paywalled or private resource"
+          ],
+          suggestion: "This resource requires authentication. Consider verifying through academic databases."
+        };
+      } else if (status >= 400 && status < 500) {
+        info2 = {
+          meaning: `Client Error (${status})`,
+          reasons: [
+            "The request was malformed or invalid",
+            "The URL may be incorrect or incomplete",
+            "The resource may no longer be available at this location"
+          ],
+          suggestion: "There's a problem with the URL format or the resource doesn't exist. Try alternative verification methods."
+        };
+      } else if (status >= 500 && status < 600) {
+        info2 = {
+          meaning: `Server Error (${status})`,
+          reasons: [
+            "The server encountered an error while processing the request",
+            "The website may be temporarily down or experiencing issues",
+            "The service might be overloaded"
+          ],
+          suggestion: "The server is currently unable to handle the request. This may be temporary, but you should try DOI or literature search instead."
+        };
+      }
+      return info2;
+    }
+    logError(reference, errorPath, error2, state) {
+      const errorMessage = error2 instanceof Error ? error2.message : typeof error2 === "string" ? error2 : JSON.stringify(error2);
+      console.error(
+        `##################### 
+Reference error [${errorPath}]: ${errorMessage}`,
+        {
+          referenceId: reference.id || "unknown",
+          reference: reference.raw?.substring(0, 100) || "no raw reference",
+          iteration: state?.iteration || 0,
+          state: state ? { ...state, messages: `[${state.messages?.length || 0} messages]` } : "no state"
+        }
+      );
+    }
+    trackError(reference, error2) {
+      this.errorLog.push({
+        reference: reference.substring(0, 100),
+        error: error2,
+        timestamp: /* @__PURE__ */ new Date()
+      });
+      if (this.errorLog.length > 100) {
+        this.errorLog.shift();
+      }
+    }
+    // Check if we should stop trying for a particular error type
+    checkCircuitBreaker(errorType) {
+      if (!this.errorCounts[errorType]) {
+        this.errorCounts[errorType] = 1;
+        return false;
+      }
+      this.errorCounts[errorType]++;
+      if (this.errorCounts[errorType] >= 5) {
+        console.error(`Circuit breaker triggered for error type: ${errorType}`);
+        return true;
+      }
+      return false;
+    }
+    // Reset after successful operations
+    resetCircuitBreaker(errorType) {
+      if (this.errorCounts[errorType]) {
+        this.errorCounts[errorType] = 0;
+      }
+    }
+    // Expose a method to get error statistics
+    getErrorStats() {
+      const commonErrors = {};
+      this.errorLog.forEach((entry) => {
+        if (!commonErrors[entry.error]) {
+          commonErrors[entry.error] = 0;
+        }
+        commonErrors[entry.error]++;
+      });
+      return {
+        count: this.errorLog.length,
+        mostRecent: this.errorLog.length > 0 ? this.errorLog[this.errorLog.length - 1].timestamp : null,
+        commonErrors
+      };
     }
     async retryableFetch(url, options) {
       let lastError = null;
@@ -40203,6 +40321,7 @@
           );
           lastError = error2 instanceof Error ? error2 : new Error(String(error2));
           if (error2 instanceof DOMException && error2.name === "AbortError") {
+            this.logError({}, "retryableFetch", error2);
             throw new Error(
               `Request timed out after ${this.config.requestTimeout}ms`
             );
@@ -40212,6 +40331,7 @@
       if (options.body && typeof options.body === "string" && options.body.includes("/api/fetch-url") && lastResponse) {
         return lastResponse;
       }
+      this.logError({}, "retryableFetch", lastError);
       throw lastError || new Error("All retry attempts failed");
     }
     async checkDOI(doi, title) {
@@ -40225,7 +40345,9 @@
       } catch (error2) {
         console.error("Error checking DOI:", error2);
         return {
-          error: `Failed to verify DOI: ${error2 instanceof Error ? error2.message : String(error2)}`
+          success: false,
+          error: `Failed to verify DOI: ${error2 instanceof Error ? error2.message : String(error2)}`,
+          suggestion: "Try verifying the reference through literature search instead."
         };
       }
     }
@@ -40243,7 +40365,9 @@
       } catch (error2) {
         console.error("Error searching reference:", error2);
         return {
-          error: `Failed to search reference: ${error2 instanceof Error ? error2.message : String(error2)}`
+          success: false,
+          error: `Failed to search reference: ${error2 instanceof Error ? error2.message : String(error2)}`,
+          suggestion: "Try using DOI lookup if available, or check the URL directly."
         };
       }
     }
@@ -40254,18 +40378,129 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url })
         });
-        return await response.json();
+        const jsonResponse = await response.json().catch((e) => {
+          return {
+            error: `Failed to parse response: ${e.message}`,
+            statusCode: response.status
+          };
+        });
+        if (!response.ok || jsonResponse.error) {
+          const statusInfo = this.getStatusSpecificInfo(response.status);
+          return {
+            // Structure this in a way that helps the LLM understand this isn't a system error
+            // but rather information about the reference
+            success: false,
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            error: jsonResponse.error || `URL check failed with status ${response.status}`,
+            // Include actionable guidance for the LLM
+            verificationInfo: {
+              isAccessible: false,
+              statusMeaning: statusInfo.meaning,
+              possibleReasons: statusInfo.reasons,
+              suggestion: statusInfo.suggestion
+            }
+          };
+        }
+        return {
+          success: true,
+          ...jsonResponse
+        };
       } catch (error2) {
         console.error("Error checking URL:", error2);
+        let statusCode = 500;
+        if (error2 instanceof Error) {
+          if ("code" in error2) {
+            const code = error2.code;
+            if (code === "ENOTFOUND") statusCode = 404;
+            if (code === "ECONNREFUSED") statusCode = 503;
+          }
+          if ("status" in error2) {
+            statusCode = error2.status;
+          }
+        }
+        const statusInfo = this.getStatusSpecificInfo(statusCode);
         return {
+          success: false,
+          url,
           error: `Failed to access URL: ${error2 instanceof Error ? error2.message : String(error2)}`,
-          statusCode: error2 instanceof Error && "statusCode" in error2 ? error2.statusCode : 500,
-          isURLBroken: true,
-          message: "The URL appears to be broken or inaccessible. This likely indicates an invalid citation URL."
+          status: statusCode,
+          verificationInfo: {
+            isAccessible: false,
+            statusMeaning: statusInfo.meaning,
+            networkError: true,
+            possibleReasons: [
+              ...statusInfo.reasons,
+              "Network error when attempting to access the URL",
+              "The URL may be malformed or invalid",
+              "The host server may be unreachable"
+            ],
+            suggestion: statusInfo.suggestion
+          }
         };
       }
     }
+    // Enhanced wrapper around the o3-agent API call
+    async callVerificationAgent(reference, iteration, messages, functionResult, lastToolCallId) {
+      if (functionResult && functionResult.success === false && functionResult.url && lastToolCallId) {
+        const enhancedResult = {
+          ...functionResult,
+          // Add an explicit message to help the LLM interpret the result
+          message: `URL check for ${functionResult.url} was unsuccessful (${functionResult.status ? `HTTP ${functionResult.status}: ${functionResult.verificationInfo?.statusMeaning || "Error"}` : "Network Error"}). ${functionResult.verificationInfo?.suggestion || "Consider other verification methods."}`,
+          // Keep original error information for debugging
+          originalError: functionResult.error
+        };
+        functionResult = enhancedResult;
+      }
+      try {
+        const response = await this.retryableFetch("/api/o3-agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reference,
+            iteration,
+            previousMessages: messages,
+            functionResult,
+            lastToolCallId
+          })
+        });
+        const responseData = await response.json();
+        if (responseData.status === "error") {
+          console.error("==================\nAGENT ERROR RESPONSE:", {
+            error: responseData.error,
+            errorType: responseData.errorType,
+            iteration,
+            referenceStart: reference.substring(0, 100) + "..."
+          });
+        }
+        if (responseData.parsingError) {
+          console.warn("==================\nPARSING ERROR DETECTED:", {
+            parseErrorMessage: responseData.parseErrorMessage,
+            iteration,
+            resultStatus: responseData.result?.status || "unknown"
+          });
+        }
+        return responseData;
+      } catch (error2) {
+        console.error("Error calling verification agent:", error2);
+        throw error2;
+      }
+    }
     async verifyReference(reference, onUpdate) {
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(
+            new Error(
+              `Verification timed out after ${this.config.requestTimeout * 2}ms`
+            )
+          );
+        }, this.config.requestTimeout * 2);
+      });
+      const verificationPromise = this._verifyReference(reference, onUpdate);
+      return Promise.race([verificationPromise, timeoutPromise]);
+    }
+    async _verifyReference(reference, onUpdate) {
       if (!reference) {
         return {
           reference: reference || {},
@@ -40288,18 +40523,13 @@
       try {
         while (currentState.status === "pending" && currentState.iteration < this.config.maxIterations) {
           try {
-            const response = await this.retryableFetch("/api/o3-agent", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reference: reference.raw || JSON.stringify(reference),
-                iteration: currentState.iteration,
-                previousMessages: currentState.messages,
-                functionResult: currentState.functionResult,
-                lastToolCallId: currentState.lastToolCallId
-              })
-            });
-            const llmResponse = await response.json();
+            const llmResponse = await this.callVerificationAgent(
+              reference.raw || JSON.stringify(reference),
+              currentState.iteration || 0,
+              currentState.messages || [],
+              currentState.functionResult,
+              currentState.lastToolCallId || null
+            );
             if (llmResponse.functionToCall) {
               const { name, arguments: args } = llmResponse.functionToCall;
               let functionResult;
@@ -40314,7 +40544,11 @@
                   functionResult = await this.checkURL(args.url, args.reference);
                   break;
                 default:
-                  functionResult = { error: `Unknown function: ${name}` };
+                  functionResult = {
+                    success: false,
+                    error: `Unknown function: ${name}`,
+                    suggestion: "Try another verification method."
+                  };
               }
               currentState = {
                 ...llmResponse,
@@ -40341,17 +40575,46 @@
             }
           }
         }
-        if (currentState.status === "complete" && currentState.result?.reference) {
-          console.log("fixed reference:", currentState.result.reference);
-        }
-        if (currentState.status === "complete" && currentState.result) {
-          reference.status = currentState.result.status || "verified";
-          reference.message = currentState.result.message || "Verification complete";
-          reference.fixedReference = currentState.result.reference;
+        if (currentState.status === "complete") {
+          if (currentState.parsingError) {
+            this.logError(
+              reference,
+              "json-parsing",
+              currentState.parseErrorMessage || "JSON parsing error occurred",
+              currentState
+            );
+            console.log("Using fallback result from parsing error");
+            if (currentState.result) {
+              reference.status = currentState.result.status || "needs-human";
+              reference.message = currentState.result.message || "Verification produced an invalid response format that could not be parsed. Human review recommended.";
+              reference.fixedReference = currentState.result.reference;
+            }
+          } else if (currentState.result) {
+            reference.status = currentState.result.status || "verified";
+            reference.message = currentState.result.message || "Verification complete";
+            reference.status = currentState.result.status || "verified";
+            reference.message = currentState.result.message || "Verification complete";
+            reference.fixedReference = currentState.result.reference;
+            if (currentState.result.reference) {
+              console.log("Fixed reference:", currentState.result.reference);
+            }
+          }
         } else if (currentState.status === "error" || currentState.error) {
+          this.logError(
+            reference,
+            "verification-failed",
+            currentState.error || "Verification failed",
+            currentState
+          );
           reference.status = "error";
           reference.message = currentState.error || "Something went wrong during verification";
         } else {
+          this.logError(
+            reference,
+            "undefined-state",
+            "Verification process ended in an undefined state",
+            currentState
+          );
           reference.status = "error";
           reference.message = "Verification process ended in an undefined state";
         }
@@ -40362,6 +40625,7 @@
         };
       } catch (error2) {
         console.error("Verification process error:", error2);
+        this.logError(reference, "verifyReference", error2);
         reference.status = "error";
         reference.message = `Verification failed: ${error2 instanceof Error ? error2.message : String(error2)}`;
         return {
