@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import {
   Accordion,
@@ -44,9 +44,14 @@ export default function ReferenceVerification() {
   const [verificationStatus, setVerificationStatus] =
     useState<VerificationStatus | null>(null)
   const [loading, setLoading] = useState(false)
+  // Create a ref to track performed checks
+  const performedChecksRef = useRef<Set<string>>(new Set())
 
   const verifyReference = async () => {
     setLoading(true)
+    // Reset the checks tracker
+    performedChecksRef.current.clear()
+
     try {
       let currentState: VerificationStatus = {
         status: 'pending',
@@ -77,12 +82,16 @@ export default function ReferenceVerification() {
 
           switch (name) {
             case 'check_doi':
+              performedChecksRef.current.add('DOI Lookup')
               functionResult = await checkDOI(args.doi, args.title)
               break
             case 'search_reference':
+              performedChecksRef.current.add('Google Search')
               functionResult = await searchReference(args.reference)
+              console.log('Search result:', functionResult)
               break
             case 'check_url':
+              performedChecksRef.current.add('URL Verification')
               functionResult = await checkURL(args.url, args.reference)
               break
           }
@@ -94,6 +103,19 @@ export default function ReferenceVerification() {
           }
         } else {
           currentState = llmResponse
+
+          // If we reached a completed state and have a result
+          if (currentState.status === 'complete' && currentState.result) {
+            // Add our tracked checks if they're not already present
+            if (
+              !currentState.result.checks_performed &&
+              performedChecksRef.current.size > 0
+            ) {
+              currentState.result.checks_performed = Array.from(
+                performedChecksRef.current
+              )
+            }
+          }
         }
 
         setVerificationStatus(currentState)
@@ -144,6 +166,40 @@ export default function ReferenceVerification() {
       default:
         return 'bg-gradient-to-r from-indigo-400 to-purple-400'
     }
+  }
+
+  // Function to get checks performed, with a fallback to extract from message history
+  const getChecksPerformed = () => {
+    if (
+      verificationStatus?.result?.checks_performed &&
+      verificationStatus.result.checks_performed.length > 0
+    ) {
+      return verificationStatus.result.checks_performed
+    }
+
+    // Fallback to our tracked checks
+    if (performedChecksRef.current.size > 0) {
+      return Array.from(performedChecksRef.current)
+    }
+
+    // Last resort: try to extract from message history
+    const checks = new Set<string>()
+
+    verificationStatus?.messages?.forEach((msg) => {
+      if (msg.role === 'assistant' && msg.tool_calls) {
+        msg.tool_calls.forEach((call: any) => {
+          if (call.function?.name === 'check_doi') {
+            checks.add('DOI Lookup')
+          } else if (call.function?.name === 'search_reference') {
+            checks.add('Literature Search')
+          } else if (call.function?.name === 'check_url') {
+            checks.add('URL Verification')
+          }
+        })
+      }
+    })
+
+    return Array.from(checks)
   }
 
   return (
@@ -239,22 +295,19 @@ export default function ReferenceVerification() {
                               </p>
                             </div>
 
-                            {/*verificationStatus.result.checks_performed &&
-                              verificationStatus.result.checks_performed
-                                .length > 0 && (
-                                <div className="bg-gray-800/50 p-4 rounded-xl">
-                                  <h3 className="text-gray-200 font-semibold mb-2 text-left">
-                                    Checks Performed
-                                  </h3>
-                                  <ul className="list-disc list-inside text-gray-300 text-left">
-                                    {verificationStatus.result.checks_performed.map(
-                                      (check: string, index: number) => (
-                                        <li key={index}>{check}</li>
-                                      )
-                                    )}
-                                  </ul>
-                                </div>
-                              )*/}
+                            {/* Always show checks performed section */}
+                            <div className="bg-gray-800/50 p-4 rounded-xl">
+                              <h3 className="text-gray-200 font-semibold mb-2 text-left">
+                                Checks Performed
+                              </h3>
+                              <ul className="list-disc list-inside text-gray-300 text-left">
+                                {getChecksPerformed().map(
+                                  (check: string, index: number) => (
+                                    <li key={index}>{check}</li>
+                                  )
+                                )}
+                              </ul>
+                            </div>
 
                             <div className="bg-gray-800/50 p-4 rounded-xl">
                               <h3 className="text-gray-200 font-semibold mb-2 text-left">
