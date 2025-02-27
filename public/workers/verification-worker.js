@@ -40086,7 +40086,10 @@
           }
           return references;
         } catch (error2) {
-          console.error(`Error processing chunk ${startIndex + index + 1}:`, error2);
+          console.error(
+            `Error processing chunk ${startIndex + index + 1}:`,
+            error2
+          );
           return [];
         }
       });
@@ -40100,7 +40103,10 @@
       const chunks = this.splitIntoChunks(text);
       const allReferences = [];
       for (let i = 0; i < chunks.length; i += _ReferenceExtractFromTextService.BATCH_SIZE) {
-        const batchChunks = chunks.slice(i, i + _ReferenceExtractFromTextService.BATCH_SIZE);
+        const batchChunks = chunks.slice(
+          i,
+          i + _ReferenceExtractFromTextService.BATCH_SIZE
+        );
         const batchReferences = await this.processBatch(batchChunks, i);
         allReferences.push(...batchReferences);
       }
@@ -40122,12 +40128,24 @@
       const chunks = this.splitIntoChunks(text);
       const allReferences = [];
       const totalChunks = chunks.length;
-      console.log(`Processing ${totalChunks} chunks in batches of ${_ReferenceExtractFromTextService.BATCH_SIZE}`);
+      console.log(
+        `Processing ${totalChunks} chunks in batches of ${_ReferenceExtractFromTextService.BATCH_SIZE}`
+      );
       for (let i = 0; i < chunks.length; i += _ReferenceExtractFromTextService.BATCH_SIZE) {
-        const batchChunks = chunks.slice(i, i + _ReferenceExtractFromTextService.BATCH_SIZE);
-        console.log(`Processing batch ${Math.floor(i / _ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`);
+        const batchChunks = chunks.slice(
+          i,
+          i + _ReferenceExtractFromTextService.BATCH_SIZE
+        );
+        console.log(
+          `Processing batch ${Math.floor(i / _ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`
+        );
         const startTime = performance.now();
-        const batchReferences = await this.processBatch(batchChunks, i, onProgress, totalChunks);
+        const batchReferences = await this.processBatch(
+          batchChunks,
+          i,
+          onProgress,
+          totalChunks
+        );
         const endTime = performance.now();
         console.log(`Batch completed in ${(endTime - startTime).toFixed(2)}ms`);
         allReferences.push(...batchReferences);
