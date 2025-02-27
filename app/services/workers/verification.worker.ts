@@ -53,7 +53,8 @@ self.onmessage = async (e: MessageEvent) => {
 
       const markdownContents = await Promise.all(
         referencePages.map(async (page) => {
-          const markdownResponse = await fetch('/api/llama-vision', {
+          //const markdownResponse = await fetch('/api/llama-vision', {
+          const markdownResponse = await fetch('/api/open-ai-vision/image-2-ref-markdown', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -77,6 +78,8 @@ self.onmessage = async (e: MessageEvent) => {
         })
       )
 
+      console.log('ENTERING STEP 3 ***** ')
+
       // STEP 3: Extract structured references from markdown
       self.postMessage({
         type: 'update',
@@ -86,7 +89,7 @@ self.onmessage = async (e: MessageEvent) => {
 
       const referencePagesMarkdown = markdownContents
         .map((content) => content.markdown)
-        .join('\n\n')
+        .join('\n')
 
       console.log('📄 Extracted markdown contents:', referencePagesMarkdown)
 

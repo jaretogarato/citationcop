@@ -30,7 +30,7 @@ Using both the image and the extracted text above, please convert the references
 Requirements:
 - Output Only Markdown: Return solely the Markdown content without any additional explanations or comments.
 - No Delimiters: Do not use code fences or delimiters like \`\`\`markdown.
-- Content: Capture only the references. Be careful to include the ending of references that might be coming from the page before. Do not capture the header or footer sections.
+- Content: Capture only the references. DO include the ending of references that might be coming from the page before. Do not capture the header or footer sections.
 - Use the extracted text to ensure accuracy, especially for:
   * Author names and initials
   * Years and dates

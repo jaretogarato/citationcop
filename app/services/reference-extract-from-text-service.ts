@@ -1,4 +1,4 @@
-// 
+//
 // This service is responsible for extracting references from text.
 // It splits the text into chunks and processes them in parallel batches
 // to avoid hitting the API rate limit.
@@ -132,9 +132,9 @@ export class ReferenceExtractFromTextService {
     const allReferences: Reference[] = []
     const totalChunks = chunks.length
 
-    /*console.log(
+    console.log(
       `Processing ${totalChunks} chunks in batches of ${ReferenceExtractFromTextService.BATCH_SIZE}`
-    )*/
+    )
 
     // Process chunks in parallel batches
     for (
@@ -146,11 +146,11 @@ export class ReferenceExtractFromTextService {
         i,
         i + ReferenceExtractFromTextService.BATCH_SIZE
       )
-      /*console.log(
+      console.log(
         `Processing batch ${Math.floor(i / ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`
-      )*/
+      )
 
-      const startTime = performance.now()
+      //const startTime = performance.now()
       const batchReferences = await this.processBatch(
         batchChunks,
         i,

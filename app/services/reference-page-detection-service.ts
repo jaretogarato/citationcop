@@ -181,9 +181,13 @@ export class ReferencePageDetectionService {
     }))
 
     const lines = this.mergeSameLine(items)
-    const rawText = items
+    /*const rawText = items
       .map((item) => item.str)
       .join(' ')
+      .trim()*/
+    const rawText = lines
+      .map((line) => line.text)
+      .join('\n')
       .trim()
 
     return { lines, rawText }

@@ -39948,7 +39948,7 @@
         transform: item.transform
       }));
       const lines = this.mergeSameLine(items);
-      const rawText = items.map((item) => item.str).join(" ").trim();
+      const rawText = lines.map((line) => line.text).join("\n").trim();
       return { lines, rawText };
     }
     async convertPdfToImages(pdfData) {
@@ -40115,12 +40115,17 @@
       const chunks = this.splitIntoChunks(text);
       const allReferences = [];
       const totalChunks = chunks.length;
+      console.log(
+        `Processing ${totalChunks} chunks in batches of ${_ReferenceExtractFromTextService.BATCH_SIZE}`
+      );
       for (let i = 0; i < chunks.length; i += _ReferenceExtractFromTextService.BATCH_SIZE) {
         const batchChunks = chunks.slice(
           i,
           i + _ReferenceExtractFromTextService.BATCH_SIZE
         );
-        const startTime = performance.now();
+        console.log(
+          `Processing batch ${Math.floor(i / _ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`
+        );
         const batchReferences = await this.processBatch(
           batchChunks,
           i,
@@ -40715,46 +40720,16 @@ Reference error [${errorPath}]: ${errorMessage}`,
         self.postMessage({
           type: "update",
           pdfId,
-          message: "Extracting content from pages with references and contextual pages"
-        });
-        const pageContentMap = /* @__PURE__ */ new Map();
-        referencePages.forEach((page) => {
-          pageContentMap.set(page.pageNumber, {
-            parsedContent: page.parsedContent.rawText,
-            imageData: page.imageData
-          });
+          message: "Extracting content from pages with references"
         });
         const markdownContents = await Promise.all(
           referencePages.map(async (page) => {
-            const prevPageNum = page.pageNumber - 1;
-            const nextPageNum = page.pageNumber + 1;
-            const prevPageContext = pageContentMap.has(prevPageNum) ? pageContentMap.get(prevPageNum).parsedContent : "";
-            const nextPageContext = pageContentMap.has(nextPageNum) ? pageContentMap.get(nextPageNum).parsedContent : "";
-            const prevPageContextTail = prevPageContext ? prevPageContext.substring(
-              Math.max(0, prevPageContext.length - 500)
-            ) : "";
-            const nextPageContextHead = nextPageContext ? nextPageContext.substring(
-              0,
-              Math.min(nextPageContext.length, 500)
-            ) : "";
-            const enhancedText = (prevPageContextTail ? `[PREV_PAGE_CONTEXT] ${prevPageContextTail} [/PREV_PAGE_CONTEXT]
-
-` : "") + page.parsedContent.rawText + (nextPageContextHead ? `
-
-[NEXT_PAGE_CONTEXT] ${nextPageContextHead} [/NEXT_PAGE_CONTEXT]` : "");
-            console.log(`Enhanced text for page ${page.pageNumber}:`, {
-              originalLength: page.parsedContent.rawText.length,
-              enhancedLength: enhancedText.length,
-              hasPrevContext: !!prevPageContextTail,
-              hasNextContext: !!nextPageContextHead
-            });
-            const markdownResponse = await fetch("/api/llama-vision", {
+            const markdownResponse = await fetch("/api/open-ai-vision/image-2-ref-markdown", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 filePath: page.imageData,
-                parsedText: enhancedText,
-                // Send the enhanced text that includes context
+                parsedText: page.parsedContent.rawText,
                 mode: "free"
               })
             });
@@ -40770,12 +40745,14 @@ Reference error [${errorPath}]: ${errorMessage}`,
             };
           })
         );
+        console.log("ENTERING STEP 3 ***** ");
         self.postMessage({
           type: "update",
           pdfId,
           message: "Extracting structured references"
         });
-        const referencePagesMarkdown = markdownContents.map((content) => content.markdown).join("\n\n");
+        const referencePagesMarkdown = markdownContents.map((content) => content.markdown).join("\n");
+        console.log("\u{1F4C4} Extracted markdown contents:", referencePagesMarkdown);
         const extractedReferences = await extractionService.processTextWithProgress(
           referencePagesMarkdown,
           (processed, total) => {
