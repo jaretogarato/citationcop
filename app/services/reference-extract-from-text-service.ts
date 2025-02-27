@@ -1,6 +1,7 @@
-// this service is responsible for extracting references from text
-// it splits the text into chunks and processes them in parallel batches
-// to avoid hitting the API rate limit
+// 
+// This service is responsible for extracting references from text.
+// It splits the text into chunks and processes them in parallel batches
+// to avoid hitting the API rate limit.
 // it also removes duplicate references from the results
 // the processTextWithProgress method provides a way to track progress
 // while processing large texts
@@ -23,7 +24,11 @@ export class ReferenceExtractFromTextService {
     let currentChunk = ''
 
     for (const ref of references) {
-      if ((currentChunk + '\n' + ref).length > ReferenceExtractFromTextService.CHUNK_SIZE && currentChunk) {
+      if (
+        (currentChunk + '\n' + ref).length >
+          ReferenceExtractFromTextService.CHUNK_SIZE &&
+        currentChunk
+      ) {
         chunks.push(currentChunk)
         currentChunk = ref
       } else {
@@ -54,7 +59,7 @@ export class ReferenceExtractFromTextService {
   }
 
   private async processBatch(
-    chunks: string[], 
+    chunks: string[],
     startIndex: number,
     onProgress?: (processed: number, total: number) => void,
     totalChunks?: number
@@ -67,7 +72,10 @@ export class ReferenceExtractFromTextService {
         }
         return references
       } catch (error) {
-        console.error(`Error processing chunk ${startIndex + index + 1}:`, error)
+        console.error(
+          `Error processing chunk ${startIndex + index + 1}:`,
+          error
+        )
         return []
       }
     })
@@ -85,15 +93,22 @@ export class ReferenceExtractFromTextService {
     const allReferences: Reference[] = []
 
     // Process chunks in parallel batches
-    for (let i = 0; i < chunks.length; i += ReferenceExtractFromTextService.BATCH_SIZE) {
-      const batchChunks = chunks.slice(i, i + ReferenceExtractFromTextService.BATCH_SIZE)
+    for (
+      let i = 0;
+      i < chunks.length;
+      i += ReferenceExtractFromTextService.BATCH_SIZE
+    ) {
+      const batchChunks = chunks.slice(
+        i,
+        i + ReferenceExtractFromTextService.BATCH_SIZE
+      )
       const batchReferences = await this.processBatch(batchChunks, i)
       allReferences.push(...batchReferences)
     }
 
     // Remove duplicates
     const seen = new Set()
-    const uniqueReferences = allReferences.filter(ref => {
+    const uniqueReferences = allReferences.filter((ref) => {
       const key = ref.DOI || ref.raw
       if (seen.has(key)) return false
       seen.add(key)
@@ -116,25 +131,41 @@ export class ReferenceExtractFromTextService {
     const chunks = this.splitIntoChunks(text)
     const allReferences: Reference[] = []
     const totalChunks = chunks.length
-    
-    console.log(`Processing ${totalChunks} chunks in batches of ${ReferenceExtractFromTextService.BATCH_SIZE}`)
-    
+
+    console.log(
+      `Processing ${totalChunks} chunks in batches of ${ReferenceExtractFromTextService.BATCH_SIZE}`
+    )
+
     // Process chunks in parallel batches
-    for (let i = 0; i < chunks.length; i += ReferenceExtractFromTextService.BATCH_SIZE) {
-      const batchChunks = chunks.slice(i, i + ReferenceExtractFromTextService.BATCH_SIZE)
-      console.log(`Processing batch ${Math.floor(i / ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`)
-      
+    for (
+      let i = 0;
+      i < chunks.length;
+      i += ReferenceExtractFromTextService.BATCH_SIZE
+    ) {
+      const batchChunks = chunks.slice(
+        i,
+        i + ReferenceExtractFromTextService.BATCH_SIZE
+      )
+      console.log(
+        `Processing batch ${Math.floor(i / ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`
+      )
+
       const startTime = performance.now()
-      const batchReferences = await this.processBatch(batchChunks, i, onProgress, totalChunks)
+      const batchReferences = await this.processBatch(
+        batchChunks,
+        i,
+        onProgress,
+        totalChunks
+      )
       const endTime = performance.now()
-      
+
       console.log(`Batch completed in ${(endTime - startTime).toFixed(2)}ms`)
       allReferences.push(...batchReferences)
     }
 
     // Remove duplicates
     const seen = new Set()
-    const uniqueReferences = allReferences.filter(ref => {
+    const uniqueReferences = allReferences.filter((ref) => {
       const key = ref.DOI || ref.raw
       if (seen.has(key)) return false
       seen.add(key)
