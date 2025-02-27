@@ -1,3 +1,13 @@
+// service to find reference pages in a PDF document
+// This service uses the Llama Vision API to analyze PDF pages
+// and determine if they contain references
+// It also uses the PDF.js library to extract text content from PDF pages
+// and convert PDF pages to images
+// The service returns an array of ProcessedPageResult objects
+// which contain the page number, image data, parsed content, and analysis results
+// for each page in the document
+// The service also provides a method to initialize and cleanup the PDF document
+
 import { PDFDocument } from 'pdf-lib'
 import { getDocument, PDFDocumentProxy, GlobalWorkerOptions } from 'pdfjs-dist'
 import { PdfSlicerService } from './pdf-slicer-service'
@@ -222,7 +232,8 @@ export class ReferencePageDetectionService {
     imageData: string,
     parsedText: string
   ): Promise<PageAnalysis> {
-    const response = await fetch('/api/llama-vision/analyze-page', {
+    //const response = await fetch('/api/llama-vision/analyze-page', {
+    const response = await fetch('/api/open-ai-vision/analyze-page', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
