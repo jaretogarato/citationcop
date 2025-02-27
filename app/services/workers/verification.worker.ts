@@ -88,7 +88,7 @@ self.onmessage = async (e: MessageEvent) => {
         .map((content) => content.markdown)
         .join('\n\n')
 
-      //console.log('📄 Extracted markdown contents:', referencePagesMarkdown)
+      console.log('📄 Extracted markdown contents:', referencePagesMarkdown)
 
       const extractedReferences =
         await extractionService.processTextWithProgress(

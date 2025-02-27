@@ -71,8 +71,8 @@ Requirements:
 }
 
 export async function POST(request: NextRequest) {
-  console.log('maxDuration: ', maxDuration)
-  console.log('runtime: ', runtime)
+  //console.log('maxDuration: ', maxDuration)
+  //console.log('runtime: ', runtime)
 
   try {
     const data = await request.json()

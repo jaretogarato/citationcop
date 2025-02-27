@@ -67,7 +67,7 @@ export class ReferencePageDetectionService {
   async findReferencePages(file: File): Promise<ProcessedPageResult[]> {
     try {
       const fileSizeMB = file.size / (1024 * 1024)
-      console.log(`Original PDF size: ${fileSizeMB.toFixed(2)} MB`)
+      //console.log(`Original PDF size: ${fileSizeMB.toFixed(2)} MB`)
       const arrayBuffer = await file.arrayBuffer()
       const pdfLibDoc = await PDFDocument.load(arrayBuffer)
       const totalPages = pdfLibDoc.getPageCount()
@@ -95,7 +95,7 @@ export class ReferencePageDetectionService {
       const batchStart = Math.max(1, currentPage - this.CHUNK_SIZE + 1)
       const batchSize = batchEnd - batchStart + 1
 
-      console.log(`Processing pages ${batchStart}-${batchEnd}`)
+      //console.log(`Processing pages ${batchStart}-${batchEnd}`)
 
       const pdfSlicer = new PdfSlicerService()
       // Process batch of pages
@@ -197,17 +197,17 @@ export class ReferencePageDetectionService {
     )
     formData.append('range', '1-')
 
-    console.log(
+    /*console.log(
       '📄 Sending request to /api/pdf2images with FormData:',
       formData
-    )
+    )*/
 
     const response = await fetch('/api/pdf2images', {
       method: 'POST',
       body: formData
     })
 
-    console.log('📥 Received API response status:', response.status)
+    //console.log('📥 Received API response status:', response.status)
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -216,7 +216,7 @@ export class ReferencePageDetectionService {
     }
 
     const jsonResponse = await response.json()
-    console.log('📄 Parsed JSON Response from API:', jsonResponse)
+    //console.log('📄 Parsed JSON Response from API:', jsonResponse)
 
     const { images } = jsonResponse
 

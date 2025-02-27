@@ -39827,12 +39827,10 @@
   var PdfSlicerService = class {
     async slicePdfPages(file, startPage, numPages = 4) {
       const arrayBuffer = await file.arrayBuffer();
-      console.log(`Original arrayBuffer size: ${(arrayBuffer.byteLength / (1024 * 1024)).toFixed(2)} MB`);
       const pdfDoc = await PDFDocument_default.load(arrayBuffer);
       const totalPages = pdfDoc.getPageCount();
       const endPage = Math.min(startPage + numPages - 1, totalPages);
       const newPdf = await PDFDocument_default.create();
-      console.log(`Copying pages ${startPage} to ${endPage}`);
       const pageIndices = [];
       for (let i = startPage - 1; i < endPage; i++) {
         pageIndices.push(i);
@@ -39844,9 +39842,7 @@
         addDefaultPage: false,
         objectsPerTick: 50
       });
-      console.log(`New PDF bytes size: ${(newPdfBytes.length / (1024 * 1024)).toFixed(2)} MB`);
       const finalBlob = new Blob([newPdfBytes], { type: "application/pdf" });
-      console.log(`Final blob size: ${(finalBlob.size / (1024 * 1024)).toFixed(2)} MB`);
       return finalBlob;
     }
   };
@@ -39870,7 +39866,6 @@
     async findReferencePages(file) {
       try {
         const fileSizeMB = file.size / (1024 * 1024);
-        console.log(`Original PDF size: ${fileSizeMB.toFixed(2)} MB`);
         const arrayBuffer = await file.arrayBuffer();
         const pdfLibDoc = await PDFDocument_default.load(arrayBuffer);
         const totalPages = pdfLibDoc.getPageCount();
@@ -39890,7 +39885,6 @@
         const batchEnd = currentPage;
         const batchStart = Math.max(1, currentPage - this.CHUNK_SIZE + 1);
         const batchSize = batchEnd - batchStart + 1;
-        console.log(`Processing pages ${batchStart}-${batchEnd}`);
         const pdfSlicer = new PdfSlicerService();
         const pdfSlice = await pdfSlicer.slicePdfPages(
           file,
@@ -39964,22 +39958,16 @@
         new File([pdfData], "chunk.pdf", { type: "application/pdf" })
       );
       formData.append("range", "1-");
-      console.log(
-        "\u{1F4C4} Sending request to /api/pdf2images with FormData:",
-        formData
-      );
       const response = await fetch("/api/pdf2images", {
         method: "POST",
         body: formData
       });
-      console.log("\u{1F4E5} Received API response status:", response.status);
       if (!response.ok) {
         const errorText = await response.text();
         console.error("\u274C Error response from API:", errorText);
         throw new Error("Failed to convert PDF chunk to images");
       }
       const jsonResponse = await response.json();
-      console.log("\u{1F4C4} Parsed JSON Response from API:", jsonResponse);
       const { images } = jsonResponse;
       if (!images || !Array.isArray(images)) {
         console.error("\u274C API response does not contain images:", jsonResponse);
@@ -40048,7 +40036,6 @@
     static CHUNK_SIZE = 2e3;
     static BATCH_SIZE = 5;
     splitIntoChunks(text) {
-      console.log("Splitting text into chunks:", text);
       const references = text.split(/\n/).map((ref) => ref.trim()).filter((ref) => ref.length > 0);
       const chunks = [];
       let currentChunk = "";
@@ -40128,16 +40115,10 @@
       const chunks = this.splitIntoChunks(text);
       const allReferences = [];
       const totalChunks = chunks.length;
-      console.log(
-        `Processing ${totalChunks} chunks in batches of ${_ReferenceExtractFromTextService.BATCH_SIZE}`
-      );
       for (let i = 0; i < chunks.length; i += _ReferenceExtractFromTextService.BATCH_SIZE) {
         const batchChunks = chunks.slice(
           i,
           i + _ReferenceExtractFromTextService.BATCH_SIZE
-        );
-        console.log(
-          `Processing batch ${Math.floor(i / _ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`
         );
         const startTime = performance.now();
         const batchReferences = await this.processBatch(
@@ -40147,7 +40128,6 @@
           totalChunks
         );
         const endTime = performance.now();
-        console.log(`Batch completed in ${(endTime - startTime).toFixed(2)}ms`);
         allReferences.push(...batchReferences);
       }
       const seen = /* @__PURE__ */ new Set();
@@ -40601,7 +40581,6 @@ Reference error [${errorPath}]: ${errorMessage}`,
               currentState.parseErrorMessage || "JSON parsing error occurred",
               currentState
             );
-            console.log("Using fallback result from parsing error");
             if (currentState.result) {
               reference.status = currentState.result.status || "needs-human";
               reference.message = currentState.result.message || "Verification produced an invalid response format that could not be parsed. Human review recommended.";
@@ -40613,9 +40592,6 @@ Reference error [${errorPath}]: ${errorMessage}`,
             reference.status = currentState.result.status || "verified";
             reference.message = currentState.result.message || "Verification complete";
             reference.fixedReference = currentState.result.reference;
-            if (currentState.result.reference) {
-              console.log("Fixed reference:", currentState.result.reference);
-            }
           }
         } else if (currentState.status === "error" || currentState.error) {
           this.logError(
@@ -40739,16 +40715,46 @@ Reference error [${errorPath}]: ${errorMessage}`,
         self.postMessage({
           type: "update",
           pdfId,
-          message: "Extracting content from pages with references"
+          message: "Extracting content from pages with references and contextual pages"
+        });
+        const pageContentMap = /* @__PURE__ */ new Map();
+        referencePages.forEach((page) => {
+          pageContentMap.set(page.pageNumber, {
+            parsedContent: page.parsedContent.rawText,
+            imageData: page.imageData
+          });
         });
         const markdownContents = await Promise.all(
           referencePages.map(async (page) => {
+            const prevPageNum = page.pageNumber - 1;
+            const nextPageNum = page.pageNumber + 1;
+            const prevPageContext = pageContentMap.has(prevPageNum) ? pageContentMap.get(prevPageNum).parsedContent : "";
+            const nextPageContext = pageContentMap.has(nextPageNum) ? pageContentMap.get(nextPageNum).parsedContent : "";
+            const prevPageContextTail = prevPageContext ? prevPageContext.substring(
+              Math.max(0, prevPageContext.length - 500)
+            ) : "";
+            const nextPageContextHead = nextPageContext ? nextPageContext.substring(
+              0,
+              Math.min(nextPageContext.length, 500)
+            ) : "";
+            const enhancedText = (prevPageContextTail ? `[PREV_PAGE_CONTEXT] ${prevPageContextTail} [/PREV_PAGE_CONTEXT]
+
+` : "") + page.parsedContent.rawText + (nextPageContextHead ? `
+
+[NEXT_PAGE_CONTEXT] ${nextPageContextHead} [/NEXT_PAGE_CONTEXT]` : "");
+            console.log(`Enhanced text for page ${page.pageNumber}:`, {
+              originalLength: page.parsedContent.rawText.length,
+              enhancedLength: enhancedText.length,
+              hasPrevContext: !!prevPageContextTail,
+              hasNextContext: !!nextPageContextHead
+            });
             const markdownResponse = await fetch("/api/llama-vision", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 filePath: page.imageData,
-                parsedText: page.parsedContent.rawText,
+                parsedText: enhancedText,
+                // Send the enhanced text that includes context
                 mode: "free"
               })
             });

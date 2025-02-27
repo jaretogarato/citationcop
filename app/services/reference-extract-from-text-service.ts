@@ -14,7 +14,7 @@ export class ReferenceExtractFromTextService {
   private static BATCH_SIZE = 5
 
   private splitIntoChunks(text: string): string[] {
-    console.log('Splitting text into chunks:', text)
+    //console.log('Splitting text into chunks:', text)
     const references = text
       .split(/\n/)
       .map((ref) => ref.trim())
@@ -132,9 +132,9 @@ export class ReferenceExtractFromTextService {
     const allReferences: Reference[] = []
     const totalChunks = chunks.length
 
-    console.log(
+    /*console.log(
       `Processing ${totalChunks} chunks in batches of ${ReferenceExtractFromTextService.BATCH_SIZE}`
-    )
+    )*/
 
     // Process chunks in parallel batches
     for (
@@ -146,9 +146,9 @@ export class ReferenceExtractFromTextService {
         i,
         i + ReferenceExtractFromTextService.BATCH_SIZE
       )
-      console.log(
+      /*console.log(
         `Processing batch ${Math.floor(i / ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`
-      )
+      )*/
 
       const startTime = performance.now()
       const batchReferences = await this.processBatch(
@@ -159,7 +159,7 @@ export class ReferenceExtractFromTextService {
       )
       const endTime = performance.now()
 
-      console.log(`Batch completed in ${(endTime - startTime).toFixed(2)}ms`)
+      //console.log(`Batch completed in ${(endTime - startTime).toFixed(2)}ms`)
       allReferences.push(...batchReferences)
     }
 
