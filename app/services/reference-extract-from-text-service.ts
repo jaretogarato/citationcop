@@ -1,3 +1,11 @@
+// this service is responsible for extracting references from text
+// it splits the text into chunks and processes them in parallel batches
+// to avoid hitting the API rate limit
+// it also removes duplicate references from the results
+// the processTextWithProgress method provides a way to track progress
+// while processing large texts
+//
+
 import type { Reference } from '@/app/types/reference'
 
 export class ReferenceExtractFromTextService {

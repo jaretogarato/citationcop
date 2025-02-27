@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY_1 })
 
+export const maxDuration = 60
+
 export async function POST(request: Request) {
   const prompt = `If there is a References section on this page, then extract all references to articles, books, etc into the following JSON format:
 
@@ -72,7 +74,7 @@ export async function POST(request: Request) {
             {
               type: 'image_url',
               image_url: {
-                url: `data:image/png;base64,${base64Content}`,
+                url: `data:image/png;base64,${base64Content}`
                 //detail: 'low'
               }
             }

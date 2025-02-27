@@ -2,7 +2,7 @@
 
 async function sendImageToEndpoint(imageData: string, pageNum: number) {
   try {
-    const response = await fetch('/api/open-ai-vision', {
+    const response = await fetch('/api/open-ai-vision/image-2-ref', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageData })

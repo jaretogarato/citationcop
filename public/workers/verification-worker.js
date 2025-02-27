@@ -39988,7 +39988,7 @@
       return images.map((img) => `data:image/jpeg;base64,${img}`);
     }
     async analyzePage(imageData, parsedText) {
-      const response = await fetch("/api/llama-vision/analyze-page", {
+      const response = await fetch("/api/open-ai-vision/analyze-page", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -40693,8 +40693,8 @@ Reference error [${errorPath}]: ${errorMessage}`,
   };
 
   // app/services/workers/verification.worker.ts
-  var extractionService = new ReferenceExtractFromTextService();
   var refPageDetectionService = new ReferencePageDetectionService();
+  var extractionService = new ReferenceExtractFromTextService();
   var o3VerificationService = new o3ReferenceVerificationService();
   self.onmessage = async (e) => {
     const { type, pdfId, file } = e.data;
