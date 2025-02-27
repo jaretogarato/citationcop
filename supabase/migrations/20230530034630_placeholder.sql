@@ -1,0 +1,1 @@
+-- Placeholder migration to align history with remote database.
