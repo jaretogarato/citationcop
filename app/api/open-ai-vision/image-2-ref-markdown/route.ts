@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Together from 'together-ai'
+import OpenAI from 'openai'
 
 export const maxDuration = 60
 export const runtime = 'edge'
@@ -10,20 +10,17 @@ function isBase64Image(str: string) {
 }
 
 async function getMarkDown({
-  together,
-  visionLLM,
+  openai,
   imageData,
   parsedText
 }: {
-  together: Together
-  visionLLM: string
+  openai: OpenAI
   imageData: string
   parsedText?: string
 }) {
   const systemPrompt = `You are converting a reference section in this image to Markdown format.
 
-Below is the extracted text from the page:
-${parsedText || ''}
+Below is the extracted text from the page: ${parsedText || ''}
 
 Using both the image and the extracted text above, please convert the references to Markdown format.
 
@@ -40,13 +37,16 @@ Requirements:
 
   console.log('systemPrompt: ', systemPrompt)
 
-  const output = await together.chat.completions.create({
-    model: visionLLM,
+  const output = await openai.chat.completions.create({
+    model: "gpt-4-vision-preview",
     messages: [
+      {
+        role: 'system',
+        content: systemPrompt
+      },
       {
         role: 'user',
         content: [
-          { type: 'text', text: systemPrompt },
           {
             type: 'image_url',
             image_url: {
@@ -55,7 +55,8 @@ Requirements:
           }
         ]
       }
-    ]
+    ],
+    max_tokens: 4096
   })
 
   if (
@@ -66,7 +67,7 @@ Requirements:
   ) {
     return output.choices[0].message.content
   } else {
-    throw new Error('Invalid response from Together API')
+    throw new Error('Invalid response from OpenAI API')
   }
 }
 
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const data = await request.json()
-    const { filePath, parsedText, model = 'Llama-3.2-90B-Vision' } = data
+    const { filePath, parsedText, model } = data
 
     if (!filePath) {
       return NextResponse.json(
@@ -85,20 +86,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const apiKey = process.env.TOGETHER_API_KEY
+    const apiKey = process.env.OPENAI_API_KEY
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'TOGETHER_API_KEY is not configured' },
+        { error: 'OPENAI_API_KEY is not configured' },
         { status: 500 }
       )
     }
 
-    const visionLLM =
-      model === 'free'
-        ? 'meta-llama/Llama-Vision-Free'
-        : `meta-llama/${model}-Instruct-Turbo`
-
-    const together = new Together({
+    const openai = new OpenAI({
       apiKey
     })
 
@@ -106,8 +102,7 @@ export async function POST(request: NextRequest) {
     const imageData = isBase64Image(filePath) ? filePath : filePath
 
     const finalMarkdown = await getMarkDown({
-      together,
-      visionLLM,
+      openai,
       imageData,
       parsedText
     })

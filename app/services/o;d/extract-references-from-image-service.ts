@@ -1,3 +1,5 @@
+// takes the image of a page and pulls out the references.
+
 interface ProcessedPage {
   pageNumber: number
   imageData: string

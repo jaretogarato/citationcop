@@ -11,7 +11,7 @@ const openAI = new OpenAI({
 
 const model = process.env.LLM_MODEL_ID || 'o3-mini' //'gpt-4o-mini'
 
-const REFERENCE_EXTRACTION_PROMPT = `Your rols is to precisely extract references from the following text. ONLY INCLUDE INFORMATION THAT IS ON THE TEXT. Provide information found the following JSON format:
+const REFERENCE_EXTRACTION_PROMPT = `Your role is to precisely extract references from the following text. ONLY INCLUDE INFORMATION THAT IS ON THE TEXT. Provide information found the following JSON format:
 
 {
   "references": [

@@ -1,8 +1,6 @@
 /// <reference lib="webworker" />
 
 import { WorkerMessage } from '../types'
-//import { SearchReferenceService } from '@/app/services/search-reference-service'
-//import { VerifyReferenceService } from '../verify-reference-service'
 import { ReferencePageDetectionService } from '../reference-page-detection-service'
 import { ReferenceExtractFromTextService } from '../reference-extract-from-text-service'
 import { o3ReferenceVerificationService } from '../o3-reference-verification-service'
@@ -11,10 +9,8 @@ import type { Reference } from '@/app/types/reference'
 
 declare const self: DedicatedWorkerGlobalScope
 
-const extractionService = new ReferenceExtractFromTextService()
-//const searchReferenceService = new SearchReferenceService()
-//const verifyReferenceService = new VerifyReferenceService()
 const refPageDetectionService = new ReferencePageDetectionService()
+const extractionService = new ReferenceExtractFromTextService()
 const o3VerificationService = new o3ReferenceVerificationService()
 
 self.onmessage = async (e: MessageEvent) => {
