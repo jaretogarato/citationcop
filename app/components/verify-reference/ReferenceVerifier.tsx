@@ -360,7 +360,7 @@ export default function ReferenceVerifier() {
             Try Our Reference Verifier
           </CardTitle>
           <CardDescription className="text-gray-300">
-            Paste a single reference to verify its accuracy and format
+            Paste a single reference to verify and repair
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
