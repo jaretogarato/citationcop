@@ -19,7 +19,7 @@ async function fetchUrlContent(rawUrl: string): Promise<string> {
       throw new Error(`Invalid URL format: ${rawUrl}`)
     }
 
-    console.log('Fetching URL:', urlToFetch)
+    //console.log('Fetching URL:', urlToFetch)
     const response = await fetch(urlToFetch, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; ReferenceValidator/1.0)',

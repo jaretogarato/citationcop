@@ -1,7 +1,11 @@
 // o3-reference-verification-service.ts
 import type { Reference } from '@/app/types/reference'
 
+import { checkDOI, searchReference, checkURL } from '@/app/lib/referneceToolsCode'
+
+
 type ProcessStatus = 'pending' | 'complete' | 'error'
+
 
 type ProcessState = {
   status: ProcessStatus
@@ -173,43 +177,8 @@ export class o3ReferenceVerificationService {
     )
   }
 
-  private trackError(reference: string, error: string): void {
-    this.errorLog.push({
-      reference: reference.substring(0, 100),
-      error,
-      timestamp: new Date()
-    })
 
-    // Keep the log from growing too large
-    if (this.errorLog.length > 100) {
-      this.errorLog.shift()
-    }
-  }
-
-  // Check if we should stop trying for a particular error type
-  private checkCircuitBreaker(errorType: string): boolean {
-    if (!this.errorCounts[errorType]) {
-      this.errorCounts[errorType] = 1
-      return false
-    }
-
-    this.errorCounts[errorType]++
-
-    if (this.errorCounts[errorType] >= 5) {
-      console.error(`Circuit breaker triggered for error type: ${errorType}`)
-      return true
-    }
-
-    return false
-  }
-
-  // Reset after successful operations
-  private resetCircuitBreaker(errorType: string): void {
-    if (this.errorCounts[errorType]) {
-      this.errorCounts[errorType] = 0
-    }
-  }
-
+  
   // Expose a method to get error statistics
   public getErrorStats(): {
     count: number
@@ -307,134 +276,6 @@ export class o3ReferenceVerificationService {
     throw lastError || new Error('All retry attempts failed')
   }
 
-  private async checkDOI(doi: string, title: string) {
-    try {
-      const response = await this.retryableFetch('/api/references/verify-doi', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ references: [{ DOI: doi, title }] })
-      })
-
-      return await response.json()
-    } catch (error) {
-      console.error('Error checking DOI:', error)
-      return {
-        success: false,
-        error: `Failed to verify DOI: ${error instanceof Error ? error.message : String(error)}`,
-        suggestion:
-          'Try verifying the reference through literature search instead.'
-      }
-    }
-  }
-
-  private async searchReference(reference: string) {
-    try {
-      const response = await this.retryableFetch(
-        '/api/references/verify-search',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reference })
-        }
-      )
-
-      return await response.json()
-    } catch (error) {
-      console.error('Error searching reference:', error)
-      return {
-        success: false,
-        error: `Failed to search reference: ${error instanceof Error ? error.message : String(error)}`,
-        suggestion:
-          'Try using DOI lookup if available, or check the URL directly.'
-      }
-    }
-  }
-
-  private async checkURL(url: string, reference: string) {
-    try {
-      const response = await this.retryableFetch('/api/fetch-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      })
-
-      // Parse the JSON response regardless of HTTP status code
-      const jsonResponse = await response.json().catch((e) => {
-        return {
-          error: `Failed to parse response: ${e.message}`,
-          statusCode: response.status
-        }
-      })
-
-      // If we have an error either in the response or the HTTP status
-      if (!response.ok || jsonResponse.error) {
-        // Create status-specific guidance based on HTTP status code
-        const statusInfo = this.getStatusSpecificInfo(response.status)
-
-        return {
-          // Structure this in a way that helps the LLM understand this isn't a system error
-          // but rather information about the reference
-          success: false,
-          url: url,
-          status: response.status,
-          statusText: response.statusText,
-          error:
-            jsonResponse.error ||
-            `URL check failed with status ${response.status}`,
-          // Include actionable guidance for the LLM
-          verificationInfo: {
-            isAccessible: false,
-            statusMeaning: statusInfo.meaning,
-            possibleReasons: statusInfo.reasons,
-            suggestion: statusInfo.suggestion
-          }
-        }
-      }
-
-      // Success case
-      return {
-        success: true,
-        ...jsonResponse
-      }
-    } catch (error) {
-      console.error('Error checking URL:', error)
-
-      // Try to extract a status code from the error if possible
-      let statusCode = 500 // Default to general server error
-      if (error instanceof Error) {
-        if ('code' in error) {
-          // Network errors like ENOTFOUND, ECONNREFUSED
-          const code = (error as any).code
-          if (code === 'ENOTFOUND') statusCode = 404 // Domain not found
-          if (code === 'ECONNREFUSED') statusCode = 503 // Service unavailable
-        }
-        if ('status' in error) {
-          statusCode = (error as any).status
-        }
-      }
-
-      const statusInfo = this.getStatusSpecificInfo(statusCode)
-
-      return {
-        success: false,
-        url: url,
-        error: `Failed to access URL: ${error instanceof Error ? error.message : String(error)}`,
-        status: statusCode,
-        verificationInfo: {
-          isAccessible: false,
-          statusMeaning: statusInfo.meaning,
-          networkError: true,
-          possibleReasons: [
-            ...statusInfo.reasons,
-            'Network error when attempting to access the URL',
-            'The URL may be malformed or invalid',
-            'The host server may be unreachable'
-          ],
-          suggestion: statusInfo.suggestion
-        }
-      }
-    }
-  }
 
   // Enhanced wrapper around the o3-agent API call
   private async callVerificationAgent(
@@ -583,13 +424,13 @@ export class o3ReferenceVerificationService {
 
             switch (name) {
               case 'check_doi':
-                functionResult = await this.checkDOI(args.doi, args.title)
+                functionResult = await checkDOI(args.doi, args.title)
                 break
               case 'search_reference':
-                functionResult = await this.searchReference(args.reference)
+                functionResult = await searchReference(args.reference)
                 break
               case 'check_url':
-                functionResult = await this.checkURL(args.url, args.reference)
+                functionResult = await checkURL(args.url, args.reference)
                 // Even if URL check failed, allow process to continue
                 break
               default:
@@ -645,7 +486,7 @@ export class o3ReferenceVerificationService {
             currentState
           )
 
-          console.log('Using fallback result from parsing error')
+          //console.log('Using fallback result from parsing error')
 
           // Still mark as complete but use the fallback result
           if (currentState.result) {
@@ -666,9 +507,9 @@ export class o3ReferenceVerificationService {
             currentState.result.message || 'Verification complete'
           reference.fixedReference = currentState.result.reference
 
-          if (currentState.result.reference) {
+          /*if (currentState.result.reference) {
             console.log('Fixed reference:', currentState.result.reference)
-          }
+          }*/
         }
       } else if (currentState.status === 'error' || currentState.error) {
         // Only set to error if process failed

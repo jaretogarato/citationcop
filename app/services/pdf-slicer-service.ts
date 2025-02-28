@@ -9,7 +9,7 @@ export class PdfSlicerService {
   ): Promise<Blob> {
     
     const arrayBuffer = await file.arrayBuffer()
-    console.log(`Original arrayBuffer size: ${(arrayBuffer.byteLength / (1024 * 1024)).toFixed(2)} MB`)
+    //console.log(`Original arrayBuffer size: ${(arrayBuffer.byteLength / (1024 * 1024)).toFixed(2)} MB`)
     
     const pdfDoc = await PDFDocument.load(arrayBuffer)
     const totalPages = pdfDoc.getPageCount()
@@ -18,7 +18,7 @@ export class PdfSlicerService {
     // Create new PDF
     const newPdf = await PDFDocument.create()
     
-    console.log(`Copying pages ${startPage} to ${endPage}`)
+    //console.log(`Copying pages ${startPage} to ${endPage}`)
     
     // Create array of page indices to copy
     const pageIndices = []
@@ -37,10 +37,10 @@ export class PdfSlicerService {
       objectsPerTick: 50
     })
     
-    console.log(`New PDF bytes size: ${(newPdfBytes.length / (1024 * 1024)).toFixed(2)} MB`)
+    //console.log(`New PDF bytes size: ${(newPdfBytes.length / (1024 * 1024)).toFixed(2)} MB`)
     
     const finalBlob = new Blob([newPdfBytes], { type: 'application/pdf' })
-    console.log(`Final blob size: ${(finalBlob.size / (1024 * 1024)).toFixed(2)} MB`)
+    //console.log(`Final blob size: ${(finalBlob.size / (1024 * 1024)).toFixed(2)} MB`)
     
     return finalBlob
   }

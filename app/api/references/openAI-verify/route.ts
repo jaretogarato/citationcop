@@ -135,9 +135,9 @@ export async function POST(request: Request) {
             continue
           }
 
-          console.log(
+          /*console.log(
             `Reference verified in ${Date.now() - startTime}ms with key ${keyIndex}`
-          )
+          )*/
           return NextResponse.json(result)
         } catch (parseError) {
           console.warn(
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
           console.warn(`Rate limit hit on attempt ${attempt + 1}`)
           if (attempt < maxRetries) {
             const delay = calculateBackoffDelay(attempt)
-            console.log(`Backing off for ${delay}ms before retry`)
+            //console.log(`Backing off for ${delay}ms before retry`)
             await sleep(delay)
             continue
           }
