@@ -22,6 +22,8 @@ import {
 import { Alert, AlertTitle } from '@/app/components/ui/alert'
 import { Badge } from '@/app/components/ui/badge'
 
+import { checkDOI, searchReference, checkURL } from '@/app/lib/referneceToolsCode'
+
 type TokenUsage = {
   prompt_tokens: number
   completion_tokens: number
@@ -240,49 +242,6 @@ export default function ReferenceVerifier() {
         status: 'error',
         error: 'Failed to verify reference'
       })
-    }
-  }
-
-  // Helper functions for API calls
-  async function checkDOI(doi: string, title: string) {
-    try {
-      const response = await fetch('/api/references/verify-doi', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ references: [{ DOI: doi, title }] })
-      })
-      return await response.json()
-    } catch (error) {
-      console.error('DOI check error:', error)
-      return { error: 'Failed to verify DOI' }
-    }
-  }
-
-  async function searchReference(reference: string) {
-    try {
-      const response = await fetch('/api/references/verify-search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reference })
-      })
-      return await response.json()
-    } catch (error) {
-      console.error('Search error:', error)
-      return { error: 'Failed to search reference' }
-    }
-  }
-
-  async function checkURL(url: string, reference: string) {
-    try {
-      const response = await fetch('/api/fetch-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      })
-      return await response.json()
-    } catch (error) {
-      console.error('URL check error:', error)
-      return { error: 'Failed to verify URL' }
     }
   }
 

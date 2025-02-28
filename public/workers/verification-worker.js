@@ -40247,35 +40247,6 @@ Reference error [${errorPath}]: ${errorMessage}`,
         }
       );
     }
-    trackError(reference, error2) {
-      this.errorLog.push({
-        reference: reference.substring(0, 100),
-        error: error2,
-        timestamp: /* @__PURE__ */ new Date()
-      });
-      if (this.errorLog.length > 100) {
-        this.errorLog.shift();
-      }
-    }
-    // Check if we should stop trying for a particular error type
-    checkCircuitBreaker(errorType) {
-      if (!this.errorCounts[errorType]) {
-        this.errorCounts[errorType] = 1;
-        return false;
-      }
-      this.errorCounts[errorType]++;
-      if (this.errorCounts[errorType] >= 5) {
-        console.error(`Circuit breaker triggered for error type: ${errorType}`);
-        return true;
-      }
-      return false;
-    }
-    // Reset after successful operations
-    resetCircuitBreaker(errorType) {
-      if (this.errorCounts[errorType]) {
-        this.errorCounts[errorType] = 0;
-      }
-    }
     // Expose a method to get error statistics
     getErrorStats() {
       const commonErrors = {};
