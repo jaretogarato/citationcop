@@ -40146,6 +40146,237 @@
     }
   };
 
+  // app/lib/referneceToolsCode.ts
+  async function fetchWithTimeout(url, options, timeout = 6e4) {
+    const controller = new AbortController();
+    const { signal } = controller;
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal
+      });
+      return response;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+  async function retryableFetch(url, options, config = {}) {
+    const {
+      maxRetries = 3,
+      requestTimeout = 6e4
+    } = config;
+    let lastError = null;
+    let lastResponse = null;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          await new Promise(
+            (resolve) => setTimeout(resolve, 1e3 * Math.pow(2, attempt - 1))
+          );
+        }
+        const response = await fetchWithTimeout(
+          url,
+          options,
+          requestTimeout
+        );
+        lastResponse = response;
+        if (url.includes("/api/fetch-url")) {
+          return response;
+        }
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "No error details available");
+          throw new Error(
+            `HTTP error ${response.status}: ${response.statusText}. Details: ${errorText}`
+          );
+        }
+        return response;
+      } catch (error2) {
+        console.error(
+          `Attempt ${attempt + 1}/${maxRetries} failed:`,
+          error2
+        );
+        lastError = error2 instanceof Error ? error2 : new Error(String(error2));
+        if (error2 instanceof DOMException && error2.name === "AbortError") {
+          console.error(`Request timed out after ${requestTimeout}ms`);
+          throw new Error(
+            `Request timed out after ${requestTimeout}ms`
+          );
+        }
+      }
+    }
+    if (options.body && typeof options.body === "string" && options.body.includes("/api/fetch-url") && lastResponse) {
+      return lastResponse;
+    }
+    throw lastError || new Error("All retry attempts failed");
+  }
+  function getStatusSpecificInfo(status) {
+    let info2 = {
+      meaning: "Unknown error",
+      reasons: ["The URL couldn't be accessed due to an unknown error"],
+      suggestion: "Consider verifying the reference using DOI or literature search instead."
+    };
+    if (status === 404) {
+      info2 = {
+        meaning: "Not Found (404)",
+        reasons: [
+          "The resource no longer exists at this URL",
+          "The URL may have been mistyped or is incorrect",
+          "The content has been moved or deleted"
+        ],
+        suggestion: "This URL is confirmed to not exist. Try verifying the reference through DOI lookup or literature search."
+      };
+    } else if (status === 403) {
+      info2 = {
+        meaning: "Forbidden (403)",
+        reasons: [
+          "Access to this resource is restricted",
+          "The server understood the request but refuses to authorize it",
+          "Authentication may be required"
+        ],
+        suggestion: "This URL exists but is not publicly accessible. Try verifying the reference through other sources."
+      };
+    } else if (status === 401) {
+      info2 = {
+        meaning: "Unauthorized (401)",
+        reasons: [
+          "Authentication is required to access this resource",
+          "The citation may refer to a paywalled or private resource"
+        ],
+        suggestion: "This resource requires authentication. Consider verifying through academic databases."
+      };
+    } else if (status >= 400 && status < 500) {
+      info2 = {
+        meaning: `Client Error (${status})`,
+        reasons: [
+          "The request was malformed or invalid",
+          "The URL may be incorrect or incomplete",
+          "The resource may no longer be available at this location"
+        ],
+        suggestion: "There's a problem with the URL format or the resource doesn't exist. Try alternative verification methods."
+      };
+    } else if (status >= 500 && status < 600) {
+      info2 = {
+        meaning: `Server Error (${status})`,
+        reasons: [
+          "The server encountered an error while processing the request",
+          "The website may be temporarily down or experiencing issues",
+          "The service might be overloaded"
+        ],
+        suggestion: "The server is currently unable to handle the request. This may be temporary, but you should try DOI or literature search instead."
+      };
+    }
+    return info2;
+  }
+  async function checkDOI(doi, title, config = {}) {
+    try {
+      const response = await retryableFetch("/api/references/verify-doi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ references: [{ DOI: doi, title }] })
+      }, config);
+      return await response.json();
+    } catch (error2) {
+      console.error("Error checking DOI:", error2);
+      return {
+        success: false,
+        error: `Failed to verify DOI: ${error2 instanceof Error ? error2.message : String(error2)}`,
+        suggestion: "Try verifying the reference through literature search instead."
+      };
+    }
+  }
+  async function searchReference(reference, config = {}) {
+    try {
+      const response = await retryableFetch(
+        "/api/references/verify-search",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reference })
+        },
+        config
+      );
+      return await response.json();
+    } catch (error2) {
+      console.error("Error searching reference:", error2);
+      return {
+        success: false,
+        error: `Failed to search reference: ${error2 instanceof Error ? error2.message : String(error2)}`,
+        suggestion: "Try using DOI lookup if available, or check the URL directly."
+      };
+    }
+  }
+  async function checkURL(url, reference, config = {}) {
+    try {
+      const response = await retryableFetch("/api/fetch-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      }, config);
+      const jsonResponse = await response.json().catch((e) => {
+        return {
+          error: `Failed to parse response: ${e.message}`,
+          statusCode: response.status
+        };
+      });
+      if (!response.ok || jsonResponse.error) {
+        const statusInfo = getStatusSpecificInfo(response.status);
+        return {
+          // Structure this in a way that helps the LLM understand this isn't a system error
+          // but rather information about the reference
+          success: false,
+          url,
+          status: response.status,
+          statusText: response.statusText,
+          error: jsonResponse.error || `URL check failed with status ${response.status}`,
+          // Include actionable guidance for the LLM
+          verificationInfo: {
+            isAccessible: false,
+            statusMeaning: statusInfo.meaning,
+            possibleReasons: statusInfo.reasons,
+            suggestion: statusInfo.suggestion
+          }
+        };
+      }
+      return {
+        success: true,
+        ...jsonResponse
+      };
+    } catch (error2) {
+      console.error("Error checking URL:", error2);
+      let statusCode = 500;
+      if (error2 instanceof Error) {
+        if ("code" in error2) {
+          const code = error2.code;
+          if (code === "ENOTFOUND") statusCode = 404;
+          if (code === "ECONNREFUSED") statusCode = 503;
+        }
+        if ("status" in error2) {
+          statusCode = error2.status;
+        }
+      }
+      const statusInfo = getStatusSpecificInfo(statusCode);
+      return {
+        success: false,
+        url,
+        error: `Failed to access URL: ${error2 instanceof Error ? error2.message : String(error2)}`,
+        status: statusCode,
+        verificationInfo: {
+          isAccessible: false,
+          statusMeaning: statusInfo.meaning,
+          networkError: true,
+          possibleReasons: [
+            ...statusInfo.reasons,
+            "Network error when attempting to access the URL",
+            "The URL may be malformed or invalid",
+            "The host server may be unreachable"
+          ],
+          suggestion: statusInfo.suggestion
+        }
+      };
+    }
+  }
+
   // app/services/o3-reference-verification-service.ts
   var o3ReferenceVerificationService = class {
     config;
@@ -40308,113 +40539,6 @@ Reference error [${errorPath}]: ${errorMessage}`,
       this.logError({}, "retryableFetch", lastError);
       throw lastError || new Error("All retry attempts failed");
     }
-    async checkDOI(doi, title) {
-      try {
-        const response = await this.retryableFetch("/api/references/verify-doi", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ references: [{ DOI: doi, title }] })
-        });
-        return await response.json();
-      } catch (error2) {
-        console.error("Error checking DOI:", error2);
-        return {
-          success: false,
-          error: `Failed to verify DOI: ${error2 instanceof Error ? error2.message : String(error2)}`,
-          suggestion: "Try verifying the reference through literature search instead."
-        };
-      }
-    }
-    async searchReference(reference) {
-      try {
-        const response = await this.retryableFetch(
-          "/api/references/verify-search",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reference })
-          }
-        );
-        return await response.json();
-      } catch (error2) {
-        console.error("Error searching reference:", error2);
-        return {
-          success: false,
-          error: `Failed to search reference: ${error2 instanceof Error ? error2.message : String(error2)}`,
-          suggestion: "Try using DOI lookup if available, or check the URL directly."
-        };
-      }
-    }
-    async checkURL(url, reference) {
-      try {
-        const response = await this.retryableFetch("/api/fetch-url", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url })
-        });
-        const jsonResponse = await response.json().catch((e) => {
-          return {
-            error: `Failed to parse response: ${e.message}`,
-            statusCode: response.status
-          };
-        });
-        if (!response.ok || jsonResponse.error) {
-          const statusInfo = this.getStatusSpecificInfo(response.status);
-          return {
-            // Structure this in a way that helps the LLM understand this isn't a system error
-            // but rather information about the reference
-            success: false,
-            url,
-            status: response.status,
-            statusText: response.statusText,
-            error: jsonResponse.error || `URL check failed with status ${response.status}`,
-            // Include actionable guidance for the LLM
-            verificationInfo: {
-              isAccessible: false,
-              statusMeaning: statusInfo.meaning,
-              possibleReasons: statusInfo.reasons,
-              suggestion: statusInfo.suggestion
-            }
-          };
-        }
-        return {
-          success: true,
-          ...jsonResponse
-        };
-      } catch (error2) {
-        console.error("Error checking URL:", error2);
-        let statusCode = 500;
-        if (error2 instanceof Error) {
-          if ("code" in error2) {
-            const code = error2.code;
-            if (code === "ENOTFOUND") statusCode = 404;
-            if (code === "ECONNREFUSED") statusCode = 503;
-          }
-          if ("status" in error2) {
-            statusCode = error2.status;
-          }
-        }
-        const statusInfo = this.getStatusSpecificInfo(statusCode);
-        return {
-          success: false,
-          url,
-          error: `Failed to access URL: ${error2 instanceof Error ? error2.message : String(error2)}`,
-          status: statusCode,
-          verificationInfo: {
-            isAccessible: false,
-            statusMeaning: statusInfo.meaning,
-            networkError: true,
-            possibleReasons: [
-              ...statusInfo.reasons,
-              "Network error when attempting to access the URL",
-              "The URL may be malformed or invalid",
-              "The host server may be unreachable"
-            ],
-            suggestion: statusInfo.suggestion
-          }
-        };
-      }
-    }
     // Enhanced wrapper around the o3-agent API call
     async callVerificationAgent(reference, iteration, messages, functionResult, lastToolCallId) {
       if (functionResult && functionResult.success === false && functionResult.url && lastToolCallId) {
@@ -40509,13 +40633,13 @@ Reference error [${errorPath}]: ${errorMessage}`,
               let functionResult;
               switch (name) {
                 case "check_doi":
-                  functionResult = await this.checkDOI(args.doi, args.title);
+                  functionResult = await checkDOI(args.doi, args.title);
                   break;
                 case "search_reference":
-                  functionResult = await this.searchReference(args.reference);
+                  functionResult = await searchReference(args.reference);
                   break;
                 case "check_url":
-                  functionResult = await this.checkURL(args.url, args.reference);
+                  functionResult = await checkURL(args.url, args.reference);
                   break;
                 default:
                   functionResult = {
