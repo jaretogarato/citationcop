@@ -73,7 +73,7 @@ export async function POST(request: Request) {
         })
 
         const content = response.choices[0]?.message?.content
-        console.log(`Content: ${content}`)
+        //console.log(`Content: ${content}`)
         if (!content) {
           console.warn(`Attempt ${attempt + 1}: No content received from LLM`)
           const delay = calculateBackoffDelay(attempt)
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
         try {
           //const result = JSON.parse(content)
           const result = parseResponse(content);
-          console.log(`Restuls: ${result}`)
+          //console.log(`Restuls: ${result}`)
           if (
             !['verified', 'unverified', 'error'].includes(result.status) ||
             typeof result.message !== 'string'
@@ -95,9 +95,9 @@ export async function POST(request: Request) {
             continue
           }
 
-          console.log(
-            `Reference verified in ${Date.now() - startTime}ms with key ${keyIndex}`
-          )
+          //console.log(
+          //  `Reference verified in ${Date.now() - startTime}ms with key ${keyIndex}`
+         // )
           return NextResponse.json(result)
         } catch (parseError) {
           console.warn(
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
           console.warn(`Rate limit hit on attempt ${attempt + 1}`)
           if (attempt < maxRetries) {
             const delay = calculateBackoffDelay(attempt)
-            console.log(`Backing off for ${delay}ms before retry`)
+            //console.log(`Backing off for ${delay}ms before retry`)
             await sleep(delay)
             continue
           }

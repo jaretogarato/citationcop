@@ -18,27 +18,23 @@ async function getMarkDown({
   imageData: string
   parsedText?: string
 }) {
-  const systemPrompt = `You are converting a reference section in this image to Markdown format.
+  const systemPrompt = `You specialize in optical character recognition and your goal is to convert ALL reference information in this image to Markdown format.
 
 Below is the extracted text from the page: ${parsedText || ''}
 
 Using both the image and the extracted text above, please convert the references to Markdown format.
 
 Requirements:
+- CRITICAL: The text at the VERY TOP of the page may be a continuation of a reference from the previous page. Make sure to include it in th output exactly as it is written. 
+- Look carefully at the first few lines of text - if they seem to be part of a citation (authors, journal, etc.) but don't start with a number, they are likely the end of a reference from the previous page.
 - Output Only Markdown: Return solely the Markdown content without any additional explanations or comments.
 - No Delimiters: Do not use code fences or delimiters like \`\`\`markdown.
-- Content: Capture only the references. Be careful to include the ending of references that might be coming from the page before. Do not capture the header or footer sections.
-- Use the extracted text to ensure accuracy, especially for:
-  * Author names and initials
-  * Years and dates
-  * Journal names and volume numbers
-  * DOIs and URLs
-  * Special characters and symbols`
-
-  console.log('systemPrompt: ', systemPrompt)
+- Content: Capture ALL references information, including any text at the top of the page that might be the continuation of a reference from the previous page.
+- If the first text doesn't have a reference number but looks like publication details, include it in your output.
+- Use the extracted text to ensure accuracy.`
 
   const output = await openai.chat.completions.create({
-    model: "gpt-4-vision-preview",
+    model: 'gpt-4o-mini',
     messages: [
       {
         role: 'system',
@@ -65,6 +61,8 @@ Requirements:
     output.choices[0].message &&
     output.choices[0].message.content
   ) {
+    console.log('SYSPROMPT:  ', systemPrompt)
+    console.log('RESULT: ', output.choices[0].message.content)
     return output.choices[0].message.content
   } else {
     throw new Error('Invalid response from OpenAI API')
@@ -72,8 +70,8 @@ Requirements:
 }
 
 export async function POST(request: NextRequest) {
-  console.log('maxDuration: ', maxDuration)
-  console.log('runtime: ', runtime)
+  //console.log('maxDuration: ', maxDuration)
+  //console.log('runtime: ', runtime)
 
   try {
     const data = await request.json()

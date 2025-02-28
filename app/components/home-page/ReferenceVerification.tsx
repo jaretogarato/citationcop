@@ -88,7 +88,7 @@ export default function ReferenceVerification() {
             case 'search_reference':
               performedChecksRef.current.add('Google Search')
               functionResult = await searchReference(args.reference)
-              console.log('Search result:', functionResult)
+              //console.log('Search result:', functionResult)
               break
             case 'check_url':
               performedChecksRef.current.add('URL Verification')

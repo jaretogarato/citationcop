@@ -72,22 +72,22 @@ export async function POST(request: Request) {
     }
 
     const result = JSON.parse(content)
-    console.log('Reference extraction result:', result)
+    //console.log('Reference extraction result:', result)
     const endTime = performance.now()
 
-    console.log(`📊 Reference extraction timing:
+    /*console.log(`📊 Reference extraction timing:
       Total time: ${(endTime - startTime).toFixed(2)}ms
       LLM time: ${(llmEndTime - llmStartTime).toFixed(2)}ms
       Input length: ${text.length} chars
       References found: ${result.references?.length || 0}`)
-
+    */
     return NextResponse.json(result)
   } catch (error) {
     const endTime = performance.now()
     console.error('Error in reference extraction:', error)
-    console.log(
+    /*console.log(
       `❌ Failed extraction after ${(endTime - startTime).toFixed(2)}ms`
-    )
+    )*/
 
     return NextResponse.json(
       {

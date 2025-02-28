@@ -645,7 +645,7 @@ export class o3ReferenceVerificationService {
             currentState
           )
 
-          console.log('Using fallback result from parsing error')
+          //console.log('Using fallback result from parsing error')
 
           // Still mark as complete but use the fallback result
           if (currentState.result) {
@@ -666,9 +666,9 @@ export class o3ReferenceVerificationService {
             currentState.result.message || 'Verification complete'
           reference.fixedReference = currentState.result.reference
 
-          if (currentState.result.reference) {
+          /*if (currentState.result.reference) {
             console.log('Fixed reference:', currentState.result.reference)
-          }
+          }*/
         }
       } else if (currentState.status === 'error' || currentState.error) {
         // Only set to error if process failed

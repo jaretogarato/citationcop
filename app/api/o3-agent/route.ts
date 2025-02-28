@@ -20,9 +20,9 @@ export async function POST(request: Request) {
       lastToolCallId = null
     } = await request.json()
 
-    console.log(`\n=== Starting Iteration ${iteration} ===`)
-    console.log(`Reference text: ${reference?.substring(0, 100)}...`)
-    console.log(`Previous messages: ${previousMessages?.length}`)
+    //console.log(`\n=== Starting Iteration ${iteration} ===`)
+    //console.log(`Reference text: ${reference?.substring(0, 100)}...`)
+    //console.log(`Previous messages: ${previousMessages?.length}`)
 
     // Always ensure we have a valid messages array
     let messages: ChatCompletionMessageParam[] = []
@@ -94,14 +94,14 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
     })
 
     const message = completion.choices[0].message
-    console.log('LLM Response received :', message.content)
+    //console.log('LLM Response received :', message.content)
 
     const tokenUsage = completion.usage
-    console.log('Token usage:', tokenUsage)
+    //console.log('Token usage:', tokenUsage)
 
     // If no tool_calls, we have our final answer
     if (!message.tool_calls) {
-      console.log('Final answer received')
+      //console.log('Final answer received')
       try {
         if (message.content === null) {
           throw new Error('Message content is null')
@@ -115,7 +115,7 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
         if (!jsonContent.trim().startsWith('{')) {
           const jsonMatch = jsonContent.match(/\{[\s\S]*\}/)
           if (jsonMatch) {
-            console.log('Found JSON embedded in non-JSON response')
+            //console.log('Found JSON embedded in non-JSON response')
             jsonContent = jsonMatch[0]
             extractedJson = true
           }
@@ -125,11 +125,11 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
         const result = JSON.parse(jsonContent)
 
         // Log extraction if we had to fix the response
-        if (extractedJson) {
+        /*if (extractedJson) {
           console.log('Successfully extracted JSON from malformed response')
           console.log('Original:', message.content.substring(0, 100) + '...')
           console.log('Extracted:', jsonContent.substring(0, 100) + '...')
-        }
+        }*/
 
         // Ensure required fields are present
         const requiredFields = ['status', 'message', 'reference']
@@ -143,18 +143,18 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
           // Add missing fields with defaults
           if (!result.status) {
             result.status = 'needs-human'
-            console.log('Added default status: "needs-human"')
+            //console.log('Added default status: "needs-human"')
           }
 
           if (!result.message) {
             result.message =
               'Verification produced incomplete results. Human review recommended.'
-            console.log('Added default message')
+            //console.log('Added default message')
           }
 
           if (!result.reference) {
             result.reference = reference
-            console.log('Used original reference as fallback')
+            //console.log('Used original reference as fallback')
           }
 
           // Track performed checks if missing
@@ -180,9 +180,9 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
 
             if (tools.size > 0) {
               result.checks_performed = Array.from(tools)
-              console.log(
-                `Added checks_performed: ${result.checks_performed.join(', ')}`
-              )
+              //console.log(
+              //  `Added checks_performed: ${result.checks_performed.join(', ')}`
+              //)
             } else {
               result.checks_performed = ['Reference Analysis']
             }
@@ -240,7 +240,7 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
           }
         })
 
-        console.log('Created fallback result due to parsing failure')
+        //console.log('Created fallback result due to parsing failure')
 
         // CHANGED: Return parsingError flag instead of changing status to error
         return NextResponse.json({
@@ -257,7 +257,7 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
 
     // If we have tool calls, return the first one to be executed
     const toolCall = message.tool_calls[0]
-    console.log('Function to call:', toolCall.function.name)
+    //console.log('Function to call:', toolCall.function.name)
 
     // Return what we need for the next iteration
     return NextResponse.json({
