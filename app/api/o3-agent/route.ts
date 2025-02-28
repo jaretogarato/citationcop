@@ -59,6 +59,7 @@ When searching:
    - Publication/venue matches
    - Year matches
    - Similar content descriptions
+5. If the reference lacks information but appears to be a real reference, use the available information to search for more details and fill them in. 
 
 Return a final JSON response only when you have sufficient evidence:
 {
