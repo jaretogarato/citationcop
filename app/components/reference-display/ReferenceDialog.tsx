@@ -1,7 +1,7 @@
 import React from 'react'
 import {
   Reference,
-  ReferenceStatus,
+  ReferenceStatus
   //SearchResultItem
 } from '@/app/types/reference'
 import {
@@ -54,17 +54,6 @@ const tabColors = {
     ring: 'ring-emerald-400',
     focusColor: 'focus-visible:ring-emerald-400'
   },
-  /*search: {
-    gradient: 'from-rose-900/50 to-rose-800/50',
-    text: 'text-rose-300',
-    activeText: 'text-rose-200',
-    accent: 'bg-rose-400/10',
-    border: 'border-rose-400',
-    activeBg: 'bg-rose-400/10',
-    hoverBg: 'hover:bg-rose-400/5',
-    ring: 'ring-rose-400',
-    focusColor: 'focus-visible:ring-rose-400'
-  },*/
   'Full Reference': {
     gradient: 'from-rose-900/50 to-rose-800/50',
     text: 'text-rose-300',

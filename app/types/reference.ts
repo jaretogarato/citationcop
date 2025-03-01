@@ -28,8 +28,12 @@ export interface MetadataResponse {
   metadata: DocumentMetadata
 }
 
-export type ReferenceStatus = 'verified' | 'unverified' | 'needs-human' | 'error' | 'pending' 
-
+export type ReferenceStatus =
+  | 'verified'
+  | 'unverified'
+  | 'needs-human'
+  | 'error'
+  | 'pending'
 
 export type ReferenceType =
   | 'article' // Journal article
@@ -66,11 +70,10 @@ export interface ExtractedReference {
 export interface Reference {
   date_of_access: any
   // Core fields
-  id: number
+  id: string
   type?: ReferenceType
   authors: string[]
   title: string
-
 
   DOI?: string | null
   arxivId?: string | null

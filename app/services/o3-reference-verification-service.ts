@@ -1,11 +1,13 @@
 // o3-reference-verification-service.ts
 import type { Reference } from '@/app/types/reference'
 
-import { checkDOI, searchReference, checkURL } from '@/app/lib/referneceToolsCode'
-
+import {
+  checkDOI,
+  searchReference,
+  checkURL
+} from '@/app/lib/referneceToolsCode'
 
 type ProcessStatus = 'pending' | 'complete' | 'error'
-
 
 type ProcessState = {
   status: ProcessStatus
@@ -177,8 +179,6 @@ export class o3ReferenceVerificationService {
     )
   }
 
-
-  
   // Expose a method to get error statistics
   public getErrorStats(): {
     count: number
@@ -275,7 +275,6 @@ export class o3ReferenceVerificationService {
     this.logError({} as Reference, 'retryableFetch', lastError)
     throw lastError || new Error('All retry attempts failed')
   }
-
 
   // Enhanced wrapper around the o3-agent API call
   private async callVerificationAgent(
@@ -559,7 +558,8 @@ export class o3ReferenceVerificationService {
 
   public async processBatch(
     references: Reference[],
-    onBatchProgress?: (verifiedReferences: VerifiedReference[]) => void
+    onBatchProgress?: (verifiedReferences: VerifiedReference[]) => void,
+    onReferenceVerified?: (verifiedReference: VerifiedReference) => void // Add this parameter
   ): Promise<VerifiedReference[]> {
     // Validate input
     if (!Array.isArray(references)) {
@@ -578,24 +578,51 @@ export class o3ReferenceVerificationService {
     try {
       for (let i = 0; i < validReferences.length; i += this.config.batchSize) {
         const batch = validReferences.slice(i, i + this.config.batchSize)
+
         const batchPromises = batch.map((ref) =>
           this.verifyReference(ref, (state) => {
             console.log(
               `Verifying reference ${i + batch.indexOf(ref) + 1}/${validReferences.length}`
             )
-          }).catch((error) => {
-            console.error(
-              `Error verifying reference ${i + batch.indexOf(ref) + 1}:`,
-              error
-            )
-            return {
-              reference: ref,
-              status: 'error' as ProcessStatus, // Explicitly cast to ProcessStatus
-              result: {
-                error: error instanceof Error ? error.message : String(error)
-              }
-            }
           })
+            .then((result) => {
+              // Call the onReferenceVerified callback when each reference is verified
+              if (onReferenceVerified) {
+                try {
+                  onReferenceVerified(result)
+                } catch (callbackError) {
+                  console.error(
+                    'Error in reference verified callback:',
+                    callbackError
+                  )
+                }
+              }
+              return result
+            })
+            .catch((error) => {
+              // Error handling...
+              const errorResult = {
+                reference: ref,
+                status: 'error' as ProcessStatus,
+                result: {
+                  error: error instanceof Error ? error.message : String(error)
+                }
+              }
+
+              // Also call the callback for error cases
+              if (onReferenceVerified) {
+                try {
+                  onReferenceVerified(errorResult)
+                } catch (callbackError) {
+                  console.error(
+                    'Error in reference verified callback:',
+                    callbackError
+                  )
+                }
+              }
+
+              return errorResult
+            })
         )
 
         try {

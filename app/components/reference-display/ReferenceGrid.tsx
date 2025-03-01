@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+// Simplified ReferenceGrid component without animations
+import React from 'react'
 import type { Reference } from '@/app/types/reference'
 import {
   Dialog,
@@ -16,12 +17,10 @@ import {
 import { ReferenceDialog } from '@/app/components/reference-display/ReferenceDialog'
 import type { ReferenceStatus } from '@/app/types/reference'
 
-const ANIMATION_DELAY = 100 // ms between each reference appearance
-
 const statusColors: Record<ReferenceStatus, string> = {
   verified: 'bg-emerald-400/60',
   unverified: 'bg-rose-400/60',
-  "needs-human": 'bg-amber-400/60',
+  'needs-human': 'bg-amber-400/60',
   error: 'bg-slate-400/60',
   pending: 'bg-indigo-400/60'
 }
@@ -40,18 +39,6 @@ interface ReferenceGridProps {
 }
 
 const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
-  const [visibleCount, setVisibleCount] = useState(0)
-
-  useEffect(() => {
-    setVisibleCount(0) // Reset count when references change
-
-    const timeout = setTimeout(() => {
-      setVisibleCount(references.length)
-    }, ANIMATION_DELAY)
-
-    return () => clearTimeout(timeout)
-  }, [references])
-
   // Helper function to get color based on status
   const getStatusColor = (
     status: ReferenceStatus | undefined | null
@@ -69,7 +56,7 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
   }
 
   // Group references by source document
-  const groupedReferences = references.slice(0, visibleCount).reduce(
+  const groupedReferences = references.reduce(
     (groups, ref) => {
       const sourceDoc = ref.sourceDocument || 'Unknown Source'
       if (!groups[sourceDoc]) {
@@ -116,7 +103,7 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                 )}
 
                 {refs.map((ref, i) => (
-                  <Dialog key={i}>
+                  <Dialog key={`${sourceDoc}-${ref.id}-${i}`}>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -127,7 +114,6 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                                 ${getStatusColor(ref.status)}
                                 hover:opacity-75 transition-opacity
                                 cursor-pointer
-                                animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4
                                 rounded-sm 
                                 shrink-0
                               `}

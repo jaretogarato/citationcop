@@ -41752,7 +41752,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
         };
       }
     }
-    async processBatch(references, onBatchProgress) {
+    async processBatch(references, onBatchProgress, onReferenceVerified) {
       if (!Array.isArray(references)) {
         console.error("Invalid references array provided");
         return [];
@@ -41771,19 +41771,37 @@ Reference error [${errorPath}]: ${errorMessage}`,
               console.log(
                 `Verifying reference ${i + batch.indexOf(ref) + 1}/${validReferences.length}`
               );
+            }).then((result) => {
+              if (onReferenceVerified) {
+                try {
+                  onReferenceVerified(result);
+                } catch (callbackError) {
+                  console.error(
+                    "Error in reference verified callback:",
+                    callbackError
+                  );
+                }
+              }
+              return result;
             }).catch((error2) => {
-              console.error(
-                `Error verifying reference ${i + batch.indexOf(ref) + 1}:`,
-                error2
-              );
-              return {
+              const errorResult = {
                 reference: ref,
                 status: "error",
-                // Explicitly cast to ProcessStatus
                 result: {
                   error: error2 instanceof Error ? error2.message : String(error2)
                 }
               };
+              if (onReferenceVerified) {
+                try {
+                  onReferenceVerified(errorResult);
+                } catch (callbackError) {
+                  console.error(
+                    "Error in reference verified callback:",
+                    callbackError
+                  );
+                }
+              }
+              return errorResult;
             })
           );
           try {
@@ -41818,13 +41836,13 @@ Reference error [${errorPath}]: ${errorMessage}`,
         self.postMessage({
           type: "update",
           pdfId,
-          message: `Worker launched for: ${pdfId}`
+          message: `Starting!`
         });
         await refPageDetectionService.initialize(file);
         self.postMessage({
           type: "update",
           pdfId,
-          message: "Searching for references section..."
+          message: `Searching for references`
         });
         const referencePages = await refPageDetectionService.findReferencePages(file);
         const referencesSectionStart = referencePages[0].pageNumber;
@@ -41836,19 +41854,22 @@ Reference error [${errorPath}]: ${errorMessage}`,
         self.postMessage({
           type: "update",
           pdfId,
-          message: "Extracting content from pages with references"
+          message: `Grabbing content from pages with references`
         });
         const markdownContents = await Promise.all(
           referencePages.map(async (page) => {
-            const markdownResponse = await fetch("/api/open-ai-vision/image-2-ref-markdown", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                filePath: page.imageData,
-                parsedText: page.parsedContent.rawText,
-                mode: "free"
-              })
-            });
+            const markdownResponse = await fetch(
+              "/api/open-ai-vision/image-2-ref-markdown",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  filePath: page.imageData,
+                  parsedText: page.parsedContent.rawText,
+                  mode: "free"
+                })
+              }
+            );
             if (!markdownResponse.ok) {
               throw new Error("Failed to extract references content");
             }
@@ -41865,7 +41886,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
         self.postMessage({
           type: "update",
           pdfId,
-          message: "Extracting structured references"
+          message: `Preparing references for analysis`
         });
         const referencePagesMarkdown = markdownContents.map((content) => content.markdown).join("\n");
         console.log("\u{1F4C4} Extracted markdown contents:", referencePagesMarkdown);
@@ -41875,7 +41896,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
             self.postMessage({
               type: "update",
               pdfId,
-              message: `Processing references ${processed}/${total}`
+              message: ".".repeat(processed)
             });
           }
         );
@@ -41883,14 +41904,14 @@ Reference error [${errorPath}]: ${errorMessage}`,
           type: "references",
           pdfId,
           noReferences: extractedReferences.length,
-          message: `Found ${extractedReferences.length} references for ${pdfId}`
+          message: `Found ${extractedReferences.length} unique references: ${pdfId}`
         });
         let referencesWithDOI = extractedReferences;
         if (extractedReferences.some((ref) => ref.DOI)) {
           self.postMessage({
             type: "update",
             pdfId,
-            message: "Found DOIs, verifying..."
+            message: "Verifying DOIs..."
           });
           const doiResponse = await fetch("/api/references/verify-doi", {
             method: "POST",
@@ -41902,12 +41923,6 @@ Reference error [${errorPath}]: ${errorMessage}`,
           }
           const { references } = await doiResponse.json();
           referencesWithDOI = references;
-        } else {
-          self.postMessage({
-            type: "update",
-            pdfId,
-            message: "No DOIs found, skipping verification"
-          });
         }
         const verificationResults = await o3VerificationService.processBatch(
           referencesWithDOI,
@@ -41915,8 +41930,22 @@ Reference error [${errorPath}]: ${errorMessage}`,
             self.postMessage({
               type: "verification-update",
               pdfId,
-              message: "Verifying references...",
+              message: `Verifying references`,
               batchResults
+            });
+          },
+          // Add the new callback for individual reference updates
+          (verifiedReference) => {
+            self.postMessage({
+              type: "reference-verified",
+              pdfId,
+              message: `Verified reference: ${verifiedReference.reference.title || "Unknown"}`,
+              verifiedReference: {
+                ...verifiedReference.reference,
+                message: verifiedReference.result?.message,
+                verificationDetails: verifiedReference.result,
+                sourceDocument: pdfId
+              }
             });
           }
         );
