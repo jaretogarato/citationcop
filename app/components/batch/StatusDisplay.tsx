@@ -73,8 +73,16 @@ const StatusDisplay: React.FC<StatusDisplayProps> = ({
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <p className="text-white font-medium">{pdfId}</p>
-                    <p className="text-gray-300 text-sm mt-1">{item.message}</p>
+                    {/*<p className="text-white font-medium">{pdfId}</p>
+                    <p className="text-gray-300 text-sm mt-1">{item.message}</p>*/}
+
+                    <span className="text-white font-medium block">
+                      {pdfId}
+                    </span>
+                    <br />
+                    <span className="text-gray-300 text-sm mt-1 block">
+                      {item.message}
+                    </span>
                   </div>
                   <div className="flex items-center space-x-2">
                     {item.status === 'processing' && (

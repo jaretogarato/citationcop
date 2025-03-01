@@ -157,9 +157,13 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
               </p>
             )
           ) : (
-            <p className="text-white whitespace-pre-wrap break-words">
+            // Might renderMessageWithLinks render a <div>? not valid html
+            //<p className="text-white whitespace-pre-wrap break-words">
+            //  {renderMessageWithLinks(value)}
+            //</p>
+            <div className="text-white whitespace-pre-wrap break-words">
               {renderMessageWithLinks(value)}
-            </p>
+            </div>
           )}
         </div>
       </div>
@@ -224,10 +228,10 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
 
         <ScrollArea
           className={`
-                    h-[60vh] 
-                    mt-4 
-                    rounded-md 
-                    border 
+                    h-[60vh]
+                    mt-4
+                    rounded-md
+                    border
                     ${tabColors[activeTab as keyof typeof tabColors].border}
                     p-4
                     ${tabColors[activeTab as keyof typeof tabColors].gradient}
@@ -277,9 +281,12 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
           <TabsContent value="Full Reference" className="space-y-4 pr-4">
             {reference.fixedReference ? (
               <div className="p-6 bg-black/10 rounded-lg">
-                <p className="text-white whitespace-pre-wrap break-words text-lg leading-relaxed">
+                {/*<p className="text-white whitespace-pre-wrap break-words text-lg leading-relaxed">
                   {reference.fixedReference}
-                </p>
+                </p>*/}
+                <div className="text-white whitespace-pre-wrap break-words text-lg leading-relaxed">
+                  {reference.fixedReference}
+                </div>
               </div>
             ) : (
               <div className="text-center text-gray-300 py-8">
