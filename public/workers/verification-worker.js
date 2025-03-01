@@ -39879,9 +39879,10 @@
     async processPages(file, totalPages) {
       const results = [];
       let currentPage = totalPages;
-      let foundReferenceStart = false;
-      let reachedEnd = false;
-      while (currentPage >= 1 && !reachedEnd) {
+      let referenceStartPage = -1;
+      let foundReferenceHeader = false;
+      let tempResults = [];
+      while (currentPage >= 1 && !foundReferenceHeader) {
         const batchEnd = currentPage;
         const batchStart = Math.max(1, currentPage - this.CHUNK_SIZE + 1);
         const batchSize = batchEnd - batchStart + 1;
@@ -39901,6 +39902,8 @@
             imageData,
             parsedContent.rawText
           );
+          console.log("\u{1F4C4} Page:", pageNumber);
+          console.log("\u{1F50D} Analysis:", analysis);
           const pageResult = {
             pageNumber,
             imageData,
@@ -39910,30 +39913,59 @@
               pageNumber
             }
           };
-          if (!foundReferenceStart) {
-            if (analysis.isReferencesStart) {
-              foundReferenceStart = true;
-              results.push(pageResult);
+          if (analysis.hasReferencesHeader) {
+            console.log(
+              "Found reference header on page",
+              pageNumber,
+              "- stopping backward search"
+            );
+            foundReferenceHeader = true;
+            referenceStartPage = pageNumber;
+            results.push(pageResult);
+            if (tempResults.length > 0) {
+              const validTempResults = tempResults.filter(
+                (r) => r.pageNumber > pageNumber && r.analysis.hasReferences && !r.analysis.hasNewSectionStart
+              );
+              validTempResults.sort((a, b) => a.pageNumber - b.pageNumber);
+              for (const result of validTempResults) {
+                if (!result.analysis.hasReferences || result.analysis.hasNewSectionStart && !result.analysis.hasReferencesHeader) {
+                  break;
+                }
+                results.push(result);
+              }
             }
-          } else {
-            if (analysis.isNewSectionStart && !analysis.isReferencesStart) {
-              reachedEnd = true;
-              break;
-            }
-            if (analysis.containsReferences) {
-              results.push(pageResult);
-            } else {
-              reachedEnd = true;
-              break;
-            }
+            currentPage = 0;
+            break;
+          } else if (analysis.hasReferences) {
+            tempResults.push(pageResult);
           }
         }
-        currentPage = batchStart - 1;
+        if (!foundReferenceHeader) {
+          currentPage = batchStart - 1;
+        }
       }
-      if (!foundReferenceStart) {
+      if (!foundReferenceHeader && tempResults.length > 0) {
+        console.log(
+          "No explicit reference header found, using first page with references"
+        );
+        tempResults.sort((a, b) => a.pageNumber - b.pageNumber);
+        const finalResults = [];
+        for (const result of tempResults) {
+          if (!result.analysis.hasReferences || result.analysis.hasNewSectionStart && !result.analysis.hasReferencesHeader) {
+            break;
+          }
+          finalResults.push(result);
+        }
+        if (finalResults.length > 0) {
+          results.push(...finalResults);
+          referenceStartPage = finalResults[0].pageNumber;
+          foundReferenceHeader = true;
+        }
+      }
+      if (!foundReferenceHeader) {
         throw new Error("Could not find references section in the document");
       }
-      return results;
+      return results.sort((a, b) => a.pageNumber - b.pageNumber);
     }
     async extractPageContent(pageNumber) {
       if (!this.pdfDoc) {

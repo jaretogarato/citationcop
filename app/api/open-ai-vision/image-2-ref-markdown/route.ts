@@ -18,25 +18,21 @@ async function getMarkDown({
   imageData: string
   parsedText?: string
 }) {
-  const systemPrompt = `You specialize in optical character recognition and your goal is to convert reference information in this image to Markdown format.
+  const systemPrompt = `You specialize in optical character recognition and your goal is to convert reference information in this image to text.
 
-Below is the extracted text from the page: ${parsedText || ''}
+Below is extracted text from the page: ${parsedText || ''}
 
-Using both the image and the extracted text above, please convert all references to Markdown format.
+Using the extracted text above to double check the letters.
 
 Requirements:
-- CRITICAL: The text at the VERY TOP of the page may be a continuation of a reference from the previous page. Make sure to include it in th output exactly as it is written. 
+- CRITICAL: The text at the VERY TOP of the page may be a continuation of a reference from the previous page. Make sure to include it in the output exactly as it is written. 
 - Look carefully at the first few lines of text - if they seem to be part of a citation (authors, journal, etc.) but don't start with a number, they are likely the end of a reference from the previous page.
-- Output Only Markdown: Return solely the Markdown content without any additional explanations or comments.
-- No Delimiters: Do not use code fences or delimiters like \`\`\`markdown.
 - Content: Capture ALL references information, including any text at the top of the page that might be the continuation of a reference from the previous page.
-- If the first text doesn't have a reference number but looks like publication details, include it in your output.
-- Use the extracted text to ensure accuracy. 
 - DO NOT add or infer any text. ONLY include information that is present in the image and the text provided above.
-
 - A reference will should have a form like: Smith, J. (2020). My paper. Journal of Papers, 1(2), 3-4. 
-DO NOT extract references of form (Smith, 2020) or [1].
-` 
+- DO NOT extract references of form (Smith, 2020) or [1].
+- IF the page is two columns, make sure to look on both the left and right columns for references.
+`
 
   const output = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
@@ -57,6 +53,7 @@ DO NOT extract references of form (Smith, 2020) or [1].
         ]
       }
     ],
+    temperature: 0.0,
     max_tokens: 4096
   })
 
