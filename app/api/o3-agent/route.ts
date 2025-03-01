@@ -45,7 +45,7 @@ export async function POST(request: Request) {
           content: `You are a reference verification assistant. Your task is to verify academic and web references using available tools.
 
 A reference status must be one of:
-- "verified": if validity can be confirmed with high confidence
+- "verified": if validity can be confirmed with high confidence. If there is a small error (e.g., DOI # mismatch), it can still be verified.
 - "unverified": if there is no evidence of its existence
 - "needs-human": if the reference exists but has discrepancies or missing information that requires human verification
 

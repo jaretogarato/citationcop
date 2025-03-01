@@ -7,7 +7,9 @@ import {
   FileCheck,
   Brain,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Microscope,
+  Eye
 } from 'lucide-react'
 
 const WhoItsFor = () => {
@@ -32,7 +34,7 @@ const WhoItsFor = () => {
         'Like Sarah, who used SourceVerify to validate 200+ citations in her AI research blog in just minutes'
     },
     {
-      icon: Search,
+      icon: Eye,
       title: 'Reviewers',
       description:
         'Streamline the peer review process by quickly verifying citations and references in submitted papers',
@@ -62,6 +64,14 @@ const WhoItsFor = () => {
         'Maintain publication integrity by catching incorrect or fabricated references before publication',
       example:
         'Like IEEE, who caught 45 incorrect citations before publication using automated verification'
+    },
+    {
+      icon: Microscope,
+      title: 'Researchers',
+      description:
+        "Don't have the complete reference? Let SourceVerify fill in the missing details for you.",
+      example:
+        'Joe used SourceVerify to fill in the missing details of 50+ references in his research paper'
     }
   ]
 
