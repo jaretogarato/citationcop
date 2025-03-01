@@ -40833,7 +40833,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
         self.postMessage({
           type: "update",
           pdfId,
-          message: `Grabbing content from pages with references: ${pdfId}`
+          message: `Grabbing content from pages with references`
         });
         const markdownContents = await Promise.all(
           referencePages.map(async (page) => {

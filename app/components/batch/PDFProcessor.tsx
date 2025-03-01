@@ -134,7 +134,7 @@ const PDFProcessor = () => {
           if (!completedPdfs.has(message.pdfId)) {
             setLogMessages((prev) => [
               ...prev,
-              `Verified reference from ${message.pdfId}: ${message.verifiedReference?.title || 'Unknown'}`
+              `Completed: ${message.pdfId}: ${message.verifiedReference?.title || 'Unknown'}`
             ])
 
             // Increment the count of verified references for this PDF
@@ -158,7 +158,7 @@ const PDFProcessor = () => {
 
                 newJobs.set(message.pdfId, {
                   ...existing,
-                  message: `Verified reference: ${message.verifiedReference?.title || 'Unknown'} (${verifiedRefs}/${totalRefs})`,
+                  message: `Verified reference: ${message.verifiedReference?.title || 'Unknown'} `,
                   timestamp: new Date(),
                   progress: Math.min(progress, 99) // Cap at 99% until complete
                 })
@@ -243,7 +243,7 @@ const PDFProcessor = () => {
             newJobs.set(message.pdfId, {
               pdfId: message.pdfId,
               status: 'complete',
-              message: `Completed processing ${totalRefs} references`,
+              message: `Completed processing references`,
               timestamp: new Date(),
               progress: 100
             })

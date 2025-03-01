@@ -1,7 +1,7 @@
 // StatusDisplay.tsx
 
 import React, { useEffect, useRef } from 'react'
-import { Cog, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
+import { Cog, CheckCircle, XCircle } from 'lucide-react'
 
 interface StatusItem {
   pdfId: string
@@ -57,11 +57,19 @@ const StatusDisplay: React.FC<StatusDisplayProps> = ({
             Active Processing
           </h3>
 
-          <div className="space-y-3">
-            {Array.from(currentJobs.entries()).map(([pdfId, item]) => (
+          <div
+            className="space-y-3"
+            key={`jobs-container-${Array.from(currentJobs.entries()).length}`}
+          >
+            {Array.from(currentJobs.entries()).map(([pdfId, item], index) => (
               <div
                 key={pdfId}
-                className="bg-gray-900 rounded-md p-3 border-l-4 border-yellow-500"
+                className="bg-gray-900 rounded-md p-3 border-l-4 border-yellow-500 opacity-100 relative z-10"
+                style={{
+                  // Ensure no transform or opacity is being applied
+                  transform: 'none',
+                  transition: 'all 300ms ease-in-out'
+                }}
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
@@ -78,9 +86,9 @@ const StatusDisplay: React.FC<StatusDisplayProps> = ({
                     {item.status === 'error' && (
                       <XCircle className="h-5 w-5 text-red-500" />
                     )}
-                    <span className="text-gray-400 text-xs">
+                    {/* <span className="text-gray-400 text-xs">
                       {getElapsedTime(item.timestamp)}
-                    </span>
+                    </span>*/}{' '}
                   </div>
                 </div>
 
@@ -103,50 +111,3 @@ const StatusDisplay: React.FC<StatusDisplayProps> = ({
 }
 
 export default StatusDisplay
-
-/*   
-{currentJobs.size > 0 && (
-    <div className="bg-gray-900 p-4 rounded-lg shadow-lg border border-gray-700">
-      <h3 className="text-lg font-semibold text-white mb-2 flex items-center">
-       
-        Recent Activity
-      </h3>
-
-      <div
-        ref={scrollRef}
-        className="max-h-40 overflow-y-auto rounded bg-gray-800 p-3 scrollbar-thin scrollbar-thumb-gray-600"
-      >
-        {logMessages.length === 0 ? (
-          <p className="text-gray-500 italic text-sm">No activity yet</p>
-        ) : (
-          logMessages.map((msg, index) => {
-            // Colorize certain messages
-            let textColorClass = 'text-gray-300'
-            let iconElement = null
-
-            if (msg.includes('✅')) {
-              textColorClass = 'text-green-400'
-              iconElement = <CheckCircle className="inline w-4 h-4 mr-1" />
-            } else if (msg.includes('❌')) {
-              textColorClass = 'text-red-400'
-              iconElement = <XCircle className="inline w-4 h-4 mr-1" />
-            } else if (msg.includes('Verified reference')) {
-              textColorClass = 'text-blue-400'
-            } else if (msg.includes('Found references')) {
-              textColorClass = 'text-yellow-400'
-            }
-
-            return (
-              <p
-                key={index}
-                className={`${textColorClass} text-sm mb-1 transition-opacity duration-300`}
-              >
-                {iconElement}
-                {msg}
-              </p>
-            )
-          })
-        )}
-      </div>
-    </div>
-  )} */

@@ -48,7 +48,7 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({
         type: 'update',
         pdfId,
-        message: `Grabbing content from pages with references: ${pdfId}`
+        message: `Grabbing content from pages with references`
       })
 
       const markdownContents = await Promise.all(

@@ -1,5 +1,5 @@
-// Modify the ReferenceGrid component to better handle individual reference updates
-import React, { useState, useEffect, useRef } from 'react'
+// Simplified ReferenceGrid component without animations
+import React from 'react'
 import type { Reference } from '@/app/types/reference'
 import {
   Dialog,
@@ -16,8 +16,6 @@ import {
 } from '@/app/components/ui/tooltip'
 import { ReferenceDialog } from '@/app/components/reference-display/ReferenceDialog'
 import type { ReferenceStatus } from '@/app/types/reference'
-
-const ANIMATION_DELAY = 100 // ms between each reference appearance
 
 const statusColors: Record<ReferenceStatus, string> = {
   verified: 'bg-emerald-400/60',
@@ -41,44 +39,6 @@ interface ReferenceGridProps {
 }
 
 const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
-  // Track which references we've seen before in a ref
-  const seenReferencesRef = useRef<Set<string>>(new Set())
-  const [visibleReferences, setVisibleReferences] = useState<string[]>([])
-
-  useEffect(() => {
-    // Only animate new references that we haven't seen before
-    const newReferences = references.filter(
-      (ref) => !seenReferencesRef.current.has(`${ref.sourceDocument}-${ref.id}`)
-    )
-
-    if (newReferences.length === 0) return
-
-    // Add the new references to our seen set
-    newReferences.forEach((ref) => {
-      seenReferencesRef.current.add(`${ref.sourceDocument}-${ref.id}`)
-    })
-
-    // Gradually make the new references visible with animation
-    let timeoutId: NodeJS.Timeout
-    newReferences.forEach((ref, index) => {
-      timeoutId = setTimeout(() => {
-        setVisibleReferences((prev) => [
-          ...prev,
-          `${ref.sourceDocument}-${ref.id}`
-        ])
-      }, ANIMATION_DELAY * index)
-    })
-
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId)
-    }
-  }, [references])
-
-  // Helper function to check if a reference should be visible
-  const isReferenceVisible = (ref: Reference): boolean => {
-    return visibleReferences.includes(`${ref.sourceDocument}-${ref.id}`)
-  }
-
   // Helper function to get color based on status
   const getStatusColor = (
     status: ReferenceStatus | undefined | null
@@ -154,13 +114,6 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                                 ${getStatusColor(ref.status)}
                                 hover:opacity-75 transition-opacity
                                 cursor-pointer
-                                ${
-                                  seenReferencesRef.current.has(
-                                    `${ref.sourceDocument}-${ref.id}`
-                                  ) && !isReferenceVisible(ref)
-                                    ? 'opacity-0'
-                                    : 'animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4'
-                                }
                                 rounded-sm 
                                 shrink-0
                               `}
