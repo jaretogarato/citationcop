@@ -61,7 +61,7 @@ export default function ReferenceVerification() {
 
       setVerificationStatus(currentState)
 
-      while (currentState.status === 'pending' && currentState.iteration! < 5) {
+      while (currentState.status === 'pending' && currentState.iteration! < 8) {
         const response = await fetch('/api/o3-agent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
