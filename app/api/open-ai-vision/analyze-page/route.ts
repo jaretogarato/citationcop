@@ -32,11 +32,14 @@ async function analyzePage({
   const systemPrompt = `Using the extracted text from the page (${parsedText}) and the image, analyze the content to answer the following questions in JSON format. 
 
 hasReferenceHeader: When there is a Reference header (e.g., \"References\", \"Bibliography\", \"Works Cited\") immediately preceding a list of references.
+
 hasNewSectionStart: A header indicating a new section that isn't a references section (e.g., \"Appendix\" or \"Supplementary Material\")
 
 hasReferences: Page contains complete references such as: \"Smith, J. (2020). My paper. Journal of Papers, 1(2), 3-4.\" CRITICAL: Do not count references like Smith et al., 2020 or [1]
 
 Use both the extracted text (${parsedText}) and the image to determine the answers.
+
+Note that all three three can be yes.
 
  Respond ONLY IN this exact JSON format without any additional text:
     {
