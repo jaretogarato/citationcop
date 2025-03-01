@@ -76,7 +76,7 @@ self.onmessage = async (e: MessageEvent) => {
             pageNumber: page.pageNumber,
             markdown,
             isStartOfSection: page.pageNumber === referencesSectionStart,
-            isNewSectionStart: page.analysis.isNewSectionStart
+            isNewSectionStart: page.analysis.hasNewSectionStart
           }
         })
       )

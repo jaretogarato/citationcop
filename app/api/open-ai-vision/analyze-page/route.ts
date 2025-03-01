@@ -4,9 +4,9 @@ import OpenAI from 'openai'
 
 // Define response type for consistent handling
 interface AnalysisResponse {
-  isReferencesStart: boolean
-  isNewSectionStart: boolean
-  containsReferences: boolean
+  hasReferencesHeader: boolean
+  hasNewSectionStart: boolean
+  hasReferences: boolean
   error?: string
 }
 
@@ -29,21 +29,20 @@ async function analyzePage({
   const MAX_RETRIES = 2
   const TIMEOUT_MS = 60000 // 60 seconds
 
-  const systemPrompt = `Extracted text from the page: ${parsedText}
+  const systemPrompt = `Using the extracted text from the page (${parsedText}) and the image, analyze the content to answer the following questions in JSON format. 
 
-    Using both the image and the extracted text above, please answer:
+hasReferenceHeader: When there is a Reference header (e.g., \"References\", \"Bibliography\", \"Works Cited\") immediately preceding a list of references.
+hasNewSectionStart: A header indicating a new section that isn't a references section (e.g., \"Appendix\" or \"Supplementary Material\")
 
-    1. Does this page contain a header like "References", "Bibliography", "Works Cited", just before a series of references?
-    2. Is this the START of a new section (contains a header like "Appendix", "Supplementary Material", etc.)?
-    3. Does this page contain reference entries?
+hasReferences: Page contains complete references such as: \"Smith, J. (2020). My paper. Journal of Papers, 1(2), 3-4.\" CRITICAL: Do not count references like Smith et al., 2020 or [1]
 
-    Pay special attention to the extracted text to identify section headers and reference patterns.
+Use both the extracted text (${parsedText}) and the image to determine the answers.
 
-    Respond ONLY IN this exact JSON format without any additional text:
+ Respond ONLY IN this exact JSON format without any additional text:
     {
-      "isReferencesStart": "yes/no",
-      "isNewSectionStart": "yes/no",
-      "containsReferences": "yes/no"
+      "hasReferencesHeader": "yes/no",
+      "hasNewSectionStart": "yes/no",
+      "hasReferences": "yes/no"
     }
     ONLY respond in JSON format.
 
@@ -79,8 +78,8 @@ async function analyzePage({
               ]
             }
           ],
-          max_tokens: 300,
-          temperature: 0.1, // Lower temperature for more consistent JSON output
+          max_tokens: 50,
+          temperature: 0.0, // Lower temperature for more consistent JSON output
           response_format: { type: 'json_object' } // Force JSON response
           //store: true // Store the message and image for history and analysis purposes
         })
@@ -120,6 +119,7 @@ async function analyzePage({
     }
 
     const content = output.choices[0].message.content.trim()
+    console.log('LLM Response: VISION PAGE: ', content)
 
     // Handle cases where there might be extra text before or after the JSON
     const jsonMatch = content.match(/\{[\s\S]*\}/)
@@ -133,18 +133,18 @@ async function analyzePage({
     // Validate that all required fields are present
     if (
       !(
-        'isReferencesStart' in response &&
-        'isNewSectionStart' in response &&
-        'containsReferences' in response
+        'hasReferencesHeader' in response &&
+        'hasNewSectionStart' in response &&
+        'hasReferences' in response
       )
     ) {
       throw new Error('Response missing required fields')
     }
 
     return {
-      isReferencesStart: response.isReferencesStart.toLowerCase() === 'yes',
-      isNewSectionStart: response.isNewSectionStart.toLowerCase() === 'yes',
-      containsReferences: response.containsReferences.toLowerCase() === 'yes'
+      hasReferencesHeader: response.hasReferencesHeader.toLowerCase() === 'yes',
+      hasNewSectionStart: response.hasNewSectionStart.toLowerCase() === 'yes',
+      hasReferences: response.hasReferences.toLowerCase() === 'yes'
     }
   } catch (error) {
     // Handle retry logic
@@ -170,9 +170,9 @@ async function analyzePage({
 
     console.error('Analysis failed after retries:', error)
     return {
-      isReferencesStart: false,
-      isNewSectionStart: false,
-      containsReferences: false,
+      hasReferencesHeader: false,
+      hasNewSectionStart: false,
+      hasReferences: false,
       error: (error as Error).message
     }
   }
@@ -255,9 +255,9 @@ export async function POST(request: NextRequest) {
             message: analysis.error,
             // Still include the fallback analysis results
             analysis: {
-              isReferencesStart: analysis.isReferencesStart,
-              isNewSectionStart: analysis.isNewSectionStart,
-              containsReferences: analysis.containsReferences
+              hasReferencesHeader: analysis.hasReferencesHeader,
+              isNewSectionStart: analysis.hasNewSectionStart,
+              hasReferences: analysis.hasReferences
             }
           },
           { status: 207 } // 207 Multi-Status to indicate partial success

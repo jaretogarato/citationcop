@@ -100,7 +100,7 @@ const StatusDisplay: React.FC<StatusDisplayProps> = ({
                   </div>
                 </div>
 
-                {/* Progress bar */}
+                {/* Progress bar 
                 {item.progress !== undefined && (
                   <div className="mt-2 h-1.5 bg-gray-700 rounded-full overflow-hidden">
                     <div
@@ -108,7 +108,7 @@ const StatusDisplay: React.FC<StatusDisplayProps> = ({
                       style={{ width: `${item.progress}%` }}
                     ></div>
                   </div>
-                )}
+                )}*/}
               </div>
             ))}
           </div>

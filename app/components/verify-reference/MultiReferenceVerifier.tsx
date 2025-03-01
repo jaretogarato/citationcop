@@ -1,3 +1,4 @@
+//app/components/verify-reference/MultiReferenceVerifier.tsx
 'use client'
 
 import React, { useState, useRef } from 'react'
@@ -14,10 +15,10 @@ import StatusDisplay from '@/app/components/batch/StatusDisplay'
 import ReferenceGrid from '@/app/components/reference-display/ReferenceGrid'
 import {
   verifyReference,
-  extractReferences,
-  ProcessingStep
+  extractReferences
 } from '@/app/lib/verification-service'
 import type { Reference, ReferenceStatus } from '@/app/types/reference'
+import { FileText } from 'lucide-react'
 
 type ProcessingStatus =
   | 'idle'
@@ -43,9 +44,11 @@ export default function MultiReferenceVerifier() {
     new Map()
   )
   const [extractionTime, setExtractionTime] = useState<number | null>(null)
+  const [isTextareaFocused, setIsTextareaFocused] = useState(false)
 
   // Create a ref to track performed checks
   const performedChecksRef = useRef<Set<string>>(new Set())
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Add a log message
   const addLogMessage = (message: string) => {
@@ -73,7 +76,6 @@ export default function MultiReferenceVerifier() {
     })
   }
 
-  // Process references in batches of specified size
   // Process references in batches of specified size
   const processBatch = async (
     refs: Reference[],
@@ -273,33 +275,70 @@ export default function MultiReferenceVerifier() {
     pending: references.filter((ref) => ref.status === 'pending').length
   }
 
+  const focusTextarea = () => {
+    if (textareaRef.current) {
+      textareaRef.current.focus()
+    }
+  }
+
   return (
     <div className="w-full max-w-6xl mx-auto">
       <Card className="w-full bg-gray-900/60 backdrop-blur-sm shadow-lg !border-0">
         <CardHeader className="pb-3">
-          <CardTitle className="text-white">Bulk Reference Verifier</CardTitle>
+          {/*<CardTitle className="text-white">Bulk Reference Verifier</CardTitle>
           <CardDescription className="text-gray-300">
             {overallStatus === 'idle'
               ? 'Paste text containing references to extract and verify them all at once'
               : `${references.length} references found - verifying ${statusCounts.verified + statusCounts.unverified + statusCounts.needsHuman + statusCounts.error}/${references.length}`}
-          </CardDescription>
+          </CardDescription>*/}
         </CardHeader>
         <CardContent className="space-y-3">
           {overallStatus === 'idle' ? (
             <form onSubmit={handleSubmit}>
-              <div className="relative">
-                <Textarea
-                  placeholder="Paste text that contains references (e.g., a paper, bibliography, etc.)"
-                  value={bulkText}
-                  onChange={(e) => {
-                    if (e.target.value.length <= 1500) {
-                      setBulkText(e.target.value)
-                    }
-                  }}
-                  className="min-h-[200px] max-h-[400px] bg-gray-800/80 border-gray-700 text-gray-200 placeholder:text-gray-500 focus:border-blue-500 focus:ring-blue-500"
-                />
-                <div className="absolute bottom-2 right-2 text-xs text-gray-400">
-                  {bulkText.length}/1500
+              {/* Styled drop zone similar to PDFDropZone */}
+              <div
+                className={`border-2 border-dashed rounded-[2rem] p-8 text-center transition-all duration-300
+                  ${isTextareaFocused ? 'border-indigo-500 bg-indigo-900/20' : 'border-gray-700 bg-gray-800/50'}
+                  cursor-text`}
+                onClick={focusTextarea}
+              >
+                <div className="flex flex-col items-center gap-6">
+                  {!bulkText && (
+                    <div className="w-24 h-24 rounded-[1.5rem] bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center">
+                      <FileText className="w-12 h-12 text-white" />
+                    </div>
+                  )}
+
+                  <div className="mb-4">
+                    <p className="text-lg font-medium text-white mb-1">
+                      {bulkText
+                        ? 'Edit reference text'
+                        : 'Paste text with references here'}
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      Supports papers, bibliographies, and other reference
+                      formats
+                    </p>
+                  </div>
+
+                  <div className="w-full relative">
+                    <Textarea
+                      ref={textareaRef}
+                      placeholder="Paste text that contains references (e.g., a paper, bibliography, etc.)"
+                      value={bulkText}
+                      onChange={(e) => {
+                        if (e.target.value.length <= 1500) {
+                          setBulkText(e.target.value)
+                        }
+                      }}
+                      onFocus={() => setIsTextareaFocused(true)}
+                      onBlur={() => setIsTextareaFocused(false)}
+                      className="min-h-[180px] max-h-[400px] bg-transparent border-0 shadow-none text-gray-200 placeholder:text-gray-500 focus:ring-0 focus:outline-none resize-none"
+                    />
+                    <div className="absolute bottom-2 right-2 text-xs text-gray-400">
+                      {bulkText.length}/1500
+                    </div>
+                  </div>
                 </div>
               </div>
 

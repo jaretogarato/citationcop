@@ -66,23 +66,6 @@ export async function POST(request: Request) {
     // FOR NOW JUST GOING WITH THE RAW TEXT FROM THE PAPER!
     const reference_string = reference.raw
 
-    //console.log(`reference_string: ${reference_string}`);
-
-    /*const reference_string = [
-      reference.authors?.join(' '),
-      reference.title,
-      reference.journal,
-      reference.year,
-      reference.volume,
-      reference.pages,
-      reference.publisher,
-      reference.conference,
-      reference.date_of_access,
-      reference.issue,
-    ]
-      .filter((field) => field !== null && field !== undefined)
-      .join(' ');*/
-
     const prompt = `You are a machine that checks references/citations and uncovers false references in writing. Given the following search results, determine whether the provided reference refers to an actual article, conference paper, blog post, or other. Only use the information from the search results to determine the validity of the reference.
     
     A reference status is:

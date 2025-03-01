@@ -35,9 +35,10 @@ interface PDFLine {
 
 interface PageAnalysis {
   pageNumber: number
-  isReferencesStart: boolean
-  isNewSectionStart: boolean
-  containsReferences: boolean
+  hasReferencesHeader: boolean
+  hasNewSectionStart: boolean
+  hasReferences: boolean
+  error?: string
 }
 
 interface ProcessedPageResult {
@@ -90,40 +91,37 @@ export class ReferencePageDetectionService {
   ): Promise<ProcessedPageResult[]> {
     const results: ProcessedPageResult[] = []
     let currentPage = totalPages
-    let foundReferenceStart = false
-    let reachedEnd = false
+    let referenceStartPage = -1
+    let foundReferenceHeader = false
+    let tempResults: ProcessedPageResult[] = [] // To store pages with references before finding header
 
-    while (currentPage >= 1 && !reachedEnd) {
+    // Search backward for reference header
+    while (currentPage >= 1 && !foundReferenceHeader) {
       const batchEnd = currentPage
       const batchStart = Math.max(1, currentPage - this.CHUNK_SIZE + 1)
       const batchSize = batchEnd - batchStart + 1
 
-      //console.log(`Processing pages ${batchStart}-${batchEnd}`)
-
       const pdfSlicer = new PdfSlicerService()
-      // Process batch of pages
       const pdfSlice = await pdfSlicer.slicePdfPages(
         file,
         batchStart,
         batchSize
       )
       const arrayBuffer = await pdfSlice.arrayBuffer()
-
       const images = await this.convertPdfToImages(arrayBuffer)
 
-      // Process each page in the batch
+      // Process each page in the batch in reverse order
       for (let i = images.length - 1; i >= 0; i--) {
         const pageNumber = batchStart + i
         const imageData = images[i]
-
-        // Get structured content for the page
         const parsedContent = await this.extractPageContent(pageNumber)
-
-        // Analyze page using both image and text
         const analysis = await this.analyzePage(
           imageData,
           parsedContent.rawText
         )
+
+        console.log('📄 Page:', pageNumber)
+        console.log('🔍 Analysis:', analysis)
 
         const pageResult: ProcessedPageResult = {
           pageNumber,
@@ -135,34 +133,93 @@ export class ReferencePageDetectionService {
           }
         }
 
-        if (!foundReferenceStart) {
-          if (analysis.isReferencesStart) {
-            foundReferenceStart = true
-            results.push(pageResult)
-          }
-        } else {
-          if (analysis.isNewSectionStart && !analysis.isReferencesStart) {
-            reachedEnd = true
-            break
+        // Check if this page has a reference header
+        if (analysis.hasReferencesHeader) {
+          console.log(
+            'Found reference header on page',
+            pageNumber,
+            '- stopping backward search'
+          )
+          foundReferenceHeader = true
+          referenceStartPage = pageNumber
+          results.push(pageResult)
+
+          // Add all previously found pages that contain references and come after the reference header
+          if (tempResults.length > 0) {
+            const validTempResults = tempResults.filter(
+              (r) =>
+                r.pageNumber > pageNumber &&
+                r.analysis.hasReferences &&
+                !r.analysis.hasNewSectionStart
+            )
+            // Process valid results in order to properly detect the end of references
+            validTempResults.sort((a, b) => a.pageNumber - b.pageNumber)
+
+            // Add pages until we hit a non-reference page or a new section start
+            for (const result of validTempResults) {
+              if (
+                !result.analysis.hasReferences ||
+                (result.analysis.hasNewSectionStart &&
+                  !result.analysis.hasReferencesHeader)
+              ) {
+                break
+              }
+              results.push(result)
+            }
           }
 
-          if (analysis.containsReferences) {
-            results.push(pageResult)
-          } else {
-            reachedEnd = true
-            break
-          }
+          // Exit both loops immediately
+          currentPage = 0
+          break
+        }
+        // If no header but has references, store it temporarily
+        else if (analysis.hasReferences) {
+          tempResults.push(pageResult)
         }
       }
 
-      currentPage = batchStart - 1
+      // Move to earlier pages if we haven't found a header yet
+      if (!foundReferenceHeader) {
+        currentPage = batchStart - 1
+      }
     }
 
-    if (!foundReferenceStart) {
+    // If we've searched the entire document and found no reference header
+    // but found pages with references, use the first page with references as the start
+    if (!foundReferenceHeader && tempResults.length > 0) {
+      console.log(
+        'No explicit reference header found, using first page with references'
+      )
+      // Sort by page number and use the earliest page with references
+      tempResults.sort((a, b) => a.pageNumber - b.pageNumber)
+
+      // Find the sequence of consecutive reference pages
+      const finalResults = []
+
+      for (const result of tempResults) {
+        if (
+          !result.analysis.hasReferences ||
+          (result.analysis.hasNewSectionStart &&
+            !result.analysis.hasReferencesHeader)
+        ) {
+          break
+        }
+        finalResults.push(result)
+      }
+
+      if (finalResults.length > 0) {
+        results.push(...finalResults)
+        referenceStartPage = finalResults[0].pageNumber
+        foundReferenceHeader = true // Treat it as if we found a header
+      }
+    }
+
+    // If we still haven't found anything, throw an error
+    if (!foundReferenceHeader) {
       throw new Error('Could not find references section in the document')
     }
 
-    return results
+    return results.sort((a, b) => a.pageNumber - b.pageNumber)
   }
 
   private async extractPageContent(pageNumber: number): Promise<{
