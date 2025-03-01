@@ -40815,13 +40815,13 @@ Reference error [${errorPath}]: ${errorMessage}`,
         self.postMessage({
           type: "update",
           pdfId,
-          message: `Worker launched for: ${pdfId}`
+          message: `Starting!`
         });
         await refPageDetectionService.initialize(file);
         self.postMessage({
           type: "update",
           pdfId,
-          message: "Searching for references section..."
+          message: `Searching for references`
         });
         const referencePages = await refPageDetectionService.findReferencePages(file);
         const referencesSectionStart = referencePages[0].pageNumber;
@@ -40833,7 +40833,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
         self.postMessage({
           type: "update",
           pdfId,
-          message: "Extracting content from pages with references"
+          message: `Grabbing content from pages with references: ${pdfId}`
         });
         const markdownContents = await Promise.all(
           referencePages.map(async (page) => {
@@ -40865,7 +40865,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
         self.postMessage({
           type: "update",
           pdfId,
-          message: "Extracting structured references"
+          message: `Preparing references for analysis`
         });
         const referencePagesMarkdown = markdownContents.map((content) => content.markdown).join("\n");
         console.log("\u{1F4C4} Extracted markdown contents:", referencePagesMarkdown);
@@ -40875,7 +40875,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
             self.postMessage({
               type: "update",
               pdfId,
-              message: `Processing references ${processed}/${total}`
+              message: ".".repeat(processed)
             });
           }
         );
@@ -40883,14 +40883,14 @@ Reference error [${errorPath}]: ${errorMessage}`,
           type: "references",
           pdfId,
           noReferences: extractedReferences.length,
-          message: `Found ${extractedReferences.length} references for ${pdfId}`
+          message: `Found ${extractedReferences.length} unique references: ${pdfId}`
         });
         let referencesWithDOI = extractedReferences;
         if (extractedReferences.some((ref) => ref.DOI)) {
           self.postMessage({
             type: "update",
             pdfId,
-            message: "Found DOIs, verifying..."
+            message: "Verifying DOIs..."
           });
           const doiResponse = await fetch("/api/references/verify-doi", {
             method: "POST",
@@ -40909,7 +40909,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
             self.postMessage({
               type: "verification-update",
               pdfId,
-              message: "Verifying references...",
+              message: `Verifying references`,
               batchResults
             });
           },

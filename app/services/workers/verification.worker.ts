@@ -20,8 +20,8 @@ self.onmessage = async (e: MessageEvent) => {
     try {
       self.postMessage({
         type: 'update',
-        pdfId: pdfId,
-        message: `Worker launched for: ${pdfId}`
+        pdfId,
+        message: `Starting!`
       })
 
       // Initialize the detection service
@@ -31,7 +31,7 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({
         type: 'update',
         pdfId,
-        message: 'Searching for references section...'
+        message: `Searching for references`
       })
 
       const referencePages =
@@ -48,7 +48,7 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({
         type: 'update',
         pdfId,
-        message: 'Extracting content from pages with references'
+        message: `Grabbing content from pages with references: ${pdfId}`
       })
 
       const markdownContents = await Promise.all(
@@ -87,7 +87,7 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({
         type: 'update',
         pdfId,
-        message: 'Extracting structured references'
+        message: `Preparing references for analysis`
       })
 
       const referencePagesMarkdown = markdownContents
@@ -103,7 +103,7 @@ self.onmessage = async (e: MessageEvent) => {
             self.postMessage({
               type: 'update',
               pdfId,
-              message: `Processing references ${processed}/${total}`
+              message: '.'.repeat(processed)
             })
           }
         )
@@ -114,7 +114,7 @@ self.onmessage = async (e: MessageEvent) => {
         type: 'references',
         pdfId: pdfId,
         noReferences: extractedReferences.length,
-        message: `Found ${extractedReferences.length} references for ${pdfId}`
+        message: `Found ${extractedReferences.length} unique references: ${pdfId}`
       })
 
       // STEP 4: DOI VERIFICATION Check if any references have DOIs
@@ -123,7 +123,7 @@ self.onmessage = async (e: MessageEvent) => {
         self.postMessage({
           type: 'update',
           pdfId,
-          message: 'Found DOIs, verifying...'
+          message: 'Verifying DOIs...'
         })
 
         const doiResponse = await fetch('/api/references/verify-doi', {
@@ -146,7 +146,6 @@ self.onmessage = async (e: MessageEvent) => {
         })
       }*/
 
-
       // STEP 5: Verification
 
       const verificationResults = await o3VerificationService.processBatch(
@@ -155,7 +154,7 @@ self.onmessage = async (e: MessageEvent) => {
           self.postMessage({
             type: 'verification-update',
             pdfId,
-            message: 'Verifying references...',
+            message: `Verifying references`,
             batchResults
           })
         },
