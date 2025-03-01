@@ -54,15 +54,18 @@ self.onmessage = async (e: MessageEvent) => {
       const markdownContents = await Promise.all(
         referencePages.map(async (page) => {
           //const markdownResponse = await fetch('/api/llama-vision', {
-          const markdownResponse = await fetch('/api/open-ai-vision/image-2-ref-markdown', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              filePath: page.imageData,
-              parsedText: page.parsedContent.rawText,
-              mode: 'free'
-            })
-          })
+          const markdownResponse = await fetch(
+            '/api/open-ai-vision/image-2-ref-markdown',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                filePath: page.imageData,
+                parsedText: page.parsedContent.rawText,
+                mode: 'free'
+              })
+            }
+          )
 
           if (!markdownResponse.ok) {
             throw new Error('Failed to extract references content')
@@ -114,8 +117,6 @@ self.onmessage = async (e: MessageEvent) => {
         message: `Found ${extractedReferences.length} references for ${pdfId}`
       })
 
-
-
       // STEP 4: DOI VERIFICATION Check if any references have DOIs
       let referencesWithDOI = extractedReferences
       if (extractedReferences.some((ref: Reference) => ref.DOI)) {
@@ -137,15 +138,14 @@ self.onmessage = async (e: MessageEvent) => {
 
         const { references } = await doiResponse.json()
         referencesWithDOI = references
-      } else {
+      } /*else {
         self.postMessage({
           type: 'update',
           pdfId,
           message: 'No DOIs found, skipping verification'
         })
-      }
+      }*/
 
-      //('📚 References with DOIs:', referencesWithDOI)
 
       // STEP 5: Verification
 
@@ -157,6 +157,20 @@ self.onmessage = async (e: MessageEvent) => {
             pdfId,
             message: 'Verifying references...',
             batchResults
+          })
+        },
+        // Add the new callback for individual reference updates
+        (verifiedReference) => {
+          self.postMessage({
+            type: 'reference-verified',
+            pdfId,
+            message: `Verified reference: ${verifiedReference.reference.title || 'Unknown'}`,
+            verifiedReference: {
+              ...verifiedReference.reference,
+              message: verifiedReference.result?.message,
+              verificationDetails: verifiedReference.result,
+              sourceDocument: pdfId
+            }
           })
         }
       )

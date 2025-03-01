@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+// Modify the ReferenceGrid component to better handle individual reference updates
+import React, { useState, useEffect, useRef } from 'react'
 import type { Reference } from '@/app/types/reference'
 import {
   Dialog,
@@ -21,7 +22,7 @@ const ANIMATION_DELAY = 100 // ms between each reference appearance
 const statusColors: Record<ReferenceStatus, string> = {
   verified: 'bg-emerald-400/60',
   unverified: 'bg-rose-400/60',
-  "needs-human": 'bg-amber-400/60',
+  'needs-human': 'bg-amber-400/60',
   error: 'bg-slate-400/60',
   pending: 'bg-indigo-400/60'
 }
@@ -40,17 +41,43 @@ interface ReferenceGridProps {
 }
 
 const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
-  const [visibleCount, setVisibleCount] = useState(0)
+  // Track which references we've seen before in a ref
+  const seenReferencesRef = useRef<Set<string>>(new Set())
+  const [visibleReferences, setVisibleReferences] = useState<string[]>([])
 
   useEffect(() => {
-    setVisibleCount(0) // Reset count when references change
+    // Only animate new references that we haven't seen before
+    const newReferences = references.filter(
+      (ref) => !seenReferencesRef.current.has(`${ref.sourceDocument}-${ref.id}`)
+    )
 
-    const timeout = setTimeout(() => {
-      setVisibleCount(references.length)
-    }, ANIMATION_DELAY)
+    if (newReferences.length === 0) return
 
-    return () => clearTimeout(timeout)
+    // Add the new references to our seen set
+    newReferences.forEach((ref) => {
+      seenReferencesRef.current.add(`${ref.sourceDocument}-${ref.id}`)
+    })
+
+    // Gradually make the new references visible with animation
+    let timeoutId: NodeJS.Timeout
+    newReferences.forEach((ref, index) => {
+      timeoutId = setTimeout(() => {
+        setVisibleReferences((prev) => [
+          ...prev,
+          `${ref.sourceDocument}-${ref.id}`
+        ])
+      }, ANIMATION_DELAY * index)
+    })
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+    }
   }, [references])
+
+  // Helper function to check if a reference should be visible
+  const isReferenceVisible = (ref: Reference): boolean => {
+    return visibleReferences.includes(`${ref.sourceDocument}-${ref.id}`)
+  }
 
   // Helper function to get color based on status
   const getStatusColor = (
@@ -69,7 +96,7 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
   }
 
   // Group references by source document
-  const groupedReferences = references.slice(0, visibleCount).reduce(
+  const groupedReferences = references.reduce(
     (groups, ref) => {
       const sourceDoc = ref.sourceDocument || 'Unknown Source'
       if (!groups[sourceDoc]) {
@@ -116,7 +143,7 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                 )}
 
                 {refs.map((ref, i) => (
-                  <Dialog key={i}>
+                  <Dialog key={`${sourceDoc}-${ref.id}-${i}`}>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -127,7 +154,13 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                                 ${getStatusColor(ref.status)}
                                 hover:opacity-75 transition-opacity
                                 cursor-pointer
-                                animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4
+                                ${
+                                  seenReferencesRef.current.has(
+                                    `${ref.sourceDocument}-${ref.id}`
+                                  ) && !isReferenceVisible(ref)
+                                    ? 'opacity-0'
+                                    : 'animate-in fade-in zoom-in duration-500 slide-in-from-bottom-4'
+                                }
                                 rounded-sm 
                                 shrink-0
                               `}

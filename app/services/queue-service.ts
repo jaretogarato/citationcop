@@ -32,7 +32,6 @@ export class PDFQueueService {
   }
 
   private initializeWorkerPool() {
-  
     const workerCount = Math.min(this.maxWorkers, this.queue.length)
 
     for (let i = 0; i < workerCount; i++) {
@@ -74,6 +73,13 @@ export class PDFQueueService {
           this.processNextItem(worker)
 
           // update database with references
+        }
+        break
+
+      case 'reference-verified':
+        // Forward the message to the update listener
+        if (this.updateListener) {
+          this.updateListener(message)
         }
         break
 

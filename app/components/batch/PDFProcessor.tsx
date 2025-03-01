@@ -20,6 +20,10 @@ const PDFProcessor = () => {
   const [logMessages, setLogMessages] = useState<string[]>([])
   const queueServiceRef = useRef<PDFQueueService | null>(null)
   const [references, setReferences] = useState<Reference[]>([])
+  const [processedReferenceIds, setProcessedReferenceIds] = useState<
+    Set<string>
+  >(new Set())
+  const [completedPdfs, setCompletedPdfs] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     // Initialize the queue service
@@ -65,6 +69,51 @@ const PDFProcessor = () => {
           }
           break
 
+        case 'reference-verified':
+          // Only process if this PDF hasn't already completed
+          if (!completedPdfs.has(message.pdfId)) {
+            setLogMessages((prev) => [
+              ...prev,
+              `Verified reference from ${message.pdfId}: ${message.verifiedReference?.title || 'Unknown'}`
+            ])
+
+            if (message.verifiedReference) {
+              // Update the references array
+              setReferences((prev) => {
+                // Get all pending references for this PDF
+                const pendingReferences = prev.filter(
+                  (ref) =>
+                    ref.sourceDocument === message.pdfId &&
+                    ref.status === 'pending' &&
+                    !processedReferenceIds.has(String(ref.id))
+                )
+
+                // If we don't have any pending references left, just add the new one
+                if (pendingReferences.length === 0) {
+                  return [...prev, message.verifiedReference]
+                }
+
+                // Get the first pending reference to replace
+                const referenceToReplace = pendingReferences[0]
+
+                // Mark this reference as processed
+                setProcessedReferenceIds((current) => {
+                  const newSet = new Set(current)
+                  newSet.add(String(referenceToReplace.id))
+                  return newSet
+                })
+
+                // Return a new array with the reference replaced
+                return prev.map((ref) =>
+                  ref.id === referenceToReplace.id
+                    ? message.verifiedReference
+                    : ref
+                )
+              })
+            }
+          }
+          break
+
         case 'complete':
           console.log('Complete message received:', message)
           console.log('Processed references:', message.references?.length)
@@ -74,20 +123,42 @@ const PDFProcessor = () => {
             `✅ Processing complete for PDF ${message.pdfId}`
           ])
 
-          // Remove any pending references for this PDF and add the verified ones
-          setReferences((prev) => [
-            ...prev.filter(
+          // Mark this PDF as completed
+          setCompletedPdfs((prev) => {
+            const newSet = new Set(prev)
+            newSet.add(message.pdfId)
+            return newSet
+          })
+
+          // Clean up any remaining pending references and ensure all references are present
+          setReferences((prev) => {
+            // Get existing references for this PDF that aren't pending
+            const existingNonPendingRefs = prev.filter(
               (ref) =>
-                !(
-                  ref.sourceDocument === message.pdfId &&
-                  ref.status === 'pending'
-                )
-            ),
-            ...(message.references || []).map((ref) => ({
-              ...ref,
-              sourceDocument: message.pdfId
-            }))
-          ])
+                ref.sourceDocument === message.pdfId && ref.status !== 'pending'
+            )
+
+            // Create a set of IDs for quick lookup
+            const existingRefIds = new Set(
+              existingNonPendingRefs.map((ref) => String(ref.id))
+            )
+
+            // Get references from the complete message that aren't already in our list
+            const newRefs = (message.references || [])
+              .filter((ref) => !existingRefIds.has(String(ref.id)))
+              .map((ref) => ({
+                ...ref,
+                sourceDocument: message.pdfId
+              }))
+
+            // Keep references from other PDFs
+            const otherPdfRefs = prev.filter(
+              (ref) => ref.sourceDocument !== message.pdfId
+            )
+
+            // Combine everything
+            return [...otherPdfRefs, ...existingNonPendingRefs, ...newRefs]
+          })
 
           updateProcessingState()
           break
