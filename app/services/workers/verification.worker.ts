@@ -20,8 +20,8 @@ self.onmessage = async (e: MessageEvent) => {
     try {
       self.postMessage({
         type: 'update',
-        pdfId: pdfId,
-        message: `Worker launched for: ${pdfId}`
+        pdfId,
+        message: `Starting!`
       })
 
       // Initialize the detection service
@@ -31,7 +31,7 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({
         type: 'update',
         pdfId,
-        message: 'Searching for references section...'
+        message: `Searching for references`
       })
 
       const referencePages =
@@ -48,21 +48,24 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({
         type: 'update',
         pdfId,
-        message: 'Extracting content from pages with references'
+        message: `Grabbing content from pages with references`
       })
 
       const markdownContents = await Promise.all(
         referencePages.map(async (page) => {
           //const markdownResponse = await fetch('/api/llama-vision', {
-          const markdownResponse = await fetch('/api/open-ai-vision/image-2-ref-markdown', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              filePath: page.imageData,
-              parsedText: page.parsedContent.rawText,
-              mode: 'free'
-            })
-          })
+          const markdownResponse = await fetch(
+            '/api/open-ai-vision/image-2-ref-markdown',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                filePath: page.imageData,
+                parsedText: page.parsedContent.rawText,
+                mode: 'free'
+              })
+            }
+          )
 
           if (!markdownResponse.ok) {
             throw new Error('Failed to extract references content')
@@ -84,7 +87,7 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({
         type: 'update',
         pdfId,
-        message: 'Extracting structured references'
+        message: `Preparing references for analysis`
       })
 
       const referencePagesMarkdown = markdownContents
@@ -100,7 +103,7 @@ self.onmessage = async (e: MessageEvent) => {
             self.postMessage({
               type: 'update',
               pdfId,
-              message: `Processing references ${processed}/${total}`
+              message: '.'.repeat(processed)
             })
           }
         )
@@ -111,7 +114,7 @@ self.onmessage = async (e: MessageEvent) => {
         type: 'references',
         pdfId: pdfId,
         noReferences: extractedReferences.length,
-        message: `Found ${extractedReferences.length} references for ${pdfId}`
+        message: `Found ${extractedReferences.length} unique references: ${pdfId}`
       })
 
       // STEP 4: DOI VERIFICATION Check if any references have DOIs
@@ -120,7 +123,7 @@ self.onmessage = async (e: MessageEvent) => {
         self.postMessage({
           type: 'update',
           pdfId,
-          message: 'Found DOIs, verifying...'
+          message: 'Verifying DOIs...'
         })
 
         const doiResponse = await fetch('/api/references/verify-doi', {
@@ -135,17 +138,15 @@ self.onmessage = async (e: MessageEvent) => {
 
         const { references } = await doiResponse.json()
         referencesWithDOI = references
-      } else {
+      } /*else {
         self.postMessage({
           type: 'update',
           pdfId,
           message: 'No DOIs found, skipping verification'
         })
-      }
+      }*/
 
-      //('📚 References with DOIs:', referencesWithDOI)
-
-      // STEP 5: Search and verification
+      // STEP 5: Verification
 
       const verificationResults = await o3VerificationService.processBatch(
         referencesWithDOI,
@@ -153,36 +154,26 @@ self.onmessage = async (e: MessageEvent) => {
           self.postMessage({
             type: 'verification-update',
             pdfId,
-            message: 'Verifying references...',
+            message: `Verifying references`,
             batchResults
+          })
+        },
+        // Add the new callback for individual reference updates
+        (verifiedReference) => {
+          self.postMessage({
+            type: 'reference-verified',
+            pdfId,
+            message: `Verified reference: ${verifiedReference.reference.title || 'Unknown'}`,
+            verifiedReference: {
+              ...verifiedReference.reference,
+              message: verifiedReference.result?.message,
+              verificationDetails: verifiedReference.result,
+              sourceDocument: pdfId
+            }
           })
         }
       )
 
-      /*const referencesWithSearch: Reference[] =
-        await searchReferenceService.processBatch(
-          referencesWithDOI,
-          (batchResults) => {
-            self.postMessage({
-              type: 'update',
-              pdfId,
-              message: `✅ search batch complete for ${pdfId}`
-            })
-          }
-        )
-
-      const verifiedReferences: Reference[] =
-        await verifyReferenceService.processBatch(
-          referencesWithSearch,
-          (batchResults) => {
-            self.postMessage({
-              type: 'verification-update',
-              pdfId,
-              message: 'Verifying references...',
-              batchResults
-            })
-          }
-        )*/
       const processedReferences = verificationResults.map((result) => ({
         ...result.reference,
         message: result.result?.message,
