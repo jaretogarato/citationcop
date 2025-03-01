@@ -18,11 +18,11 @@ async function getMarkDown({
   imageData: string
   parsedText?: string
 }) {
-  const systemPrompt = `You specialize in optical character recognition and your goal is to convert ALL reference information in this image to Markdown format.
+  const systemPrompt = `You specialize in optical character recognition and your goal is to convert reference information in this image to Markdown format.
 
 Below is the extracted text from the page: ${parsedText || ''}
 
-Using both the image and the extracted text above, please convert the references to Markdown format.
+Using both the image and the extracted text above, please convert all references to Markdown format.
 
 Requirements:
 - CRITICAL: The text at the VERY TOP of the page may be a continuation of a reference from the previous page. Make sure to include it in th output exactly as it is written. 
@@ -31,7 +31,12 @@ Requirements:
 - No Delimiters: Do not use code fences or delimiters like \`\`\`markdown.
 - Content: Capture ALL references information, including any text at the top of the page that might be the continuation of a reference from the previous page.
 - If the first text doesn't have a reference number but looks like publication details, include it in your output.
-- Use the extracted text to ensure accuracy.`
+- Use the extracted text to ensure accuracy. 
+- DO NOT add or infer any text. ONLY include information that is present in the image and the text provided above.
+
+- A reference will should have a form like: Smith, J. (2020). My paper. Journal of Papers, 1(2), 3-4. 
+DO NOT extract references of form (Smith, 2020) or [1].
+` 
 
   const output = await openai.chat.completions.create({
     model: 'gpt-4o-mini',

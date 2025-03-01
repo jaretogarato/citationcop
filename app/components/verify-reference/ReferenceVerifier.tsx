@@ -1,7 +1,6 @@
 'use client'
 
-import type React from 'react'
-import { useState, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import { Textarea } from '@/app/components/ui/textarea'
 import {
   Card,
@@ -11,78 +10,24 @@ import {
   CardTitle
 } from '@/app/components/ui/card'
 import {
-  AlertCircle,
-  Bot,
-  CheckCircle,
-  Clock,
-  Search,
-  Link,
-  FileText
-} from 'lucide-react'
-import { Alert, AlertTitle } from '@/app/components/ui/alert'
-import { Badge } from '@/app/components/ui/badge'
-
-import { checkDOI, searchReference, checkURL } from '@/app/lib/referneceToolsCode'
-
-type TokenUsage = {
-  prompt_tokens: number
-  completion_tokens: number
-  total_tokens: number
-}
-
-type UIStatus =
-  | 'idle'
-  | 'loading'
-  | 'verified'
-  | 'requires-verification'
-  | 'unverified'
-  | 'error'
-
-type VerificationStatus = {
-  status: 'pending' | 'complete' | 'human-check-needed' | 'error'
-  messages?: any[]
-  iteration?: number
-  functionResult?: any
-  lastToolCallId?: string
-  error?: string
-  result?: {
-    status: 'verified' | 'unverified' | 'human-check' | 'error'
-    message: string
-    checks_performed?: string[]
-    reference: string
-  }
-  tokenUsage?: TokenUsage
-}
-
-type ProcessingStep =
-  | 'initializing'
-  | 'search_reference'
-  | 'check_doi'
-  | 'check_url'
-  | 'finalizing'
-
-// Badge colors for different check types (dark mode)
-const checkBadgeColors: Record<string, string> = {
-  'DOI Lookup': 'bg-blue-900 text-blue-200 hover:bg-blue-800 border-blue-700',
-  'Google Search':
-    'bg-purple-900 text-purple-200 hover:bg-purple-800 border-purple-700',
-  'URL Verification':
-    'bg-teal-900 text-teal-200 hover:bg-teal-800 border-teal-700',
-  'Literature Search':
-    'bg-indigo-900 text-indigo-200 hover:bg-indigo-800 border-indigo-700',
-  'Citation Format':
-    'bg-emerald-900 text-emerald-200 hover:bg-emerald-800 border-emerald-700',
-  'Metadata Check':
-    'bg-amber-900 text-amber-200 hover:bg-amber-800 border-amber-700'
-}
+  ProcessingStepDisplay,
+  VerificationAlert,
+  ReferenceResult,
+  UIStatus
+} from '@/app/components/verify-reference/VerificationStatusComponent'
+import { 
+  verifyReference, 
+  ProcessingStep, 
+  VerificationStatus,
+  TokenUsage
+} from '@/app/lib/verification-service'
+import type { Reference } from '@/app/types/reference'
 
 export default function ReferenceVerifier() {
   const [reference, setReference] = useState('')
   const [uiStatus, setUIStatus] = useState<UIStatus>('idle')
-  const [verificationState, setVerificationState] =
-    useState<VerificationStatus | null>(null)
-  const [processingStep, setProcessingStep] =
-    useState<ProcessingStep>('initializing')
+  const [verificationState, setVerificationState] = useState<VerificationStatus | null>(null)
+  const [processingStep, setProcessingStep] = useState<ProcessingStep>('initializing')
   const [currentToolArgs, setCurrentToolArgs] = useState<any>(null)
   const [result, setResult] = useState<{
     formattedReference: string
@@ -113,127 +58,61 @@ export default function ReferenceVerifier() {
       setProcessingStep('initializing')
       await new Promise((resolve) => setTimeout(resolve, 500))
 
-      // Start the actual API verification flow
-      let currentState: VerificationStatus = {
+      // Create a temporary reference object
+      const referenceObj: Reference = {
+        id: `ref-${Date.now()}`,
+        title: reference.substring(0, 30) + (reference.length > 30 ? '...' : ''),
+        authors: [],
+        raw: reference,
         status: 'pending',
-        messages: [],
-        iteration: 0
+        sourceDocument: 'Manual Input',
+        date_of_access: undefined
       }
 
-      setVerificationState(currentState)
-
-      // Process steps with real API calls
-      while (currentState.status === 'pending' && currentState.iteration! < 5) {
-        // Call the API
-        const response = await fetch('/api/o3-agent', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            reference,
-            iteration: currentState.iteration,
-            previousMessages: currentState.messages,
-            functionResult: currentState.functionResult,
-            lastToolCallId: currentState.lastToolCallId
-          })
-        })
-
-        const llmResponse = await response.json()
-
-        if (llmResponse.functionToCall) {
-          const { name, arguments: args } = llmResponse.functionToCall
-          let functionResult
-
-          // Update processing step based on the tool being called
-          setProcessingStep(name as ProcessingStep)
+      // Process the reference using the reusable verification service
+      const verifiedRef = await verifyReference(
+        referenceObj,
+        (step, args) => {
+          setProcessingStep(step)
           setCurrentToolArgs(args)
-
-          switch (name) {
-            case 'check_doi':
-              performedChecksRef.current.add('DOI Lookup')
-              functionResult = await checkDOI(args.doi, args.title)
-              break
-            case 'search_reference':
-              performedChecksRef.current.add('Google Search')
-              functionResult = await searchReference(args.reference)
-              break
-            case 'check_url':
-              performedChecksRef.current.add('URL Verification')
-              functionResult = await checkURL(args.url, args.reference)
-              break
-          }
-
-          currentState = {
-            ...llmResponse,
-            functionResult,
-            lastToolCallId: llmResponse.lastToolCallId
-          }
-        } else {
-          // If no function is being called, we're likely finalizing
-          setProcessingStep('finalizing')
-          setCurrentToolArgs(null)
-          currentState = llmResponse
-        }
-
-        // Update the state after each API call
-        setVerificationState({ ...currentState })
-
-        // Pause briefly to show the current step
-        await new Promise((resolve) => setTimeout(resolve, 800))
-      }
+        },
+        performedChecksRef.current
+      )
 
       // Map the status from the verification API to our UI statuses
       let finalUIStatus: UIStatus = 'idle'
 
-      if (currentState.result) {
-        switch (currentState.result.status) {
-          case 'verified':
-            finalUIStatus = 'verified'
-            break
-          case 'human-check':
-            finalUIStatus = 'requires-verification'
-            break
-          case 'unverified':
-            finalUIStatus = 'unverified'
-            break
-          case 'error':
-            finalUIStatus = 'error'
-            break
-        }
-
-        // Get checks performed
-        const checksPerformed = getChecksPerformed(
-          currentState,
-          performedChecksRef.current
-        )
-
-        setResult({
-          formattedReference: currentState.result.reference || reference,
-          explanation: currentState.result.message || 'Verification completed.',
-          wasModified: currentState.result.reference !== reference,
-          checksPerformed,
-          tokenUsage: currentState.tokenUsage
-        })
-
-        setUIStatus(finalUIStatus)
-      } else if (currentState.error) {
-        setResult({
-          formattedReference: reference,
-          explanation:
-            currentState.error || 'An error occurred during verification.',
-          wasModified: false,
-          checksPerformed: getChecksPerformed(
-            currentState,
-            performedChecksRef.current
-          )
-        })
-        setUIStatus('error')
+      switch (verifiedRef.status) {
+        case 'verified':
+          finalUIStatus = 'verified'
+          break
+        case 'needs-human':
+          finalUIStatus = 'requires-verification'
+          break
+        case 'unverified':
+          finalUIStatus = 'unverified'
+          break
+        case 'error':
+          finalUIStatus = 'error'
+          break
       }
+
+      setResult({
+        formattedReference: verifiedRef.fixedReference || reference,
+        explanation: verifiedRef.message || 'Verification completed.',
+        wasModified: !!verifiedRef.fixedReference,
+        checksPerformed: verifiedRef.checksPerformed || [],
+      })
+
+      setUIStatus(finalUIStatus)
     } catch (error) {
       console.error('Verification error:', error)
       setResult({
         formattedReference: reference,
         explanation:
-          'An error occurred while connecting to the verification service. Please try again later.',
+          error instanceof Error 
+            ? error.message 
+            : 'An error occurred while connecting to the verification service. Please try again later.',
         wasModified: false,
         checksPerformed: Array.from(performedChecksRef.current)
       })
@@ -245,111 +124,12 @@ export default function ReferenceVerifier() {
     }
   }
 
-  // Function to get checks performed
-  function getChecksPerformed(currentState: any, performedChecks: Set<string>) {
-    if (
-      currentState?.result?.checks_performed &&
-      currentState.result.checks_performed.length > 0
-    ) {
-      return currentState.result.checks_performed
-    }
-
-    // Fallback to our tracked checks
-    if (performedChecks.size > 0) {
-      return Array.from(performedChecks)
-    }
-
-    // Last resort: try to extract from message history
-    const checks = new Set<string>()
-
-    currentState?.messages?.forEach((msg: any) => {
-      if (msg.role === 'assistant' && msg.tool_calls) {
-        msg.tool_calls.forEach((call: any) => {
-          if (call.function?.name === 'check_doi') {
-            checks.add('DOI Lookup')
-          } else if (call.function?.name === 'search_reference') {
-            checks.add('Literature Search')
-          } else if (call.function?.name === 'check_url') {
-            checks.add('URL Verification')
-          }
-        })
-      }
-    })
-
-    return Array.from(checks)
-  }
-
-  // Helper function to render processing step with appropriate icon and description
-  const renderProcessingStep = () => {
-    switch (processingStep) {
-      case 'initializing':
-        return (
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-blue-400" />
-            <span>analyzing reference structure</span>
-          </div>
-        )
-      case 'search_reference':
-        return (
-          <div className="flex items-center gap-2">
-            <Search className="h-4 w-4 text-purple-400" />
-            <span>
-              searching:{' '}
-              {currentToolArgs?.reference
-                ? `"${currentToolArgs.reference.substring(0, 30)}${currentToolArgs.reference.length > 30 ? '...' : ''}"`
-                : 'reference'}
-            </span>
-          </div>
-        )
-      case 'check_doi':
-        return (
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-teal-400" />
-            <span>
-              checking DOI:{' '}
-              {currentToolArgs?.doi ? currentToolArgs.doi : 'identifier'}
-            </span>
-          </div>
-        )
-      case 'check_url':
-        return (
-          <div className="flex items-center gap-2">
-            <Link className="h-4 w-4 text-indigo-400" />
-            <span>
-              verifying URL:{' '}
-              {currentToolArgs?.url
-                ? currentToolArgs.url.substring(0, 30) +
-                  (currentToolArgs.url.length > 30 ? '...' : '')
-                : 'link'}
-            </span>
-          </div>
-        )
-      case 'finalizing':
-        return (
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-emerald-400" />
-            <span>finalizing verification</span>
-          </div>
-        )
-      default:
-        return <span>processing...</span>
-    }
-  }
-
   const resetForm = () => {
     setReference('')
     setUIStatus('idle')
     setVerificationState(null)
     setResult(null)
     setCurrentToolArgs(null)
-  }
-
-  // Helper function to get badge color for a check type
-  const getBadgeColor = (checkType: string) => {
-    return (
-      checkBadgeColors[checkType] ||
-      'bg-gray-800 text-gray-300 hover:bg-gray-700 border-gray-600'
-    )
   }
 
   return (
@@ -382,7 +162,6 @@ export default function ReferenceVerifier() {
                 </div>
               </div>
 
-              {/* Updated Verify Reference button */}
               <button
                 type="submit"
                 disabled={!reference.trim()}
@@ -402,100 +181,40 @@ export default function ReferenceVerifier() {
                   Verifying reference...
                 </p>
                 <div className="text-sm text-gray-400 ml-auto">
-                  {renderProcessingStep()}
+                  <ProcessingStepDisplay 
+                    processingStep={processingStep}
+                    currentToolArgs={currentToolArgs}
+                  />
                 </div>
               </div>
             </div>
           ) : (
             <div className="space-y-3">
-              <Alert
-                variant={
-                  uiStatus === 'verified'
-                    ? 'default'
-                    : uiStatus === 'requires-verification'
-                      ? 'default'
-                      : 'destructive'
-                }
-                className={`p-2.5 border ${
-                  uiStatus === 'verified'
-                    ? 'border-green-700 bg-green-900/30 text-green-200'
-                    : uiStatus === 'requires-verification'
-                      ? 'border-yellow-700 bg-yellow-900/30 text-yellow-200'
-                      : 'border-red-700 bg-red-900/30 text-red-200'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {uiStatus === 'verified' && (
-                    <CheckCircle className="h-5 w-5 text-green-400" />
-                  )}
-                  {uiStatus === 'requires-verification' && (
-                    <Clock className="h-5 w-5 text-yellow-400" />
-                  )}
-                  {(uiStatus === 'unverified' || uiStatus === 'error') && (
-                    <AlertCircle className="h-5 w-5 text-red-400" />
-                  )}
+              <VerificationAlert status={uiStatus} />
 
-                  <AlertTitle className="text-sm">
-                    {uiStatus === 'verified' && 'Reference Verified'}
-                    {uiStatus === 'requires-verification' &&
-                      'Requires Human Verification'}
-                    {uiStatus === 'unverified' && 'Reference Unverified'}
-                    {uiStatus === 'error' && 'Error Processing Reference'}
-                  </AlertTitle>
-                </div>
-              </Alert>
+              {result && (
+                <ReferenceResult 
+                  formattedReference={result.formattedReference}
+                  explanation={result.explanation}
+                  wasModified={result.wasModified}
+                  checksPerformed={result.checksPerformed}
+                />
+              )}
 
-              <div className="space-y-2">
-                <div className="rounded-md border border-gray-700 bg-gray-800/30 p-2.5 relative">
-                  {/* Reformatted badge in upper right corner */}
-                  {result?.wasModified && (
-                    <Badge className="absolute top-2 right-2 bg-blue-900 text-blue-200 text-xs border-blue-700">
-                      reformatted
-                    </Badge>
-                  )}
-                  <p className="text-sm text-left text-gray-200 pr-20">
-                    {result?.formattedReference}
-                  </p>
-                </div>
-
-                <div className="rounded-md border border-gray-700 bg-gray-800/30 p-2.5">
-                  <p className="text-sm leading-relaxed text-gray-300 text-left mb-3">
-                    {result?.explanation}
-                  </p>
-
-                  {/* Display checks performed below the explanation */}
-                  {result?.checksPerformed &&
-                    result.checksPerformed.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {result.checksPerformed.map((check, index) => (
-                          <Badge
-                            key={index}
-                            variant="outline"
-                            className={`text-xs ${getBadgeColor(check)}`}
-                          >
-                            {check}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                </div>
-
-                {/* Display token usage if showTokenUsage is true */}
-                {showTokenUsage && result?.tokenUsage && (
-                  <div className="rounded-md border border-gray-700 bg-gray-800/30 p-2.5 text-xs text-gray-400">
-                    <p>Token Usage:</p>
-                    <div className="flex justify-between mt-1">
-                      <span>Prompt: {result.tokenUsage.prompt_tokens}</span>
-                      <span>
-                        Completion: {result.tokenUsage.completion_tokens}
-                      </span>
-                      <span>Total: {result.tokenUsage.total_tokens}</span>
-                    </div>
+              {/* Display token usage if showTokenUsage is true */}
+              {showTokenUsage && result?.tokenUsage && (
+                <div className="rounded-md border border-gray-700 bg-gray-800/30 p-2.5 text-xs text-gray-400">
+                  <p>Token Usage:</p>
+                  <div className="flex justify-between mt-1">
+                    <span>Prompt: {result.tokenUsage.prompt_tokens}</span>
+                    <span>
+                      Completion: {result.tokenUsage.completion_tokens}
+                    </span>
+                    <span>Total: {result.tokenUsage.total_tokens}</span>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
-              {/* Updated "Verify Another Reference" button */}
               <button
                 onClick={resetForm}
                 className="w-full mt-4 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
