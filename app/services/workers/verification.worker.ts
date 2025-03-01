@@ -114,6 +114,8 @@ self.onmessage = async (e: MessageEvent) => {
         message: `Found ${extractedReferences.length} references for ${pdfId}`
       })
 
+
+
       // STEP 4: DOI VERIFICATION Check if any references have DOIs
       let referencesWithDOI = extractedReferences
       if (extractedReferences.some((ref: Reference) => ref.DOI)) {
@@ -145,7 +147,7 @@ self.onmessage = async (e: MessageEvent) => {
 
       //('📚 References with DOIs:', referencesWithDOI)
 
-      // STEP 5: Search and verification
+      // STEP 5: Verification
 
       const verificationResults = await o3VerificationService.processBatch(
         referencesWithDOI,
@@ -159,30 +161,6 @@ self.onmessage = async (e: MessageEvent) => {
         }
       )
 
-      /*const referencesWithSearch: Reference[] =
-        await searchReferenceService.processBatch(
-          referencesWithDOI,
-          (batchResults) => {
-            self.postMessage({
-              type: 'update',
-              pdfId,
-              message: `✅ search batch complete for ${pdfId}`
-            })
-          }
-        )
-
-      const verifiedReferences: Reference[] =
-        await verifyReferenceService.processBatch(
-          referencesWithSearch,
-          (batchResults) => {
-            self.postMessage({
-              type: 'verification-update',
-              pdfId,
-              message: 'Verifying references...',
-              batchResults
-            })
-          }
-        )*/
       const processedReferences = verificationResults.map((result) => ({
         ...result.reference,
         message: result.result?.message,

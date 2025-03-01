@@ -5,7 +5,7 @@ import { PDFQueueService } from '@/app/services/queue-service'
 import { FileText, CheckCircle, XCircle, Cog } from 'lucide-react'
 import { PDFDropZone } from './PDFDropZone'
 import ReferenceGrid from '@/app/components/reference-display/ReferenceGrid'
-import type { Reference } from '@/app/types/reference'
+import type { Reference, ReferenceStatus } from '@/app/types/reference'
 
 const PDFProcessor = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -23,7 +23,9 @@ const PDFProcessor = () => {
 
   useEffect(() => {
     // Initialize the queue service
-    queueServiceRef.current = new PDFQueueService('/workers/verification-worker.js')
+    queueServiceRef.current = new PDFQueueService(
+      '/workers/verification-worker.js'
+    )
 
     // Listen for updates from the queue
     queueServiceRef.current.onUpdate((message) => {
@@ -34,23 +36,53 @@ const PDFProcessor = () => {
 
         case 'references':
           setLogMessages((prev) => [...prev, `${message.message}`])
+
+          // Create placeholder references based on the count
+          if (message.noReferences && message.pdfId) {
+            const placeholderRefs: Reference[] = Array(message.noReferences)
+              .fill(null)
+              .map((_, index) => ({
+                id: index,
+                title: `Reference #${index + 1}`,
+                authors: [],
+                year: '',
+                sourceDocument: message.pdfId,
+                status: 'pending' as ReferenceStatus,
+                date_of_access: '',
+                raw: ''
+              }))
+
+            setReferences((prev) => [
+              ...prev.filter(
+                (ref) =>
+                  !(
+                    ref.sourceDocument === message.pdfId &&
+                    ref.status === 'pending'
+                  )
+              ),
+              ...placeholderRefs
+            ])
+          }
           break
 
         case 'complete':
           console.log('Complete message received:', message)
-          console.log('Processed references:', message.references?.length) // Add this
+          console.log('Processed references:', message.references?.length)
 
           setLogMessages((prev) => [
             ...prev,
             `✅ Processing complete for PDF ${message.pdfId}`
-            /*`Verified References for PDF ${message.pdfId}:`,
-            ...(message.references || []).map(
-              (ref, index) => `  ${index + 1}. ${JSON.stringify(ref, null, 2)}`
-            )*/
           ])
 
+          // Remove any pending references for this PDF and add the verified ones
           setReferences((prev) => [
-            ...prev,
+            ...prev.filter(
+              (ref) =>
+                !(
+                  ref.sourceDocument === message.pdfId &&
+                  ref.status === 'pending'
+                )
+            ),
             ...(message.references || []).map((ref) => ({
               ...ref,
               sourceDocument: message.pdfId
@@ -115,14 +147,6 @@ const PDFProcessor = () => {
           onProcess={handleProcessFiles}
         />
       </div>
-
-     {/*} <div className="mb-6">
-        <ModeSelector
-          //isHighAccuracy={isHighAccuracy}
-          onToggle={toggleHighAccuracy}
-          disabled={isProcessing}
-        />
-      </div>*/}
 
       <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 md:grid-cols-4">
         {[
