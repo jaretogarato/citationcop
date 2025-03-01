@@ -12,7 +12,10 @@ import { PDFDocument } from 'pdf-lib'
 import { getDocument, PDFDocumentProxy, GlobalWorkerOptions } from 'pdfjs-dist'
 import { PdfSlicerService } from './pdf-slicer-service'
 
-GlobalWorkerOptions.workerSrc = '/workers/pdf.worker.js'
+//GlobalWorkerOptions.workerSrc = '/workers/pdf.worker.js'
+
+// Ensure the correct worker is used
+GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
 
 interface PDFItem {
   str: string

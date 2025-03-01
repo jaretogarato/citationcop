@@ -2,7 +2,10 @@ import { getDocument } from 'pdfjs-dist'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { GlobalWorkerOptions } from 'pdfjs-dist'
 
-GlobalWorkerOptions.workerSrc = '/workers/pdf.worker.js'
+//GlobalWorkerOptions.workerSrc = '/workers/pdf.worker.js'
+// Ensure the correct worker is used
+GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+
 
 interface PDFItem {
   str: string

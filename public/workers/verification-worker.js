@@ -40869,7 +40869,7 @@
   };
 
   // app/services/reference-page-detection-service.ts
-  __webpack_exports__GlobalWorkerOptions.workerSrc = "/workers/pdf.worker.js";
+  __webpack_exports__GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
   var ReferencePageDetectionService = class {
     CHUNK_SIZE = 3;
     pdfDoc = null;

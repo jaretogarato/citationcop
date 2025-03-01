@@ -91,12 +91,27 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                       <TooltipTrigger>
                         <div className="h-6 w-px bg-slate-600 mx-2 self-center hover:bg-slate-400 transition-colors cursor-help shrink-0" />
                       </TooltipTrigger>
+                      {/*<TooltipContent
+                        side="top"
+                        className="bg-slate-800 text-slate-100 border-slate-700"
+                      >
+                        <span className="text-xs">
+                          Start of references from:
+                        </span>
+                        <span className="text-xs font-medium">{sourceDoc}</span>
+                      </TooltipContent>*/}
                       <TooltipContent
                         side="top"
                         className="bg-slate-800 text-slate-100 border-slate-700"
                       >
-                        <p className="text-xs">Start of references from:</p>
-                        <p className="text-xs font-medium">{sourceDoc}</p>
+                        <div>
+                          <span className="text-xs">
+                            Start of references from:
+                          </span>
+                          <span className="text-xs font-medium">
+                            {sourceDoc}
+                          </span>
+                        </div>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
@@ -114,28 +129,44 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                                 ${getStatusColor(ref.status)}
                                 hover:opacity-75 transition-opacity
                                 cursor-pointer
-                                rounded-sm 
+                                rounded-sm
                                 shrink-0
                               `}
                             />
                           </DialogTrigger>
                         </TooltipTrigger>
+                        {/*<TooltipContent
+                          side="top"
+                          className="max-w-[300px] text-xs bg-slate-800 text-slate-100 border-slate-700"
+                        >
+                          <span className="font-semibold">{ref.title}</span>
+                          <span className="text-slate-300 mt-1">
+                            Source: {sourceDoc}
+                          </span>
+                        </TooltipContent>*/}
                         <TooltipContent
                           side="top"
                           className="max-w-[300px] text-xs bg-slate-800 text-slate-100 border-slate-700"
                         >
-                          <p className="font-semibold">{ref.title}</p>
-                          <p className="text-slate-300 mt-1">
-                            Source: {sourceDoc}
-                          </p>
+                          <div>
+                            <span className="font-semibold">{ref.title}</span>
+                            <span className="text-slate-300 mt-1">
+                              Source: {sourceDoc}
+                            </span>
+                          </div>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                     <DialogContent className="bg-transparent border-none shadow-none max-w-lg">
-                      <DialogTitle hidden>Reference {ref.title}</DialogTitle>
+                      {/*<DialogTitle hidden>Reference {ref.title}</DialogTitle>
                       <DialogDescription hidden>
                         Details of the verification of the reference
-                      </DialogDescription>
+                      </DialogDescription>*/}
+                      <h2 className="sr-only">Reference {ref.title}</h2>
+                      <p className="sr-only">
+                        Details of the verification of the reference
+                      </p>
+
                       <div className="mt-4">
                         <ReferenceDialog reference={ref} />
                       </div>
