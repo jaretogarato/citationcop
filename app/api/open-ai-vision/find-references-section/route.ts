@@ -52,6 +52,8 @@ Instructions:
 
 A references section will starts with a header like "References" or "Bibliography" and includes a list of citations.
 
+Do not include any other pages that are not part of the references section. IF another section starts, like APPENDIX, that has references, DO NOT INCLUDE IT.
+
 4) If it is a two-column document, make sure to look at both columns for the header. 
           
 Your final answer must be a JSON object with a key "references" that maps to an array of page numbers starting with the baginning of the references section, and going until the end, e.g., {"references": [12, 13, 14]}. Do not include any additional keys or explanatory text.`
