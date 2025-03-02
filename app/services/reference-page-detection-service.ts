@@ -15,7 +15,7 @@ import { PdfSlicerService } from './pdf-slicer-service'
 //GlobalWorkerOptions.workerSrc = '/workers/pdf.worker.js'
 
 // Ensure the correct worker is used
-GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 
 interface PDFItem {
   str: string
@@ -303,7 +303,7 @@ export class ReferencePageDetectionService {
       body: JSON.stringify({
         filePath: imageData,
         parsedText, // Include parsed text in the analysis
-        mode: 'free'
+        model: 'gpt-4o-mini'
       })
     })
 

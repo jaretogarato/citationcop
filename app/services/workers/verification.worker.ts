@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import { WorkerMessage } from '../types'
-import { ReferencePageDetectionService } from '../reference-page-detection-service'
+import { ReferencePageDetectionService } from '../reference-page-detection-service2'
 import { ReferenceExtractFromTextService } from '../reference-extract-from-text-service'
 import { o3ReferenceVerificationService } from '../o3-reference-verification-service'
 
@@ -45,11 +45,10 @@ self.onmessage = async (e: MessageEvent) => {
       })
 
       // STEP 2: Extract markdown content from reference pages
-      self.postMessage({
-        type: 'update',
-        pdfId,
-        message: `Grabbing content from pages with references`
-      })
+      
+
+      console.log('ENTERING STEP 2 ***** ')
+      console.log('referencePages: ', referencePages.length)
 
       const markdownContents = await Promise.all(
         referencePages.map(async (page) => {
@@ -62,16 +61,22 @@ self.onmessage = async (e: MessageEvent) => {
               body: JSON.stringify({
                 filePath: page.imageData,
                 parsedText: page.parsedContent.rawText,
-                mode: 'free'
+                model: 'free'
               })
             }
           )
+       
 
           if (!markdownResponse.ok) {
             throw new Error('Failed to extract references content')
           }
 
           const { markdown } = await markdownResponse.json()
+          self.postMessage({
+            type: 'update',
+            pdfId,
+            message: `Grabbing references from page ${page.pageNumber}.`
+          })
           return {
             pageNumber: page.pageNumber,
             markdown,
