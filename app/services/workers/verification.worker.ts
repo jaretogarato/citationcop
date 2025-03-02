@@ -6,6 +6,9 @@ import { ReferenceExtractFromTextService } from '../reference-extract-from-text-
 import { o3ReferenceVerificationService } from '../o3-reference-verification-service'
 
 import type { Reference } from '@/app/types/reference'
+interface ExtractedReferenceWithIndex extends Reference {
+  index: number
+}
 
 declare const self: DedicatedWorkerGlobalScope
 
@@ -45,7 +48,6 @@ self.onmessage = async (e: MessageEvent) => {
       })
 
       // STEP 2: Extract markdown content from reference pages
-      
 
       console.log('ENTERING STEP 2 ***** ')
       console.log('referencePages: ', referencePages.length)
@@ -65,7 +67,6 @@ self.onmessage = async (e: MessageEvent) => {
               })
             }
           )
-       
 
           if (!markdownResponse.ok) {
             throw new Error('Failed to extract references content')
@@ -113,18 +114,26 @@ self.onmessage = async (e: MessageEvent) => {
           }
         )
 
+      // Add an index property to each extracted reference
+      const extractedReferencesWithIndex: ExtractedReferenceWithIndex[] =
+        extractedReferences.map((ref, index) => ({
+          ...ref,
+          index
+        }))
       //console.log('📚 Extracted references:', extractedReferences)
 
       self.postMessage({
         type: 'references',
         pdfId: pdfId,
-        noReferences: extractedReferences.length,
-        message: `Found ${extractedReferences.length} unique references: ${pdfId}`
+        noReferences: extractedReferencesWithIndex.length,
+        message: `Found ${extractedReferencesWithIndex.length} unique references: ${pdfId}`,
+        references: extractedReferencesWithIndex
       })
 
       // STEP 4: DOI VERIFICATION Check if any references have DOIs
-      let referencesWithDOI = extractedReferences
-      if (extractedReferences.some((ref: Reference) => ref.DOI)) {
+      let referencesWithDOI = extractedReferencesWithIndex
+
+      /*if (extractedReferences.some((ref: Reference) => ref.DOI)) {
         self.postMessage({
           type: 'update',
           pdfId,
@@ -165,12 +174,17 @@ self.onmessage = async (e: MessageEvent) => {
         },
         // Add the new callback for individual reference updates
         (verifiedReference) => {
+          const index = (
+            verifiedReference.reference as ExtractedReferenceWithIndex
+          ).index
+
           self.postMessage({
             type: 'reference-verified',
             pdfId,
             message: `Verified reference: ${verifiedReference.reference.title || 'Unknown'}`,
             verifiedReference: {
               ...verifiedReference.reference,
+              id: `${pdfId}-${index}`,
               message: verifiedReference.result?.message,
               verificationDetails: verifiedReference.result,
               sourceDocument: pdfId

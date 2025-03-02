@@ -42022,30 +42022,18 @@ Reference error [${errorPath}]: ${errorMessage}`,
             });
           }
         );
+        const extractedReferencesWithIndex = extractedReferences.map((ref, index) => ({
+          ...ref,
+          index
+        }));
         self.postMessage({
           type: "references",
           pdfId,
-          noReferences: extractedReferences.length,
-          message: `Found ${extractedReferences.length} unique references: ${pdfId}`
+          noReferences: extractedReferencesWithIndex.length,
+          message: `Found ${extractedReferencesWithIndex.length} unique references: ${pdfId}`,
+          references: extractedReferencesWithIndex
         });
-        let referencesWithDOI = extractedReferences;
-        if (extractedReferences.some((ref) => ref.DOI)) {
-          self.postMessage({
-            type: "update",
-            pdfId,
-            message: "Verifying DOIs..."
-          });
-          const doiResponse = await fetch("/api/references/verify-doi", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ references: extractedReferences })
-          });
-          if (!doiResponse.ok) {
-            throw new Error("DOI verification failed");
-          }
-          const { references } = await doiResponse.json();
-          referencesWithDOI = references;
-        }
+        let referencesWithDOI = extractedReferencesWithIndex;
         const verificationResults = await o3VerificationService.processBatch(
           referencesWithDOI,
           (batchResults) => {
@@ -42058,12 +42046,14 @@ Reference error [${errorPath}]: ${errorMessage}`,
           },
           // Add the new callback for individual reference updates
           (verifiedReference) => {
+            const index = verifiedReference.reference.index;
             self.postMessage({
               type: "reference-verified",
               pdfId,
               message: `Verified reference: ${verifiedReference.reference.title || "Unknown"}`,
               verifiedReference: {
                 ...verifiedReference.reference,
+                id: `${pdfId}-${index}`,
                 message: verifiedReference.result?.message,
                 verificationDetails: verifiedReference.result,
                 sourceDocument: pdfId

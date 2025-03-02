@@ -5,13 +5,16 @@ import { PDFQueueService } from '@/app/services/queue-service'
 import { FileText, CheckCircle, XCircle, Cog } from 'lucide-react'
 import { PDFDropZone } from './PDFDropZone'
 import ReferenceGrid from '@/app/components/reference-display/ReferenceGrid'
-import type { Reference, ReferenceStatus } from '@/app/types/reference'
+import type {
+  Reference,
+  ReferenceStatus,
+  Document
+} from '@/app/types/reference'
 import StatusDisplay from './StatusDisplay'
 
 const PDFProcessor = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-  //const [isHighAccuracy, setIsHighAccuracy] = useState(true)
   const [status, setStatus] = useState({
     pending: 0,
     processing: 0,
@@ -20,12 +23,15 @@ const PDFProcessor = () => {
   })
   const [logMessages, setLogMessages] = useState<string[]>([])
   const queueServiceRef = useRef<PDFQueueService | null>(null)
-  const [references, setReferences] = useState<Reference[]>([])
+
+  // Instead of a flat references array, we maintain a documents array.
+  // Each Document holds the pdfId and an array of references in the intended order.
+  const [documents, setDocuments] = useState<Document[]>([])
+
   const [processedReferenceIds, setProcessedReferenceIds] = useState<
     Set<string>
   >(new Set())
   const [completedPdfs, setCompletedPdfs] = useState<Set<string>>(new Set())
-
   const [currentJobs, setCurrentJobs] = useState<
     Map<
       string,
@@ -46,18 +52,15 @@ const PDFProcessor = () => {
   >({})
 
   useEffect(() => {
-    // Initialize the queue service
+    // Initialize the queue service with your worker script
     queueServiceRef.current = new PDFQueueService(
       '/workers/verification-worker.js'
     )
 
-    // Listen for updates from the queue
     queueServiceRef.current.onUpdate((message) => {
       switch (message.type) {
         case 'update':
           setLogMessages((prev) => [...prev, `${message.message}`])
-
-          // Update current job status
           setCurrentJobs((prev) => {
             const newJobs = new Map(prev)
             newJobs.set(message.pdfId, {
@@ -72,21 +75,17 @@ const PDFProcessor = () => {
 
         case 'references':
           setLogMessages((prev) => [...prev, `${message.message}`])
-
-          // Store the total number of references for this PDF
           if (message.noReferences && message.pdfId) {
+            // Track the total number of references for this PDF
             setReferenceCountByPdf((prev) => ({
               ...prev,
               [message.pdfId]: message.noReferences
             }))
-
-            // Initialize verified count to 0
             setVerifiedCountByPdf((prev) => ({
               ...prev,
               [message.pdfId]: 0
             }))
 
-            // Update job with reference count information
             setCurrentJobs((prev) => {
               const newJobs = new Map(prev)
               const existing = newJobs.get(message.pdfId)
@@ -94,38 +93,46 @@ const PDFProcessor = () => {
                 newJobs.set(message.pdfId, {
                   ...existing,
                   message: message.message,
-                  timestamp: new Date(),
-                  progress: 10 // Just found references, starting process
+                  timestamp: new Date()
                 })
               }
               return newJobs
             })
 
-            // Create placeholder references based on the count
-            const placeholderRefs: Reference[] = Array(message.noReferences)
-              .fill(null)
-              .map((_, index) => ({
-                // Make sure ID is unique across PDFs
-                id: `${message.pdfId}-${index}`, // Use a string ID that includes PDF ID
-                title: `Reference #${index + 1}`,
-                authors: [],
-                year: '',
+            // Create placeholders for the references.
+            // The id is constructed as `${pdfId}-${index}` so that we can later match the correct position.
+
+            // Assume extractedRefs is an array of extracted references from the worker
+            const placeholderRefs: Reference[] = message.references.map(
+              (ref, index) => ({
+                id: `${message.pdfId}-${index}`,
+                // Pre-populate with available data from extraction
+                title: ref.title || `Reference #${index + 1}`,
+                authors: ref.authors || [],
+                year: ref.year || '',
+                raw: ref.raw || '',
                 sourceDocument: message.pdfId,
                 status: 'pending' as ReferenceStatus,
-                date_of_access: '',
-                raw: ''
-              }))
+                date_of_access: ''
+                // (Optional) you can add other details from the extracted ref if available
+              })
+            )
 
-            setReferences((prev) => [
-              ...prev.filter(
-                (ref) =>
-                  !(
-                    ref.sourceDocument === message.pdfId &&
-                    ref.status === 'pending'
-                  )
-              ),
-              ...placeholderRefs
-            ])
+            console.log('Placeholder refs:', placeholderRefs)
+            console.log('PH 0:', placeholderRefs[0].id)
+            console.log('PH 1:', placeholderRefs[1].id)
+
+            // Update documents state for this pdfId.
+            setDocuments((prevDocs) => {
+              // Remove any existing document for this pdfId and add the new one
+              const otherDocs = prevDocs.filter(
+                (doc) => doc.pdfId !== message.pdfId
+              )
+              return [
+                ...otherDocs,
+                { pdfId: message.pdfId, references: placeholderRefs }
+              ]
+            })
           }
           break
 
@@ -137,109 +144,95 @@ const PDFProcessor = () => {
               `Completed: ${message.pdfId}: ${message.verifiedReference?.title || 'Unknown'}`
             ])
 
-            // Increment the count of verified references for this PDF
+            console.log('Reference verified:', message.verifiedReference)
+            console.log('Processed references:', message.verifiedReference?.id)
+
             setVerifiedCountByPdf((prev) => ({
               ...prev,
               [message.pdfId]: (prev[message.pdfId] || 0) + 1
             }))
 
-            // Update job progress based on verification count
             setCurrentJobs((prev) => {
               const newJobs = new Map(prev)
               const existing = newJobs.get(message.pdfId)
-
               if (existing) {
-                // Calculate progress: 10% for finding refs + up to 90% for verification progress
-                const totalRefs = referenceCountByPdf[message.pdfId] || 1 // Prevent division by zero
+                const totalRefs = referenceCountByPdf[message.pdfId] || 1 // prevent division by zero
                 const verifiedRefs =
-                  (verifiedCountByPdf[message.pdfId] || 0) + 1 // Add 1 for current reference
-
+                  (verifiedCountByPdf[message.pdfId] || 0) + 1
                 const progress = 10 + 90 * (verifiedRefs / totalRefs)
-
                 newJobs.set(message.pdfId, {
                   ...existing,
-                  message: `Verified reference: ${message.verifiedReference?.title || 'Unknown'} `,
+                  message: `Verified reference: ${message.verifiedReference?.title || 'Unknown'}`,
                   timestamp: new Date(),
-                  progress: Math.min(progress, 99) // Cap at 99% until complete
+                  progress: Math.min(progress, 99)
                 })
               }
               return newJobs
             })
 
             if (message.verifiedReference) {
-              // Safely handle the ID format
+              // Format the id so that it includes the pdfId and index.
               const refId =
                 message.verifiedReference.id !== undefined &&
                 message.verifiedReference.id !== null
                   ? String(message.verifiedReference.id)
                   : ''
-
               const verifiedRefWithCorrectId = {
                 ...message.verifiedReference,
-                // Make sure the ID has the correct format
                 id: refId.includes(message.pdfId)
                   ? refId
                   : `${message.pdfId}-${refId}`
               }
 
-              // Update the references array
-              setReferences((prev) => {
-                // Get all pending references for this PDF
-                const pendingReferences = prev.filter(
-                  (ref) =>
-                    ref.sourceDocument === message.pdfId &&
-                    ref.status === 'pending' &&
-                    !processedReferenceIds.has(String(ref.id))
-                )
-
-                // If we don't have any pending references left, just add the new one
-                if (pendingReferences.length === 0) {
-                  return [...prev, verifiedRefWithCorrectId]
-                }
-
-                // Get the first pending reference to replace
-                const referenceToReplace = pendingReferences[0]
-
-                // Mark this reference as processed
-                setProcessedReferenceIds((current) => {
-                  const newSet = new Set(current)
-                  newSet.add(String(referenceToReplace.id))
-                  return newSet
+              // Update the document's references array.
+              setDocuments((prevDocs) =>
+                prevDocs.map((doc) => {
+                  if (doc.pdfId === message.pdfId) {
+                    // Look for a placeholder whose id matches.
+                    const newRefs = doc.references.map((ref) => {
+                      if (
+                        ref.id === verifiedRefWithCorrectId.id &&
+                        ref.status === 'pending'
+                      ) {
+                        return verifiedRefWithCorrectId
+                      }
+                      return ref
+                    })
+                    // If no placeholder was found, fallback to appending.
+                    if (
+                      !newRefs.find((r) => r.id === verifiedRefWithCorrectId.id)
+                    ) {
+                      return {
+                        ...doc,
+                        references: [
+                          ...doc.references,
+                          verifiedRefWithCorrectId
+                        ]
+                      }
+                    }
+                    return { ...doc, references: newRefs }
+                  }
+                  return doc
                 })
-
-                // Return a new array with the reference replaced
-                return prev.map((ref) =>
-                  ref.id === referenceToReplace.id
-                    ? verifiedRefWithCorrectId
-                    : ref
-                )
-              })
+              )
             }
           }
           break
 
-        // Update the complete case to better handle duplication
         case 'complete':
           console.log('Complete message received:', message)
           console.log('Processed references:', message.references?.length)
-
           setLogMessages((prev) => [
             ...prev,
             `✅ Processing complete for PDF ${message.pdfId}`
           ])
-
-          // Mark this PDF as completed
           setCompletedPdfs((prev) => {
             const newSet = new Set(prev)
             newSet.add(message.pdfId)
             return newSet
           })
-
-          // Update the status display
           setCurrentJobs((prev) => {
             const newJobs = new Map(prev)
-            const totalRefs = referenceCountByPdf[message.pdfId] || 0
-
             newJobs.set(message.pdfId, {
               pdfId: message.pdfId,
               status: 'complete',
@@ -247,7 +240,6 @@ const PDFProcessor = () => {
               timestamp: new Date(),
               progress: 100
             })
-
             // Remove completed jobs after 5 seconds
             setTimeout(() => {
               setCurrentJobs((current) => {
@@ -256,18 +248,14 @@ const PDFProcessor = () => {
                 return updatedJobs
               })
             }, 5000)
-
             return newJobs
           })
-
-          // No need to touch references at all - they should all be updated already
 
           updateProcessingState()
           break
 
         case 'error':
           console.error('PDF Processor, error message received:', message)
-          // Update job to error state
           setCurrentJobs((prev) => {
             const newJobs = new Map(prev)
             newJobs.set(message.pdfId, {
@@ -290,7 +278,6 @@ const PDFProcessor = () => {
       }
     })
 
-    // Poll for status updates
     const interval = setInterval(() => {
       if (queueServiceRef.current) {
         setStatus(queueServiceRef.current.getStatus())
@@ -298,7 +285,7 @@ const PDFProcessor = () => {
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [completedPdfs, referenceCountByPdf, verifiedCountByPdf])
 
   const handleFilesSelected = (files: File[]) => {
     setSelectedFiles(files)
@@ -307,26 +294,15 @@ const PDFProcessor = () => {
   const handleProcessFiles = () => {
     if (queueServiceRef.current && selectedFiles.length > 0) {
       setIsProcessing(true)
-
       // Reset PDF-specific tracking for each new file
       selectedFiles.forEach((file) => {
         const pdfId = file.name
 
-        // Reset counts for this PDF
-        setReferenceCountByPdf((prev) => ({
-          ...prev,
-          [pdfId]: 0
-        }))
+        setReferenceCountByPdf((prev) => ({ ...prev, [pdfId]: 0 }))
+        setVerifiedCountByPdf((prev) => ({ ...prev, [pdfId]: 0 }))
 
-        setVerifiedCountByPdf((prev) => ({
-          ...prev,
-          [pdfId]: 0
-        }))
-
-        // Clear any existing processed reference IDs for this PDF
         setProcessedReferenceIds((prev) => {
           const newSet = new Set(prev)
-          // Remove any IDs that start with this PDF's ID
           Array.from(prev).forEach((id) => {
             if (id.toString().startsWith(pdfId)) {
               newSet.delete(id)
@@ -335,7 +311,6 @@ const PDFProcessor = () => {
           return newSet
         })
 
-        // Remove this PDF from completed set if it was there
         setCompletedPdfs((prev) => {
           const newSet = new Set(prev)
           newSet.delete(pdfId)
@@ -347,13 +322,9 @@ const PDFProcessor = () => {
     }
   }
 
-  /*const toggleHighAccuracy = (checked: boolean) => {
-    setIsHighAccuracy(checked)
-  }*/
-
   const updateProcessingState = () => {
     if (queueServiceRef.current) {
-      const { processing, pending } = queueServiceRef.current.getStatus()
+      const { processing } = queueServiceRef.current.getStatus()
       setIsProcessing(processing > 0)
     }
   }
@@ -412,11 +383,16 @@ const PDFProcessor = () => {
         ))}
       </div>
 
-      {references.length > 0 && (
-        <div className="mt-6 mb-6">
-          <ReferenceGrid references={references} />
-        </div>
-      )}
+      {/* Render a ReferenceGrid for each document */}
+      {documents.length > 0 &&
+        documents.map((doc) => (
+          <div key={doc.pdfId} className="mt-6 mb-6">
+            <h3 className="text-lg font-semibold text-slate-200 mb-4">
+              References for {doc.pdfId}
+            </h3>
+            <ReferenceGrid references={doc.references} />
+          </div>
+        ))}
 
       <StatusDisplay logMessages={logMessages} currentJobs={currentJobs} />
     </div>

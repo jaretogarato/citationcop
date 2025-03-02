@@ -1,5 +1,10 @@
 //app/types/references.ts
 
+export interface Document {
+  pdfId: string
+  references: Reference[]
+}
+
 export interface FileData {
   file: File | null
   name: string | null
@@ -104,6 +109,7 @@ export interface Reference {
   searchResults?: GoogleSearchResult
 
   fixedReference?: string | null
+
 }
 
 // Type definitions for helper functions
