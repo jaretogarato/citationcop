@@ -41209,6 +41209,8 @@
           }
           return references;
         } catch (error2) {
+          console.log(`Error processing chunk ${startIndex + index + 1}:`, error2);
+          console.log("Error processing chunk:", chunk);
           console.error(
             `Error processing chunk ${startIndex + index + 1}:`,
             error2

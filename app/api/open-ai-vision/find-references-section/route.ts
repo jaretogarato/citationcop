@@ -46,8 +46,13 @@ export async function POST(request: Request) {
           
 Instructions:
 1) Look at pages starting from the back of the document.
-2) Use the "next_page" tool to retrieve the previous page if you need more context.
-3) CRITICAL: STOP LOOKING when you have found the beginning of the reference section. A references section will starts with a header like "References" or "Bibliography" and includes a list of citations.
+2) Use the "next_page" tool to retrieve the previous page (so if you looked at page 12 you would get page 11).
+
+3) CRITICAL: Return the final answer when you have found the reference header.  
+
+A references section will starts with a header like "References" or "Bibliography" and includes a list of citations.
+
+4) If it is a two-column document, make sure to look at both columns for the header.
           
 Your final answer must be a JSON object with a key "references" that maps to an array of page numbers starting with the baginning of the references section, and going until the end, e.g., {"references": [12, 13, 14]}. Do not include any additional keys or explanatory text.`
         },

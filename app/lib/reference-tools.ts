@@ -90,7 +90,7 @@ export const referencePageDetectionTools: ChatCompletionTool[] = [
           explanation: {
             type: 'string',
             description:
-              'A brief explanation of why additional context is needed.'
+              'Did you see what seems like a references section on this page?'
           }
         },
         required: ['current_page', 'explanation'],
