@@ -20,7 +20,7 @@ test-products.json
 # production
 /build
 
-/public/workers/verification-worker.js 
+
 
 # misc
 .DS_Store
