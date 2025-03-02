@@ -40874,6 +40874,7 @@
     CHUNK_SIZE = 3;
     pdfDoc = null;
     currentFile = null;
+    imageCache = /* @__PURE__ */ new Map();
     async initialize(file) {
       try {
         let arrayBuffer;
@@ -40904,6 +40905,7 @@
         this.pdfDoc = null;
         this.currentFile = null;
       }
+      this.imageCache.clear();
     }
     // Fetch the previous page’s image.
     async nextPage(current_page) {
@@ -41010,7 +41012,10 @@
             1
           );
           const arrayBuffer = await pdfSlice.arrayBuffer();
-          const images = await this.convertPdfToImages(arrayBuffer);
+          let images = this.imageCache.has(currentPage) ? [this.imageCache.get(currentPage)] : await this.convertPdfToImages(arrayBuffer);
+          if (!this.imageCache.has(currentPage) && images.length > 0) {
+            this.imageCache.set(currentPage, images[0]);
+          }
           if (images.length === 0) {
             throw new Error(`Could not retrieve image for page ${currentPage}`);
           }
@@ -41052,17 +41057,20 @@
         }
         const finalResults = await Promise.all(
           referencePages.map(async (pageNum) => {
-            const pdfSlicer = new PdfSlicerService();
-            const pdfSlice = await pdfSlicer.slicePdfPages(
-              this.currentFile,
-              pageNum,
-              1
-            );
-            const arrayBuffer = await pdfSlice.arrayBuffer();
-            const images = await this.convertPdfToImages(arrayBuffer);
-            let imageData = "";
-            if (images && images.length > 0) {
-              imageData = images[0];
+            let imageData = this.imageCache.get(pageNum) || "";
+            if (!imageData) {
+              const pdfSlicer = new PdfSlicerService();
+              const pdfSlice = await pdfSlicer.slicePdfPages(
+                this.currentFile,
+                pageNum,
+                1
+              );
+              const arrayBuffer = await pdfSlice.arrayBuffer();
+              const images = await this.convertPdfToImages(arrayBuffer);
+              if (images.length > 0) {
+                imageData = images[0];
+                this.imageCache.set(pageNum, imageData);
+              }
             }
             const parsedContent = await this.extractPageContent(pageNum);
             return {
@@ -41070,7 +41078,6 @@
               imageData,
               parsedContent,
               analysis: {
-                // Minimal flags for compatibility.
                 hasReferencesHeader: true,
                 hasNewSectionStart: false,
                 hasReferences: true,
