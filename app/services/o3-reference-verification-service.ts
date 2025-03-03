@@ -5,7 +5,7 @@ import {
   checkDOI,
   searchReference,
   checkURL
-} from '@/app/lib/referneceToolsCode'
+} from '@/app/lib/referenceToolsCode'
 
 type ProcessStatus = 'pending' | 'complete' | 'error'
 

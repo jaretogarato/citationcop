@@ -45,7 +45,7 @@ export async function POST(request: Request) {
           content: `You are a reference verification assistant. Your task is to verify academic and web references using available tools.
 
 A reference status must be one of:
-- "verified": if validity can be confirmed with high confidence. If there is a small error (e.g., DOI # mismatch), it can still be verified.
+- "verified": if validity can be confirmed with high confidence. If the DOI is off by just a numbner, the reference is still verified. Correct the DOI in the final reference.
 - "unverified": if there is no evidence of its existence
 - "needs-human": if the reference exists but has discrepancies or missing information that requires human verification
 
@@ -69,6 +69,7 @@ Return a final JSON response only when you have sufficient evidence:
 }
 
 IMPORTANT: Your final response must be valid JSON. Do NOT include any additional text, markdown, or formatting outside the JSON object.
+
 Do NOT use tool_calls when giving your final response. Make sure to try multiple searches if the first attempt is inconclusive.`
         },
         {

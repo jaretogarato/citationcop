@@ -18,16 +18,13 @@ async function getMarkDown({
   imageData: string
   parsedText?: string
 }) {
-  const systemPrompt = `You specialize in optical character recognition and your goal is to convert reference information in this image to text.
+  const systemPrompt = `You specialize in optical character recognition and your goal is to extract only the full references in this image to text as accurately as possible.
 
-Below is extracted text from the page: ${parsedText || ''}
-
-Using the extracted text above to double check the letters.
+  Below is extracted text from the page: ${parsedText || ''} Using the extracted text above to double check the letters.
 
 Requirements:
 - CRITICAL: The text at the VERY TOP of the page may be a continuation of a reference from the previous page. Make sure to include it in the output exactly as it is written. 
 - Look carefully at the first few lines of text - if they seem to be part of a citation (authors, journal, etc.) but don't start with a number, they are likely the end of a reference from the previous page.
-- Content: Capture ALL references information, including any text at the top of the page that might be the continuation of a reference from the previous page.
 - DO NOT add or infer any text. ONLY include information that is present in the image and the text provided above.
 - A reference will should have a form like: Smith, J. (2020). My paper. Journal of Papers, 1(2), 3-4. 
 - DO NOT extract references of form (Smith, 2020) or [1].
@@ -35,7 +32,8 @@ Requirements:
 `
 
   const output = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
+    //model: 'gpt-4o-mini',
+    model: 'o1',
     messages: [
       {
         role: 'system',
@@ -52,9 +50,9 @@ Requirements:
           }
         ]
       }
-    ],
-    temperature: 0.0,
-    max_tokens: 4096
+    ]
+    //temperature: 0.0,
+    //max_tokens: 4096
   })
 
   if (

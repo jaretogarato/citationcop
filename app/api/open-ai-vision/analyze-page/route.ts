@@ -29,14 +29,16 @@ async function analyzePage({
   const MAX_RETRIES = 2
   const TIMEOUT_MS = 60000 // 60 seconds
 
-  const systemPrompt = `Using the extracted text from the page (${parsedText}) and the image, analyze the content to answer the following questions in JSON format. 
+  //Using the extracted text from the page (${parsedText}) and the image, analyze the content to answer the following questions in JSON format. Use both the extracted text (${parsedText}) and the image to determine the answers.
+  const systemPrompt = `Analyse the image of a page and answer the following questions. 
 
-hasReferenceHeader: When there is a Reference header (e.g., \"References\", \"Bibliography\", \"Works Cited\") immediately preceding a list of references.
-hasNewSectionStart: A header indicating a new section that isn't a references section (e.g., \"Appendix\" or \"Supplementary Material\")
+hasReferenceHeader: This page has header with the words: \"References\", \"Bibliography\", \"Works Cited\", or synonyms thereof. It MUST be these words in a HEADER meaning on its own line.
+
+hasNewSectionStart: A header indicating that is NOT a references section (e.g., \"Appendix\" or \"Supplementary Material\") AND references follow this header.
 
 hasReferences: Page contains complete references such as: \"Smith, J. (2020). My paper. Journal of Papers, 1(2), 3-4.\" CRITICAL: Do not count references like Smith et al., 2020 or [1]
 
-Use both the extracted text (${parsedText}) and the image to determine the answers.
+Note that all three three can be yes.
 
  Respond ONLY IN this exact JSON format without any additional text:
     {
@@ -44,7 +46,6 @@ Use both the extracted text (${parsedText}) and the image to determine the answe
       "hasNewSectionStart": "yes/no",
       "hasReferences": "yes/no"
     }
-    ONLY respond in JSON format.
 
     Response:`
 
@@ -63,7 +64,7 @@ Use both the extracted text (${parsedText}) and the image to determine the answe
         }
 
         output = await openaiClient.chat.completions.create({
-          model: visionLLM,
+          model: 'o1', //visionLLM,
           messages: [
             {
               role: 'user',
@@ -78,8 +79,8 @@ Use both the extracted text (${parsedText}) and the image to determine the answe
               ]
             }
           ],
-          max_tokens: 50,
-          temperature: 0.0, // Lower temperature for more consistent JSON output
+          //max_tokens: 50,
+          //temperature: 0.0, // Lower temperature for more consistent JSON output
           response_format: { type: 'json_object' } // Force JSON response
           //store: true // Store the message and image for history and analysis purposes
         })
@@ -187,7 +188,9 @@ export async function POST(request: NextRequest) {
 
     try {
       const data = await request.json()
-      const { filePath, parsedText, model = 'free' } = data
+      const { filePath, parsedText, model } = data
+
+      //console.log('Request Data:', data)
 
       // Input validation
       if (!filePath) {
@@ -215,6 +218,8 @@ export async function POST(request: NextRequest) {
 
       // Initialize the appropriate client based on the model
       let togetherClient, openaiClient
+
+      console.log('Vision LLM:', visionLLM)
 
       if (visionLLM.includes('gpt-4o')) {
         if (!openaiApiKey) {

@@ -1,5 +1,5 @@
 // app/lib/verification-service.ts
-import { checkDOI, searchReference, checkURL } from '@/app/lib/referneceToolsCode'
+import { checkDOI, searchReference, checkURL } from '@/app/lib/referenceToolsCode'
 import type { Reference, ReferenceStatus } from '@/app/types/reference'
 
 export type TokenUsage = {

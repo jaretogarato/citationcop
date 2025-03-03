@@ -2,7 +2,7 @@
 import OpenAI from 'openai'
 import { NextResponse } from 'next/server'
 
-export const maxDuration = 300 // Increased to 5 minutes (300 seconds)
+export const maxDuration = 60 // Increased to 5 minutes (300 seconds)
 export const runtime = 'edge'
 
 const openAI = new OpenAI({
