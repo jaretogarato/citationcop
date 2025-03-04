@@ -77,7 +77,7 @@ export const referencePageDetectionTools: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
-      name: 'next_page',
+      name: 'earlier_page',
       description:
         'Get the previous page to analyze. When calling this, include an explanation of why you need additional context (e.g. the current page does not contain enough information).',
       parameters: {
