@@ -29,7 +29,7 @@ type StatusItem = {
 }
 
 // Maximum text length constant
-const MAX_TEXT_LENGTH = 20000
+const MAX_TEXT_LENGTH = 10000
 
 export default function MultiReferenceVerifier() {
   const [bulkText, setBulkText] = useState('')
@@ -289,6 +289,9 @@ export default function MultiReferenceVerifier() {
     }
   }
 
+  const isProcessingComplete =
+    statusCounts.total > 0 && statusCounts.pending === 0
+
   return (
     <div className="w-full max-w-6xl mx-auto">
       <Card className="w-full bg-gray-900/60 backdrop-blur-sm shadow-lg !border-0">
@@ -372,7 +375,6 @@ export default function MultiReferenceVerifier() {
                 <ReferenceGrid references={references} />
               )}
 
-              {/* Processing status display - Using your existing StatusDisplay component */}
               <StatusDisplay
                 logMessages={logMessages}
                 currentJobs={currentJobs}
@@ -380,7 +382,8 @@ export default function MultiReferenceVerifier() {
 
               <button
                 onClick={resetForm}
-                className="w-full mt-4 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
+                disabled={!isProcessingComplete && overallStatus !== 'error'}
+                className="w-full mt-4 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium roun`ded-lg transition-colors"
               >
                 Process New References
               </button>

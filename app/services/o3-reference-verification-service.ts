@@ -59,7 +59,7 @@ export class o3ReferenceVerificationService {
       maxRetries: 3,
       requestTimeout: 60000, // 60 seconds
       maxIterations: 15,
-      batchSize: 5,
+      batchSize: 15,
       ...config
     }
   }
