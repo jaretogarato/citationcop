@@ -288,9 +288,7 @@ export default function MultiReferenceVerifier() {
       textareaRef.current.focus()
     }
   }
-
-  const isProcessingComplete =
-    statusCounts.total > 0 && statusCounts.pending === 0
+ 
 
   return (
     <div className="w-full max-w-6xl mx-auto">
@@ -379,14 +377,14 @@ export default function MultiReferenceVerifier() {
                 logMessages={logMessages}
                 currentJobs={currentJobs}
               />
-
-              <button
-                onClick={resetForm}
-                disabled={!isProcessingComplete && overallStatus !== 'error'}
-                className="w-full mt-4 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium roun`ded-lg transition-colors"
-              >
-                Process New References
-              </button>
+              { (overallStatus === 'complete' && (
+                  <button
+                    onClick={resetForm}
+                    className="w-full mt-4 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors disabled:bg-gray-500 disabled:text-gray-300"
+                  >
+                    Process New References
+                  </button>
+                ))}
             </div>
           )}
         </CardContent>
