@@ -158,7 +158,7 @@ const StatusDisplay: React.FC<StatusDisplayProps> = ({
         </div>
       )}
 
-      {/* Log Messages Section */}
+      {/* Log Messages Section 
       <div className="bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-700">
         <h3 className="text-lg font-semibold text-white mb-2">Process Log</h3>
         <div
@@ -178,6 +178,7 @@ const StatusDisplay: React.FC<StatusDisplayProps> = ({
           )}
         </div>
       </div>
+      */}
     </div>
   )
 }
