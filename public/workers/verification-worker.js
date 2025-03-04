@@ -41547,65 +41547,6 @@
         clearTimeout(timeoutId);
       }
     }
-    // Helper function to get status-specific information
-    getStatusSpecificInfo(status) {
-      let info2 = {
-        meaning: "Unknown error",
-        reasons: ["The URL couldn't be accessed due to an unknown error"],
-        suggestion: "Consider verifying the reference using DOI or literature search instead."
-      };
-      if (status === 404) {
-        info2 = {
-          meaning: "Not Found (404)",
-          reasons: [
-            "The resource no longer exists at this URL",
-            "The URL may have been mistyped or is incorrect",
-            "The content has been moved or deleted"
-          ],
-          suggestion: "This URL is confirmed to not exist. Try verifying the reference through DOI lookup or literature search."
-        };
-      } else if (status === 403) {
-        info2 = {
-          meaning: "Forbidden (403)",
-          reasons: [
-            "Access to this resource is restricted",
-            "The server understood the request but refuses to authorize it",
-            "Authentication may be required"
-          ],
-          suggestion: "This URL exists but is not publicly accessible. Try verifying the reference through other sources."
-        };
-      } else if (status === 401) {
-        info2 = {
-          meaning: "Unauthorized (401)",
-          reasons: [
-            "Authentication is required to access this resource",
-            "The citation may refer to a paywalled or private resource"
-          ],
-          suggestion: "This resource requires authentication. Consider verifying through academic databases."
-        };
-      } else if (status >= 400 && status < 500) {
-        info2 = {
-          meaning: `Client Error (${status})`,
-          reasons: [
-            "The request was malformed or invalid",
-            "The URL may be incorrect or incomplete",
-            "The resource may no longer be available at this location"
-          ],
-          suggestion: "There's a problem with the URL format or the resource doesn't exist. Try alternative verification methods."
-        };
-      } else if (status >= 500 && status < 600) {
-        info2 = {
-          meaning: `Server Error (${status})`,
-          reasons: [
-            "The server encountered an error while processing the request",
-            "The website may be temporarily down or experiencing issues",
-            "The service might be overloaded"
-          ],
-          suggestion: "The server is currently unable to handle the request. This may be temporary, but you should try DOI or literature search instead."
-        };
-      }
-      return info2;
-    }
     logError(reference, errorPath, error2, state) {
       const errorMessage = error2 instanceof Error ? error2.message : typeof error2 === "string" ? error2 : JSON.stringify(error2);
       console.error(
@@ -41726,7 +41667,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
         throw error2;
       }
     }
-    async verifyReference(reference, onUpdate) {
+    async verifyReference(reference, onUpdate, onStatusUpdate) {
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => {
           reject(
@@ -41736,10 +41677,14 @@ Reference error [${errorPath}]: ${errorMessage}`,
           );
         }, this.config.requestTimeout * 2);
       });
-      const verificationPromise = this._verifyReference(reference, onUpdate);
+      const verificationPromise = this._verifyReference(
+        reference,
+        onUpdate,
+        onStatusUpdate
+      );
       return Promise.race([verificationPromise, timeoutPromise]);
     }
-    async _verifyReference(reference, onUpdate) {
+    async _verifyReference(reference, onUpdate, onStatusUpdate) {
       if (!reference) {
         return {
           reference: reference || {},
@@ -41747,6 +41692,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
           result: { error: "Invalid reference provided" }
         };
       }
+      onStatusUpdate?.("initializing");
       let currentState = {
         status: "pending",
         messages: [],
@@ -41772,6 +41718,11 @@ Reference error [${errorPath}]: ${errorMessage}`,
             if (llmResponse.functionToCall) {
               const { name, arguments: args } = llmResponse.functionToCall;
               let functionResult;
+              if (onStatusUpdate && name) {
+                if (name === "check_doi" || name === "search_reference" || name === "check_url") {
+                  onStatusUpdate(name, args);
+                }
+              }
               switch (name) {
                 case "check_doi":
                   functionResult = await checkDOI(args.doi, args.title);
@@ -41795,6 +41746,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
                 lastToolCallId: llmResponse.lastToolCallId
               };
             } else {
+              onStatusUpdate?.("finalizing");
               currentState = llmResponse;
             }
             currentState.iteration = (currentState.iteration || 0) + 1;
@@ -41815,6 +41767,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
           }
         }
         if (currentState.status === "complete") {
+          onStatusUpdate?.("finalizing");
           if (currentState.parsingError) {
             this.logError(
               reference,
@@ -41828,8 +41781,6 @@ Reference error [${errorPath}]: ${errorMessage}`,
               reference.fixedReference = currentState.result.reference;
             }
           } else if (currentState.result) {
-            reference.status = currentState.result.status || "verified";
-            reference.message = currentState.result.message || "Verification complete";
             reference.status = currentState.result.status || "verified";
             reference.message = currentState.result.message || "Verification complete";
             reference.fixedReference = currentState.result.reference;
@@ -41872,7 +41823,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
         };
       }
     }
-    async processBatch(references, onBatchProgress, onReferenceVerified) {
+    async processBatch(references, onBatchProgress, onReferenceVerified, onStatusUpdate) {
       if (!Array.isArray(references)) {
         console.error("Invalid references array provided");
         return [];
@@ -41887,11 +41838,16 @@ Reference error [${errorPath}]: ${errorMessage}`,
         for (let i = 0; i < validReferences.length; i += this.config.batchSize) {
           const batch = validReferences.slice(i, i + this.config.batchSize);
           const batchPromises = batch.map(
-            (ref) => this.verifyReference(ref, (state) => {
-              console.log(
-                `Verifying reference ${i + batch.indexOf(ref) + 1}/${validReferences.length}`
-              );
-            }).then((result) => {
+            (ref) => this.verifyReference(
+              ref,
+              (state) => {
+                console.log(
+                  `Verifying reference ${i + batch.indexOf(ref) + 1}/${validReferences.length}`
+                );
+              },
+              // Pass the step update but add the reference ID
+              onStatusUpdate ? (step, args) => onStatusUpdate(ref.id, step, args) : void 0
+            ).then((result) => {
               if (onReferenceVerified) {
                 try {
                   onReferenceVerified(result);

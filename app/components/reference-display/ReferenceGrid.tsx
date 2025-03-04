@@ -25,13 +25,12 @@ const statusColors: Record<ReferenceStatus, string> = {
   pending: 'bg-indigo-400/60'
 }
 
-const statusDisplayNames: Record<ReferenceStatus | 'no_status', string> = {
+const statusDisplayNames: Record<ReferenceStatus | 'pending', string> = {
   verified: 'Verified',
   'needs-human': 'Needs Human review',
   error: 'Oops! Something went wrong',
   pending: 'Pending',
-  unverified: 'Reference does not appear to exist',
-  no_status: 'No Status'
+  unverified: 'Reference does not appear to exist'
 }
 
 interface ReferenceGridProps {
@@ -51,8 +50,8 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
   const getStatusDisplayName = (
     status: ReferenceStatus | undefined | null
   ): string => {
-    if (!status) return statusDisplayNames.no_status
-    return statusDisplayNames[status] || statusDisplayNames.no_status
+    if (!status) return statusDisplayNames.pending
+    return statusDisplayNames[status] || statusDisplayNames.pending
   }
 
   // Group references by source document
