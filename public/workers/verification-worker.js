@@ -41529,7 +41529,7 @@
         requestTimeout: 6e4,
         // 60 seconds
         maxIterations: 15,
-        batchSize: 5,
+        batchSize: 15,
         ...config
       };
     }
@@ -41646,6 +41646,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
           })
         });
         const responseData = await response.json();
+        console.log("Agent response:", responseData);
         if (responseData.status === "error") {
           console.error("==================\nAGENT ERROR RESPONSE:", {
             error: responseData.error,
