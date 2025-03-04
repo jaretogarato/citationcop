@@ -1,13 +1,10 @@
 import React from 'react'
-import {
-  Reference,
-  ReferenceStatus
-  //SearchResultItem
-} from '@/app/types/reference'
+import { Reference, ReferenceStatus } from '@/app/types/reference'
 import {
   DialogContent,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  DialogDescription
 } from '@/app/components/ui/dialog'
 import {
   Tabs,
@@ -27,7 +24,6 @@ import {
   Book,
   Calendar,
   Building,
-  //Search,
   ExternalLink
 } from 'lucide-react'
 
@@ -70,6 +66,7 @@ const tabColors = {
 export interface ReferenceDialogProps {
   reference: Reference
 }
+
 const statusConfig = {
   verified: {
     text: 'text-emerald-300',
@@ -97,6 +94,7 @@ const statusConfig = {
     displayText: 'Pending'
   }
 }
+
 export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
   const [activeTab, setActiveTab] = React.useState('details')
 
@@ -157,10 +155,6 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
               </p>
             )
           ) : (
-            // Might renderMessageWithLinks render a <div>? not valid html
-            //<p className="text-white whitespace-pre-wrap break-words">
-            //  {renderMessageWithLinks(value)}
-            //</p>
             <div className="text-white whitespace-pre-wrap break-words">
               {renderMessageWithLinks(value)}
             </div>
@@ -170,28 +164,14 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
     )
   }
 
-  /*const renderSearchResults = (results: SearchResultItem[]) => {
-    return results.map((result, index) => (
-      <div key={index} className="p-3 bg-black/10 rounded-lg space-y-2">
-        <a
-          href={result.link}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`${tabColors.search.text} hover:opacity-80 font-medium flex items-center gap-2`}
-        >
-          <span className="break-words">{result.title}</span>
-          <ExternalLink className="h-4 w-4 flex-shrink-0" />
-        </a>
-        <p className="text-sm text-gray-300 whitespace-pre-wrap break-words">
-          {result.snippet}
-        </p>
-      </div>
-    ))
-  }*/
-
   return (
     <DialogContent className="max-w-2xl bg-gray-900">
-      <DialogTitle className="text-white">Reference Details</DialogTitle>
+      <DialogHeader>
+        <DialogTitle className="text-white">Reference Details</DialogTitle>
+        <DialogDescription className="text-gray-400">
+          View complete details for this reference
+        </DialogDescription>
+      </DialogHeader>
 
       <Tabs
         defaultValue="details"
@@ -204,20 +184,20 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
               key={tab}
               value={tab}
               className={`
-                                ${colors.text}
-                                ${colors.hoverBg}
-                                transition-colors
-                                duration-200
-                                data-[state=active]:${colors.activeText}
-                                data-[state=active]:${colors.activeBg}
-                                data-[state=active]:ring-2
-                                data-[state=active]:${colors.ring}
-                                focus-visible:ring-2
-                                ${colors.focusColor}
-                                focus-visible:ring-offset-0
-                                ring-offset-0
-                                outline-none
-                            `}
+                ${colors.text}
+                ${colors.hoverBg}
+                transition-colors
+                duration-200
+                data-[state=active]:${colors.activeText}
+                data-[state=active]:${colors.activeBg}
+                data-[state=active]:ring-2
+                data-[state=active]:${colors.ring}
+                focus-visible:ring-2
+                ${colors.focusColor}
+                focus-visible:ring-offset-0
+                ring-offset-0
+                outline-none
+              `}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </TabsTrigger>
@@ -226,14 +206,14 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
 
         <ScrollArea
           className={`
-                    h-[60vh]
-                    mt-4
-                    rounded-md
-                    border
-                    ${tabColors[activeTab as keyof typeof tabColors].border}
-                    p-4
-                    ${tabColors[activeTab as keyof typeof tabColors].gradient}
-                `}
+            h-[60vh]
+            mt-4
+            rounded-md
+            border
+            ${tabColors[activeTab as keyof typeof tabColors].border}
+            p-4
+            ${tabColors[activeTab as keyof typeof tabColors].gradient}
+          `}
         >
           <TabsContent value="details" className="space-y-4 pr-4">
             {renderField('Title', reference.title, <Book />)}
@@ -279,11 +259,8 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
           <TabsContent value="Full Reference" className="space-y-4 pr-4">
             {reference.fixedReference ? (
               <div className="p-6 bg-black/10 rounded-lg">
-                {/*<p className="text-white whitespace-pre-wrap break-words text-lg leading-relaxed">
-                  {reference.fixedReference}
-                </p>*/}
                 <div className="text-white whitespace-pre-wrap break-words text-lg leading-relaxed">
-                  {reference.fixedReference}
+                  {renderMessageWithLinks(reference.fixedReference)}
                 </div>
               </div>
             ) : (
@@ -293,18 +270,6 @@ export const ReferenceDialog = ({ reference }: ReferenceDialogProps) => {
               </div>
             )}
           </TabsContent>
-          {/*<TabsContent value="search" className="space-y-4 pr-4">
-            {reference.searchResults?.organic ? (
-              <div className="space-y-4">
-                {renderSearchResults(reference.searchResults.organic)}
-              </div>
-            ) : (
-              <div className="text-center text-gray-300 py-8">
-                <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>No search results available</p>
-              </div>
-            )}
-          </TabsContent>*/}
         </ScrollArea>
       </Tabs>
     </DialogContent>

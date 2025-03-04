@@ -10,7 +10,7 @@ import type {
   ReferenceStatus,
   Document
 } from '@/app/types/reference'
-import StatusDisplay from './StatusDisplay'
+import StatusDisplay from '@/app/components/reference-display/StatusDisplay'
 
 const PDFProcessor = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
