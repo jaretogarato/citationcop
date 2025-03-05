@@ -3,8 +3,11 @@
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist'
 import { TextItem } from 'pdfjs-dist/types/src/display/api'
 
+// Ensure the correct worker is used
+GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
+
 // Disable the worker for server-side usage
-GlobalWorkerOptions.workerSrc = ''
+//GlobalWorkerOptions.workerSrc = ''
 
 export async function parsePDF(binaryData: Uint8Array): Promise<string> {
   try {

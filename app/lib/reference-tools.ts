@@ -72,3 +72,31 @@ export const referenceTools: ChatCompletionTool[] = [
     }
   }
 ]
+
+export const referencePageDetectionTools: ChatCompletionTool[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'earlier_page',
+      description:
+        'Get the previous page to analyze. When calling this, include an explanation of why you need additional context (e.g. the current page does not contain enough information). DO NOT CALL IF YOU HAVE FOUND THE REFERENCE HEADER',
+      parameters: {
+        type: 'object',
+        properties: {
+          current_page: {
+            type: 'number',
+            description: 'The current page number being analyzed.'
+          },
+          explanation: {
+            type: 'string',
+            description:
+              'Did you see references? Are they enumerated or in alphabetical order? If so, where are you in the alphabet/numbering? Are you sure you did not see a reference header? Explain why you need to see the previous page.'
+          }
+        },
+        required: ['current_page', 'explanation'],
+        additionalProperties: false
+      },
+      strict: true
+    }
+  }
+]

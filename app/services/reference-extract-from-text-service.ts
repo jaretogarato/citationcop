@@ -72,6 +72,9 @@ export class ReferenceExtractFromTextService {
         }
         return references
       } catch (error) {
+        console.log(`Error processing chunk ${startIndex + index + 1}:`, error)
+        console.log('Error processing chunk:', chunk)
+
         console.error(
           `Error processing chunk ${startIndex + index + 1}:`,
           error

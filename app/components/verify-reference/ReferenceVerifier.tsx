@@ -136,9 +136,9 @@ export default function ReferenceVerifier() {
     <div className="w-full max-w-3xl mx-auto">
       <Card className="w-full bg-gray-900/60 backdrop-blur-sm shadow-lg !border-0">
         <CardHeader className="pb-3">
-          <CardTitle className="text-white">
-            Try Our Reference Verifier
-          </CardTitle>
+            <CardTitle className="text-white">
+            Try Source Verify 👇  
+            </CardTitle>
           <CardDescription className="text-gray-300">
             Paste a single reference to verify and repair
           </CardDescription>

@@ -1,5 +1,9 @@
-import { getDocument } from 'pdfjs-dist'
-import type { PDFDocumentProxy } from 'pdfjs-dist'
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
+
+// Ensure the correct worker is used
+GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+
 
 // --------------------------------------------------
 // 1. Basic line & reference info types
@@ -326,7 +330,7 @@ export class PDFParser {
           break
         }
 
-    
+
 
         // Collect the line if "References" has not been found yet
         collectedLines.push(line)
