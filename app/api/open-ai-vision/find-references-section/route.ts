@@ -3,7 +3,7 @@ import OpenAI from 'openai'
 import { ChatCompletionMessageParam } from 'openai/resources/chat'
 import { referencePageDetectionTools } from '@/app/lib/reference-tools'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
