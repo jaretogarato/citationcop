@@ -42,19 +42,21 @@ export async function POST(request: Request) {
       messages = [
         {
           role: 'system',
-          content: `Your task is to analyze the pages of an document and determine which pages include the references section. You will start at the end of the book and work to the front because references sections are typically at the end of the book.
+          content: `Your task is to identify the pages that include the REFERENCES SECTION. When you find the Reference section header, return the results. 
+
+          INSTRUCTIONS:
+          1) Look at a page starting from the back of the document and identify the pages with references
+          2) FIND THE REFERENCE HEADER. A references section will start with a header like "References" or "Bibliography" and includes a list of citations. Return the final answer when you have found the reference header.
           
-Instructions:
-1) Look at a page starting from the back of the document.
-2) Use the "earlier_page" tool to retrieve the page before it.
-
-3) CRITICAL: YOU ARE LOOKING FOR A REFERENCE HEADER. A references section will starts with a header like "References" or "Bibliography" and includes a list of citations Return the final answer when you have found the reference header.  
-
-Do not include any other pages that are not part of the references section. IF another section starts, like APPENDIX, that has references, DO NOT INCLUDE IT.
-
-4) If it is a two-column document, make sure to look at both columns for the header. 
+          TOOLS: If you having yet found the header, use the "earlier_page" tool to retrieve the page before it 
           
-Your final answer must be a JSON object with a key "references" that maps to an array of page numbers starting with the baginning of the references section, and going until the end, e.g., {"references": [12, 13, 14]}. Do not include any additional keys or explanatory text.`
+CRITICAL: YOU ARE LOOKING FOR A REFERENCE HEADER. A references section starts with a header like "References" or "Bibliography" followed by a list of citations. **Return the final answer when you have found the reference header.** To help find the reference header, pay attention to reference numbering or the alphabetical order. The refernece header will typically come just before [1] or A. **
+
+WHEN YOU FIND THE REFECENCE HEADER, RETURN THE FINAL ANSWER, DO NOT ASK FOR A earlier_page TOOL CALL.
+          
+Your final answer must be a JSON object with a key "references" that maps to an array of page numbers starting with the baginning of the references section, and going until the end, e.g., {"references": [12, 13, 14]}. Do not include any additional keys or explanatory text.
+
+Do not include any other pages that are not part of the references section. IF another section starts, like APPENDIX, that has references, DO NOT INCLUDE IT.`
         },
         {
           role: 'user',

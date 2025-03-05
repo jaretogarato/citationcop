@@ -40868,13 +40868,15 @@
     }
   };
 
-  // app/services/reference-page-detection-service2.ts
+  // app/services/reference-page-detection-service.ts
   __webpack_exports__GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
   var ReferencePageDetectionService = class {
-    CHUNK_SIZE = 3;
     pdfDoc = null;
     currentFile = null;
     imageCache = /* @__PURE__ */ new Map();
+    /**
+     * Initialize the service with a PDF file
+     */
     async initialize(file) {
       try {
         let arrayBuffer;
@@ -40899,6 +40901,9 @@
         throw error2;
       }
     }
+    /**
+     * Clean up resources
+     */
     async cleanup() {
       if (this.pdfDoc) {
         await this.pdfDoc.destroy();
@@ -40907,40 +40912,81 @@
       }
       this.imageCache.clear();
     }
-    // Fetch the previous page’s image.
-    async earlierPage(current_page) {
+    /**
+     * Get the image data for a specific page
+     */
+    async getPageImage(pageNumber) {
       try {
         if (!this.currentFile) throw new Error("No file available");
-        const requestedPage = Math.max(1, current_page - 1);
+        if (this.imageCache.has(pageNumber)) {
+          return this.imageCache.get(pageNumber);
+        }
         const pdfSlicer = new PdfSlicerService();
         const pdfSlice = await pdfSlicer.slicePdfPages(
           this.currentFile,
-          requestedPage,
+          pageNumber,
           1
         );
         const sliceArrayBuffer = await pdfSlice.arrayBuffer();
         const images = await this.convertPdfToImages(sliceArrayBuffer);
         if (images && images.length > 0) {
-          return {
-            success: true,
-            page: requestedPage,
-            is_first_page: requestedPage === 1,
-            image: images[0],
-            message: `Successfully retrieved page ${requestedPage}`
-          };
+          this.imageCache.set(pageNumber, images[0]);
+          return images[0];
         } else {
-          throw new Error("Failed to convert page to image");
+          throw new Error(`Failed to convert page ${pageNumber} to image`);
         }
       } catch (error2) {
-        console.error("Error in nextPage function:", error2);
+        console.error(`Error fetching page ${pageNumber}:`, error2);
+        throw error2;
+      }
+    }
+    /**
+     * Fetch the previous page's image for the API tool
+     */
+    async earlierPage(current_page) {
+      try {
+        const requestedPage = Math.max(1, current_page - 1);
+        const imageData = await this.getPageImage(requestedPage);
+        return {
+          success: true,
+          page: requestedPage,
+          is_first_page: requestedPage === 1,
+          image: imageData,
+          message: `Successfully retrieved page ${requestedPage}`
+        };
+      } catch (error2) {
+        console.error("Error in earlierPage function:", error2);
         return {
           success: false,
-          error: `Failed to fetch next page: ${error2 instanceof Error ? error2.message : String(error2)}`,
-          suggestion: "There was an error retrieving the next page of the document."
+          error: `Failed to fetch earlier page: ${error2 instanceof Error ? error2.message : String(error2)}`,
+          suggestion: "There was an error retrieving the previous page of the document."
         };
       }
     }
-    // Call the reference detection API and handle any tool calls recursively.
+    /**
+     * Process a single page for reference detection
+     */
+    async processPage(pageNumber, totalPages) {
+      try {
+        const imageData = await this.getPageImage(pageNumber);
+        const result = await this.callReferenceDetectionWithTools(
+          imageData,
+          pageNumber,
+          totalPages
+        );
+        return {
+          pageNumber,
+          imageData,
+          result
+        };
+      } catch (error2) {
+        console.error(`Error processing page ${pageNumber}:`, error2);
+        throw error2;
+      }
+    }
+    /**
+     * Call the reference detection API and handle any tool calls recursively
+     */
     async callReferenceDetectionWithTools(pageImage, pageNumber, totalPages, iteration = 0, previousMessages = [], functionResult = null, lastToolCallId = null) {
       try {
         const apiResponse = await fetch(
@@ -40992,7 +41038,9 @@
         throw error2;
       }
     }
-    // This method finds the reference pages, returning an array of ProcessedPageResult objects.
+    /**
+     * Find reference pages in the PDF document
+     */
     async findReferencePages(file) {
       try {
         if (file) {
@@ -41005,33 +41053,17 @@
         let currentPage = totalPages;
         let referencePages = null;
         while (currentPage >= 1 && referencePages === null) {
-          const pdfSlicer = new PdfSlicerService();
-          const pdfSlice = await pdfSlicer.slicePdfPages(
-            this.currentFile,
-            currentPage,
-            1
-          );
-          const arrayBuffer = await pdfSlice.arrayBuffer();
-          let images = this.imageCache.has(currentPage) ? [this.imageCache.get(currentPage)] : await this.convertPdfToImages(arrayBuffer);
-          if (!this.imageCache.has(currentPage) && images.length > 0) {
-            this.imageCache.set(currentPage, images[0]);
-          }
-          if (images.length === 0) {
-            throw new Error(`Could not retrieve image for page ${currentPage}`);
-          }
-          const imageData = images[0];
-          const finalResult = await this.callReferenceDetectionWithTools(
-            imageData,
-            currentPage,
-            totalPages
-          );
-          if (finalResult.status === "complete") {
-            if (finalResult.response && finalResult.response.content) {
+          console.log(`Processing page ${currentPage}`);
+          const pageResult = await this.processPage(currentPage, totalPages);
+          if (pageResult.result.status === "complete") {
+            if (pageResult.result.response && pageResult.result.response.content) {
               try {
-                const parsedResult = JSON.parse(finalResult.response.content);
+                const parsedResult = JSON.parse(
+                  pageResult.result.response.content
+                );
                 if (parsedResult.references != null) {
                   referencePages = parsedResult.references;
-                  console.log("Final reference pages:", referencePages);
+                  console.log("Found reference pages:", referencePages);
                   break;
                 } else {
                   console.error(
@@ -41040,14 +41072,10 @@
                 }
               } catch (parseError) {
                 console.error(
-                  'Failed to parse final response as JSON with a "references" key:',
+                  `Failed to parse response as JSON for page ${pageResult.pageNumber}:`,
                   parseError
                 );
               }
-            } else {
-              console.error(
-                "Final response content is null. Continuing search..."
-              );
             }
           }
           currentPage--;
@@ -41059,18 +41087,7 @@
           referencePages.map(async (pageNum) => {
             let imageData = this.imageCache.get(pageNum) || "";
             if (!imageData) {
-              const pdfSlicer = new PdfSlicerService();
-              const pdfSlice = await pdfSlicer.slicePdfPages(
-                this.currentFile,
-                pageNum,
-                1
-              );
-              const arrayBuffer = await pdfSlice.arrayBuffer();
-              const images = await this.convertPdfToImages(arrayBuffer);
-              if (images.length > 0) {
-                imageData = images[0];
-                this.imageCache.set(pageNum, imageData);
-              }
+              imageData = await this.getPageImage(pageNum);
             }
             const parsedContent = await this.extractPageContent(pageNum);
             return {
@@ -41092,6 +41109,9 @@
         throw error2;
       }
     }
+    /**
+     * Convert PDF data to images
+     */
     async convertPdfToImages(pdfData) {
       const formData = new FormData();
       formData.append(
@@ -41116,7 +41136,9 @@
       }
       return images.map((img) => `data:image/jpeg;base64,${img}`);
     }
-    // Extract text content from a page using pdfjs-dist.
+    /**
+     * Extract text content from a page using pdfjs-dist
+     */
     async extractPageContent(pageNumber) {
       if (!this.pdfDoc) {
         throw new Error("PDF document not initialized");
@@ -41133,7 +41155,9 @@
       const rawText = lines.map((line) => line.text).join("\n").trim();
       return { lines, rawText };
     }
-    // Merge text items that are on the same line.
+    /**
+     * Merge text items that are on the same line
+     */
     mergeSameLine(items) {
       if (!items.length) return [];
       const toLine = (item) => {

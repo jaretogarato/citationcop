@@ -1,5 +1,12 @@
 import { useState, useRef } from 'react'
-import { Upload, FileText, X, ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  Upload,
+  FileText,
+  X,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle
+} from 'lucide-react'
 
 const ACCEPTED_TYPE = 'application/pdf'
 const MAX_SIZE = 10 * 1024 * 1024 // 10MB per file
@@ -41,7 +48,7 @@ export function PDFDropZone({
   const handleFiles = (newFiles: File[]) => {
     const validFiles: BatchFileData[] = []
     const errors: string[] = []
-  
+
     for (const file of newFiles) {
       const error = validateFile(file)
       if (error) {
@@ -55,21 +62,21 @@ export function PDFDropZone({
         })
       }
     }
-  
+
     if (errors.length > 0) {
       setError(errors.join('\n'))
       return
     }
-  
+
     // First update the internal state
     const updatedFiles = [...files, ...validFiles]
     setFiles(updatedFiles)
-    
+
     // Then notify parent with the complete list
     onFilesSelected(updatedFiles.map((f) => f.file))
     setError(null)
   }
-  
+
   const removeFile = (id: string) => {
     // Same pattern for removeFile
     const updatedFiles = files.filter((file) => file.id !== id)
@@ -101,7 +108,6 @@ export function PDFDropZone({
     if (selectedFiles.length > 0) handleFiles(selectedFiles)
   }
 
-  
   return (
     <div className="space-y-4">
       <div
@@ -136,7 +142,17 @@ export function PDFDropZone({
                 : 'Drop your PDF files here'}
             </p>
             <p className="text-sm text-gray-400">
-              Supports multiple PDF files up to 10MB each
+              Supports multiple PDF files up to 10MB each.
+            </p>
+            <br></br>
+            <p className="text-sm text-gray-400">
+              Note: This tool only works with PDFs with a{' '}
+              <em>clearly labeled references section</em>. It does not extract
+              footnotes.{' '}
+            </p>
+            <p className="text-sm text-gray-400">
+              If the system doesn't find all references, you can try again or
+              manually copy-paste them.
             </p>
           </div>
         </div>
