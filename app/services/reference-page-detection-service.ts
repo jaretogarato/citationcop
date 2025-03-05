@@ -1,22 +1,10 @@
-// service to find reference pages in a PDF document
-// This service uses the Llama Vision API to analyze PDF pages
-// and determine if they contain references
-// It also uses the PDF.js library to extract text content from PDF pages
-// and convert PDF pages to images
-// The service returns an array of ProcessedPageResult objects
-// which contain the page number, image data, parsed content, and analysis results
-// for each page in the document
-// The service also provides a method to initialize and cleanup the PDF document
-
-import { PDFDocument } from 'pdf-lib'
 import { getDocument, PDFDocumentProxy, GlobalWorkerOptions } from 'pdfjs-dist'
 import { PdfSlicerService } from './pdf-slicer-service'
-
-//GlobalWorkerOptions.workerSrc = '/workers/pdf.worker.js'
 
 // Ensure the correct worker is used
 GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
 
+// Types used for text extraction
 interface PDFItem {
   str: string
   height: number
@@ -33,14 +21,6 @@ interface PDFLine {
   _height: number[]
 }
 
-interface PageAnalysis {
-  pageNumber: number
-  hasReferencesHeader: boolean
-  hasNewSectionStart: boolean
-  hasReferences: boolean
-  error?: string
-}
-
 interface ProcessedPageResult {
   pageNumber: number
   imageData: string
@@ -48,211 +28,319 @@ interface ProcessedPageResult {
     lines: PDFLine[]
     rawText: string
   }
-  analysis: PageAnalysis
+  analysis: {
+    // Minimal flags for compatibility.
+    hasReferencesHeader: boolean
+    hasNewSectionStart: boolean
+    hasReferences: boolean
+    pageNumber: number
+  }
+}
+
+interface PageAnalysisResult {
+  pageNumber: number
+  imageData: string
+  result: any
 }
 
 export class ReferencePageDetectionService {
-  private readonly CHUNK_SIZE = 3
   private pdfDoc: PDFDocumentProxy | null = null
-  //private pdfSlicer = new PdfSlicerService()
+  private currentFile: File | null = null
+  private imageCache: Map<number, string> = new Map()
 
-  async initialize(file: File) {
-    const arrayBuffer = await file.arrayBuffer()
-    this.pdfDoc = await getDocument({ data: arrayBuffer }).promise
-  }
-
-  async cleanup() {
-    if (this.pdfDoc) {
-      await this.pdfDoc.destroy()
-      this.pdfDoc = null
+  /**
+   * Initialize the service with a PDF file
+   */
+  async initialize(file: File | ArrayBuffer | Blob): Promise<void> {
+    try {
+      let arrayBuffer: ArrayBuffer
+      if (file instanceof File) {
+        this.currentFile = file
+        arrayBuffer = await file.arrayBuffer()
+      } else if (file instanceof Blob) {
+        this.currentFile = new File([file], 'document.pdf', {
+          type: 'application/pdf'
+        })
+        arrayBuffer = await file.arrayBuffer()
+      } else {
+        this.currentFile = new File([file], 'document.pdf', {
+          type: 'application/pdf'
+        })
+        arrayBuffer = file
+      }
+      this.pdfDoc = await getDocument({ data: arrayBuffer }).promise
+      console.log(`Initialized PDF with ${this.pdfDoc.numPages} pages`)
+    } catch (error) {
+      console.error('Error initializing PDF document:', error)
+      throw error
     }
   }
 
-  async findReferencePages(file: File): Promise<ProcessedPageResult[]> {
-    try {
-      const fileSizeMB = file.size / (1024 * 1024)
-      //console.log(`Original PDF size: ${fileSizeMB.toFixed(2)} MB`)
-      const arrayBuffer = await file.arrayBuffer()
-      const pdfLibDoc = await PDFDocument.load(arrayBuffer)
-      const totalPages = pdfLibDoc.getPageCount()
+  /**
+   * Clean up resources
+   */
+  async cleanup(): Promise<void> {
+    if (this.pdfDoc) {
+      await this.pdfDoc.destroy()
+      this.pdfDoc = null
+      this.currentFile = null
+    }
+    this.imageCache.clear()
+  }
 
-      // Process pages in batches from the end
-      const results = await this.processPages(file, totalPages)
-      return results.sort((a, b) => a.pageNumber - b.pageNumber)
+  /**
+   * Get the image data for a specific page
+   */
+  async getPageImage(pageNumber: number): Promise<string> {
+    try {
+      if (!this.currentFile) throw new Error('No file available')
+
+      // Check cache first
+      if (this.imageCache.has(pageNumber)) {
+        return this.imageCache.get(pageNumber)!
+      }
+
+      const pdfSlicer = new PdfSlicerService()
+      const pdfSlice = await pdfSlicer.slicePdfPages(
+        this.currentFile,
+        pageNumber,
+        1
+      )
+      const sliceArrayBuffer = await pdfSlice.arrayBuffer()
+      const images = await this.convertPdfToImages(sliceArrayBuffer)
+
+      if (images && images.length > 0) {
+        this.imageCache.set(pageNumber, images[0])
+        return images[0]
+      } else {
+        throw new Error(`Failed to convert page ${pageNumber} to image`)
+      }
+    } catch (error) {
+      console.error(`Error fetching page ${pageNumber}:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * Fetch the previous page's image for the API tool
+   */
+  async earlierPage(current_page: number): Promise<any> {
+    try {
+      const requestedPage = Math.max(1, current_page - 1) // Move backwards
+      const imageData = await this.getPageImage(requestedPage)
+
+      return {
+        success: true,
+        page: requestedPage,
+        is_first_page: requestedPage === 1,
+        image: imageData,
+        message: `Successfully retrieved page ${requestedPage}`
+      }
+    } catch (error) {
+      console.error('Error in earlierPage function:', error)
+      return {
+        success: false,
+        error: `Failed to fetch earlier page: ${error instanceof Error ? error.message : String(error)}`,
+        suggestion:
+          'There was an error retrieving the previous page of the document.'
+      }
+    }
+  }
+
+  /**
+   * Process a single page for reference detection
+   */
+  private async processPage(
+    pageNumber: number,
+    totalPages: number
+  ): Promise<PageAnalysisResult> {
+    try {
+      const imageData = await this.getPageImage(pageNumber)
+
+      // Call the reference detection API for the current page
+      const result = await this.callReferenceDetectionWithTools(
+        imageData,
+        pageNumber,
+        totalPages
+      )
+
+      return {
+        pageNumber,
+        imageData,
+        result
+      }
+    } catch (error) {
+      console.error(`Error processing page ${pageNumber}:`, error)
+      throw error
+    }
+  }
+
+  /**
+   * Call the reference detection API and handle any tool calls recursively
+   */
+  private async callReferenceDetectionWithTools(
+    pageImage: string,
+    pageNumber: number,
+    totalPages: number,
+    iteration: number = 0,
+    previousMessages: any[] = [],
+    functionResult: any = null,
+    lastToolCallId: string | null = null
+  ): Promise<any> {
+    try {
+      const apiResponse: Response = await fetch(
+        '/api/open-ai-vision/find-references-section',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pageImage,
+            pageNumber,
+            totalPages,
+            iteration,
+            previousMessages,
+            functionResult,
+            lastToolCallId
+          })
+        }
+      )
+
+      if (!apiResponse.ok) {
+        const errorText = await apiResponse.text()
+        console.error('Error from reference detection API:', errorText)
+        throw new Error('Failed to get response from reference detection API')
+      }
+
+      const result = await apiResponse.json()
+
+      // If a tool call is requested (e.g. "next_page"), execute it and re-call recursively
+      if (result.status === 'pending' && result.functionToCall) {
+        console.log(`Executing tool: ${result.functionToCall.name}`)
+        if (result.functionToCall.name === 'next_page') {
+          const args = result.functionToCall.arguments
+          const toolResult = await this.earlierPage(args.current_page)
+          return this.callReferenceDetectionWithTools(
+            pageImage,
+            pageNumber,
+            totalPages,
+            result.iteration,
+            result.messages,
+            toolResult,
+            result.lastToolCallId
+          )
+        } else {
+          console.warn(
+            `Unexpected function call: ${result.functionToCall.name}`
+          )
+          return result
+        }
+      }
+
+      return result
+    } catch (error) {
+      console.error('Error in callReferenceDetectionWithTools:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Find reference pages in the PDF document
+   */
+  async findReferencePages(
+    file?: File | ArrayBuffer | Blob
+  ): Promise<ProcessedPageResult[]> {
+    try {
+      if (file) {
+        await this.initialize(file)
+      }
+
+      if (!this.pdfDoc || !this.currentFile) {
+        throw new Error('PDF document not initialized')
+      }
+
+      const totalPages = this.pdfDoc.numPages
+      let currentPage = totalPages
+      let referencePages: number[] | null = null
+
+      // Process pages one at a time until the LLM returns a valid final response
+      while (currentPage >= 1 && referencePages === null) {
+        console.log(`Processing page ${currentPage}`)
+
+        // Process the current page
+        const pageResult = await this.processPage(currentPage, totalPages)
+
+        // Check if this page contains a valid reference page result
+        if (pageResult.result.status === 'complete') {
+          if (
+            pageResult.result.response &&
+            pageResult.result.response.content
+          ) {
+            try {
+              const parsedResult = JSON.parse(
+                pageResult.result.response.content
+              )
+              if (parsedResult.references != null) {
+                referencePages = parsedResult.references
+                console.log('Found reference pages:', referencePages)
+                break // Found reference pages, exit the loop
+              } else {
+                console.error(
+                  'JSON parsed but "references" key is null. Continuing search...'
+                )
+              }
+            } catch (parseError) {
+              console.error(
+                `Failed to parse response as JSON for page ${pageResult.pageNumber}:`,
+                parseError
+              )
+            }
+          }
+        }
+
+        // Move to the previous page
+        currentPage--
+      }
+
+      if (!referencePages || referencePages.length === 0) {
+        throw new Error('No reference pages found in the document')
+      }
+
+      // For each reference page, prepare the final result
+      const finalResults: ProcessedPageResult[] = await Promise.all(
+        referencePages.map(async (pageNum) => {
+          // Get image data (should already be cached from earlier processing)
+          let imageData = this.imageCache.get(pageNum) || ''
+          if (!imageData) {
+            imageData = await this.getPageImage(pageNum)
+          }
+
+          // Extract text content
+          const parsedContent = await this.extractPageContent(pageNum)
+
+          return {
+            pageNumber: pageNum,
+            imageData,
+            parsedContent,
+            analysis: {
+              hasReferencesHeader: true,
+              hasNewSectionStart: false,
+              hasReferences: true,
+              pageNumber: pageNum
+            }
+          }
+        })
+      )
+
+      return finalResults.sort((a, b) => a.pageNumber - b.pageNumber)
     } catch (error) {
       console.error('Error finding reference pages:', error)
       throw error
     }
   }
 
-  private async processPages(
-    file: File,
-    totalPages: number
-  ): Promise<ProcessedPageResult[]> {
-    const results: ProcessedPageResult[] = []
-    let currentPage = totalPages
-    let referenceStartPage = -1
-    let foundReferenceHeader = false
-    let tempResults: ProcessedPageResult[] = [] // To store pages with references before finding header
-
-    // Search backward for reference header
-    while (currentPage >= 1 && !foundReferenceHeader) {
-      const batchEnd = currentPage
-      const batchStart = Math.max(1, currentPage - this.CHUNK_SIZE + 1)
-      const batchSize = batchEnd - batchStart + 1
-
-      const pdfSlicer = new PdfSlicerService()
-      const pdfSlice = await pdfSlicer.slicePdfPages(
-        file,
-        batchStart,
-        batchSize
-      )
-      const arrayBuffer = await pdfSlice.arrayBuffer()
-      const images = await this.convertPdfToImages(arrayBuffer)
-
-      // Process each page in the batch in reverse order
-      for (let i = images.length - 1; i >= 0; i--) {
-        const pageNumber = batchStart + i
-        const imageData = images[i]
-        const parsedContent = await this.extractPageContent(pageNumber)
-        const analysis = await this.analyzePage(
-          imageData,
-          parsedContent.rawText
-        )
-
-        console.log('📄 Page:', pageNumber)
-        console.log('🔍 Analysis:', analysis)
-
-        const pageResult: ProcessedPageResult = {
-          pageNumber,
-          imageData,
-          parsedContent,
-          analysis: {
-            ...analysis,
-            pageNumber
-          }
-        }
-
-        // Check if this page has a reference header
-        if (analysis.hasReferencesHeader) {
-          console.log(
-            'Found reference header on page',
-            pageNumber,
-            '- stopping backward search'
-          )
-          foundReferenceHeader = true
-          referenceStartPage = pageNumber
-          results.push(pageResult)
-
-          // Add all previously found pages that contain references and come after the reference header
-          if (tempResults.length > 0) {
-            const validTempResults = tempResults.filter(
-              (r) =>
-                r.pageNumber > pageNumber &&
-                r.analysis.hasReferences &&
-                !r.analysis.hasNewSectionStart
-            )
-            // Process valid results in order to properly detect the end of references
-            validTempResults.sort((a, b) => a.pageNumber - b.pageNumber)
-
-            // Add pages until we hit a non-reference page or a new section start
-            for (const result of validTempResults) {
-              if (
-                !result.analysis.hasReferences ||
-                (result.analysis.hasNewSectionStart &&
-                  !result.analysis.hasReferencesHeader)
-              ) {
-                break
-              }
-              results.push(result)
-            }
-          }
-
-          // Exit both loops immediately
-          currentPage = 0
-          break
-        }
-        // If no header but has references, store it temporarily
-        else if (analysis.hasReferences) {
-          tempResults.push(pageResult)
-        }
-      }
-
-      // Move to earlier pages if we haven't found a header yet
-      if (!foundReferenceHeader) {
-        currentPage = batchStart - 1
-      }
-    }
-
-    // If we've searched the entire document and found no reference header
-    // but found pages with references, use the first page with references as the start
-    if (!foundReferenceHeader && tempResults.length > 0) {
-      console.log(
-        'No explicit reference header found, using first page with references'
-      )
-      // Sort by page number and use the earliest page with references
-      tempResults.sort((a, b) => a.pageNumber - b.pageNumber)
-
-      // Find the sequence of consecutive reference pages
-      const finalResults = []
-
-      for (const result of tempResults) {
-        if (
-          !result.analysis.hasReferences ||
-          (result.analysis.hasNewSectionStart &&
-            !result.analysis.hasReferencesHeader)
-        ) {
-          break
-        }
-        finalResults.push(result)
-      }
-
-      if (finalResults.length > 0) {
-        results.push(...finalResults)
-        referenceStartPage = finalResults[0].pageNumber
-        foundReferenceHeader = true // Treat it as if we found a header
-      }
-    }
-
-    // If we still haven't found anything, throw an error
-    if (!foundReferenceHeader) {
-      throw new Error('Could not find references section in the document')
-    }
-
-    return results.sort((a, b) => a.pageNumber - b.pageNumber)
-  }
-
-  private async extractPageContent(pageNumber: number): Promise<{
-    lines: PDFLine[]
-    rawText: string
-  }> {
-    if (!this.pdfDoc) {
-      throw new Error('PDF document not initialized')
-    }
-
-    const page = await this.pdfDoc.getPage(pageNumber)
-    const textContent = await page.getTextContent()
-
-    const items: PDFItem[] = textContent.items.map((item: any) => ({
-      str: item.str,
-      height: item.transform[3],
-      width: item.width,
-      transform: item.transform
-    }))
-
-    const lines = this.mergeSameLine(items)
-    /*const rawText = items
-      .map((item) => item.str)
-      .join(' ')
-      .trim()*/
-    const rawText = lines
-      .map((line) => line.text)
-      .join('\n')
-      .trim()
-
-    return { lines, rawText }
-  }
-
+  /**
+   * Convert PDF data to images
+   */
   private async convertPdfToImages(pdfData: ArrayBuffer): Promise<string[]> {
     const formData = new FormData()
     formData.append(
@@ -260,63 +348,54 @@ export class ReferencePageDetectionService {
       new File([pdfData], 'chunk.pdf', { type: 'application/pdf' })
     )
     formData.append('range', '1-')
-
-    /*console.log(
-      '📄 Sending request to /api/pdf2images with FormData:',
-      formData
-    )*/
-
     const response = await fetch('/api/pdf2images', {
       method: 'POST',
       body: formData
     })
-
-    //console.log('📥 Received API response status:', response.status)
-
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('❌ Error response from API:', errorText)
+      console.error('Error response from API:', errorText)
       throw new Error('Failed to convert PDF chunk to images')
     }
-
     const jsonResponse = await response.json()
-    //console.log('📄 Parsed JSON Response from API:', jsonResponse)
-
     const { images } = jsonResponse
-
     if (!images || !Array.isArray(images)) {
-      console.error('❌ API response does not contain images:', jsonResponse)
+      console.error('API response does not contain images:', jsonResponse)
       throw new Error('Invalid response: missing images array')
     }
-
     return images.map((img: string) => `data:image/jpeg;base64,${img}`)
   }
 
-  private async analyzePage(
-    imageData: string,
-    parsedText: string
-  ): Promise<PageAnalysis> {
-    //const response = await fetch('/api/llama-vision/analyze-page', {
-    const response = await fetch('/api/open-ai-vision/analyze-page', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        filePath: imageData,
-        parsedText, // Include parsed text in the analysis
-        model: 'gpt-4o-mini'
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to analyze page')
+  /**
+   * Extract text content from a page using pdfjs-dist
+   */
+  private async extractPageContent(
+    pageNumber: number
+  ): Promise<{ lines: PDFLine[]; rawText: string }> {
+    if (!this.pdfDoc) {
+      throw new Error('PDF document not initialized')
     }
-
-    return await response.json()
+    const page = await this.pdfDoc.getPage(pageNumber)
+    const textContent = await page.getTextContent()
+    const items: PDFItem[] = textContent.items.map((item: any) => ({
+      str: item.str,
+      height: item.transform[3],
+      width: item.width,
+      transform: item.transform
+    }))
+    const lines = this.mergeSameLine(items)
+    const rawText = lines
+      .map((line) => line.text)
+      .join('\n')
+      .trim()
+    return { lines, rawText }
   }
 
+  /**
+   * Merge text items that are on the same line
+   */
   private mergeSameLine(items: PDFItem[]): PDFLine[] {
     if (!items.length) return []
-
     const toLine = (item: PDFItem): PDFLine => {
       let x = Number(item.transform[4].toFixed(1))
       let y = Number(item.transform[5].toFixed(1))
@@ -334,19 +413,15 @@ export class ReferencePageDetectionService {
         _height: [item.height]
       }
     }
-
     const lines: PDFLine[] = [toLine(items[0])]
-
     for (let i = 1; i < items.length; i++) {
       const current = toLine(items[i])
       const prevLine = lines[lines.length - 1]
-
       const sameLine =
         current.y === prevLine.y ||
         (current.y >= prevLine.y && current.y < prevLine.y + prevLine.height) ||
         (current.y + current.height > prevLine.y &&
           current.y + current.height <= prevLine.y + prevLine.height)
-
       if (sameLine) {
         prevLine.text += ' ' + current.text
         prevLine.width += current.width
@@ -356,7 +431,6 @@ export class ReferencePageDetectionService {
         lines.push(current)
       }
     }
-
     lines[lines.length - 1].height = Math.max(
       ...lines[lines.length - 1]._height
     )

@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import { WorkerMessage } from '../types'
-import { ReferencePageDetectionService } from '../reference-page-detection-service2'
+import { ReferencePageDetectionService } from '../reference-page-detection-service'
 import { ReferenceExtractFromTextService } from '../reference-extract-from-text-service'
 import { o3ReferenceVerificationService } from '../o3-reference-verification-service'
 

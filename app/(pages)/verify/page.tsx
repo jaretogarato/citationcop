@@ -1,7 +1,12 @@
 import React from 'react'
 import PDFProcessor from '@/app/components/batch/PDFProcessor'
 import MultiReferenceVerifier from '@/app/components/verify-reference/MultiReferenceVerifier'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
+} from '@/app/components/ui/tabs'
 import { Card, CardContent } from '@/app/components/ui/card'
 
 export default function TabbedVerifier() {
@@ -16,7 +21,7 @@ export default function TabbedVerifier() {
                   value="references"
                   className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-gray-300 hover:text-white transition-colors"
                 >
-                  Copy and paste text
+                  Copy and paste references
                 </TabsTrigger>
                 <TabsTrigger
                   value="pdfs"
