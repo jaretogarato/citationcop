@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 //import type { Reference } from '@/types/reference'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 const API_KEYS = [
   process.env.OPENAI_API_KEY_1,

@@ -1,7 +1,7 @@
 // app/api/references/verify-search/route.ts
 import { NextResponse } from 'next/server'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 async function fetchGoogleSearchResults(query: string) {
   const apiKey = process.env.SERPER_API_KEY as string
