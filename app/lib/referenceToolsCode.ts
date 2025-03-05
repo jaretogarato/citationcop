@@ -216,7 +216,7 @@ export async function searchReference(
       },
       config
     )
-
+   
     return await response.json()
   } catch (error) {
     console.error('Error searching reference:', error)
@@ -324,12 +324,11 @@ export async function checkURL(
   }
 }
 
-
 // Export only the three main tool functions needed by external components
 export const ReferenceTools = {
   checkDOI,
   searchReference,
-  checkURL,
+  checkURL
 }
 
 export default ReferenceTools

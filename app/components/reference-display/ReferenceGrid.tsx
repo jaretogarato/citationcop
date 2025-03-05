@@ -157,15 +157,14 @@ const ReferenceGrid: React.FC<ReferenceGridProps> = ({ references }) => {
                       </Tooltip>
                     </TooltipProvider>
                     <DialogContent className="bg-transparent border-none shadow-none max-w-lg">
-                      {/*<DialogTitle hidden>Reference {ref.title}</DialogTitle>
+                      <DialogTitle hidden>Reference {ref.title}</DialogTitle>
                       <DialogDescription hidden>
                         Details of the verification of the reference
-                      </DialogDescription>*/}
+                      </DialogDescription>
                       <h2 className="sr-only">Reference {ref.title}</h2>
                       <p className="sr-only">
                         Details of the verification of the reference
                       </p>
-
                       <div className="mt-4">
                         <ReferenceDialog reference={ref} />
                       </div>

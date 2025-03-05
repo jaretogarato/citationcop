@@ -42,15 +42,13 @@ export async function POST(request: Request) {
       messages = [
         {
           role: 'system',
-          content: `You are a reference section detection system for academic papers. Your task is to analyze individual PDF pages and determine which pages are part of the references section. You will return a list of page numbers that include the references section.
+          content: `Your task is to analyze the pages of an document and determine which pages include the references section. You will start at the end of the book and work to the front because references sections are typically at the end of the book.
           
 Instructions:
-1) Look at pages starting from the back of the document.
-2) Use the "next_page" tool to retrieve the previous page (so if you looked at page 12 you would get page 11).
+1) Look at a page starting from the back of the document.
+2) Use the "earlier_page" tool to retrieve the page before it.
 
-3) CRITICAL: Return the final answer when you have found the reference header.  
-
-A references section will starts with a header like "References" or "Bibliography" and includes a list of citations.
+3) CRITICAL: YOU ARE LOOKING FOR A REFERENCE HEADER. A references section will starts with a header like "References" or "Bibliography" and includes a list of citations Return the final answer when you have found the reference header.  
 
 Do not include any other pages that are not part of the references section. IF another section starts, like APPENDIX, that has references, DO NOT INCLUDE IT.
 

@@ -59,7 +59,7 @@ export class o3ReferenceVerificationService {
       maxRetries: 3,
       requestTimeout: 60000, // 60 seconds
       maxIterations: 15,
-      batchSize: 5,
+      batchSize: 15,
       ...config
     }
   }
@@ -260,6 +260,7 @@ export class o3ReferenceVerificationService {
       })
 
       const responseData = await response.json()
+      console.log('Agent response:', responseData)
 
       // Add detailed logging for specific cases
       if (responseData.status === 'error') {
@@ -382,6 +383,7 @@ export class o3ReferenceVerificationService {
                 break
               case 'search_reference':
                 functionResult = await searchReference(args.reference)
+             
                 break
               case 'check_url':
                 functionResult = await checkURL(args.url, args.reference)

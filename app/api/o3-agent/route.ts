@@ -54,12 +54,14 @@ When searching:
 2. Create specific search queries using these elements - prioritize exact titles and author names
 3. If the first search isn't conclusive, try alternative queries focusing on different elements
 4. Analyze search results by looking for:
-   - Exact title matches
+   - Title matches
    - Author name matches
    - Publication/venue matches
    - Year matches
    - Similar content descriptions
 5. If the reference lacks information but appears to be a real reference, use the available information to search for more details and fill them in. 
+
+Do not provide a response unless you have used at least one tool to verify the reference.
 
 Return a final JSON response only when you have sufficient evidence:
 {

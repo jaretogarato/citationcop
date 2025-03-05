@@ -78,7 +78,7 @@ export class ReferencePageDetectionService {
   }
 
   // Fetch the previous page’s image.
-  async nextPage(current_page: number): Promise<any> {
+  async earlierPage(current_page: number): Promise<any> {
     try {
       if (!this.currentFile) throw new Error('No file available')
       const requestedPage = Math.max(1, current_page - 1) // Move backwards
@@ -150,7 +150,7 @@ export class ReferencePageDetectionService {
         console.log(`Executing tool: ${result.functionToCall.name}`)
         if (result.functionToCall.name === 'next_page') {
           const args = result.functionToCall.arguments
-          const toolResult = await this.nextPage(args.current_page)
+          const toolResult = await this.earlierPage(args.current_page)
           return this.callReferenceDetectionWithTools(
             pageImage,
             pageNumber,
