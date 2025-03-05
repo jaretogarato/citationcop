@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import Together from 'together-ai'
 import OpenAI from 'openai'
 
+export const maxDuration = 60
+
 // Define response type for consistent handling
 interface AnalysisResponse {
   hasReferencesHeader: boolean

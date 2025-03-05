@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Together from 'together-ai'
 
+
+export const maxDuration = 60
+
 async function analyzePage({
   together,
   visionLLM,
@@ -13,6 +16,8 @@ async function analyzePage({
   parsedText: string
 }) {
   //console.log('LLM input:', parsedText)
+
+
 
   const systemPrompt = `Extracted text from the page: ${parsedText}
 

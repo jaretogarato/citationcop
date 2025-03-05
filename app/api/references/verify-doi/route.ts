@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server'
 import type { Reference } from '@/app/types/reference'
 
+export const maxDuration = 60
 const EMAIL = 'matthewlongshore@gmail.com' // Replace with your email
 
 function calculateTitleSimilarity(str1: string, str2: string): number {
