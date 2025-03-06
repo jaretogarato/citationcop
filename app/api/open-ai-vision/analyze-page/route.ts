@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Together from 'together-ai'
 import OpenAI from 'openai'
 
-export const maxDuration = 300
+//export const maxDuration = 300
 
 // Define response type for consistent handling
 interface AnalysisResponse {
@@ -32,7 +32,7 @@ async function analyzePage({
   const TIMEOUT_MS = 300 // 60 seconds
 
   //Using the extracted text from the page (${parsedText}) and the image, analyze the content to answer the following questions in JSON format. Use both the extracted text (${parsedText}) and the image to determine the answers.
-  const systemPrompt = `Analyse the image of a page and answer the following questions. 
+  const systemPrompt = `Analyse the image of a page and answer the following questions.
 
 hasReferenceHeader: This page has header with the words: \"References\", \"Bibliography\", \"Works Cited\", or synonyms thereof. It MUST be these words in a HEADER meaning on its own line.
 

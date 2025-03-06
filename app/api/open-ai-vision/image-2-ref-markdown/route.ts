@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
-export const maxDuration = 300
+//export const maxDuration = 300
 export const runtime = 'edge'
 
 // Helper functions
@@ -23,10 +23,10 @@ async function getMarkDown({
   Below is extracted text from the page: ${parsedText || ''} Using the extracted text above to double check the letters.
 
 Requirements:
-- CRITICAL: The text at the VERY TOP of the page may be a continuation of a reference from the previous page. Make sure to include it in the output exactly as it is written. 
+- CRITICAL: The text at the VERY TOP of the page may be a continuation of a reference from the previous page. Make sure to include it in the output exactly as it is written.
 - Look carefully at the first few lines of text - if they seem to be part of a citation (authors, journal, etc.) but don't start with a number, they are likely the end of a reference from the previous page.
 - DO NOT add or infer any text. ONLY include information that is present in the image and the text provided above.
-- A reference will should have a form like: Smith, J. (2020). My paper. Journal of Papers, 1(2), 3-4. 
+- A reference will should have a form like: Smith, J. (2020). My paper. Journal of Papers, 1(2), 3-4.
 - DO NOT extract references of form (Smith, 2020) or [1].
 - IF the page is two columns, make sure to look on both the left and right columns for references.
 `

@@ -9,7 +9,7 @@ const corsHeaders = new Headers({
 
 const PDF_CONVERTER_URL = process.env.PDF_CONVERTER_URL
 
-export const maxDuration = 60
+//export const maxDuration = 60
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 

@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server'
 import type { Reference } from '@/app/types/reference'
 
-export const maxDuration = 300
+//export const maxDuration = 300
 const EMAIL = process.env.DOI_EMAIL
 
 function calculateTitleSimilarity(str1: string, str2: string): number {

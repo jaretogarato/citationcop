@@ -4,7 +4,7 @@ import OpenAI from 'openai'
 import { ChatCompletionMessageParam } from 'openai/resources/chat'
 import { referenceTools } from '@/app/lib/reference-tools'
 
-export const maxDuration = 300
+//export const maxDuration = 300
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
@@ -59,7 +59,7 @@ When searching:
    - Publication/venue matches
    - Year matches
    - Similar content descriptions
-5. If the reference lacks information but appears to be a real reference, use the available information to search for more details and fill them in. 
+5. If the reference lacks information but appears to be a real reference, use the available information to search for more details and fill them in.
 
 Do not provide a response unless you have used at least one tool to verify the reference.
 

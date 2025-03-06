@@ -15,7 +15,7 @@ import os from 'os';
 import { Readable } from 'stream';
 import type { IncomingMessage } from 'http';
 
-export const maxDuration = 60
+//export const maxDuration = 60
 
 // Helper to convert Next.js Request to a readable Node stream that resembles IncomingMessage
 function requestToIncomingMessage(request: Request): IncomingMessage {
@@ -39,7 +39,7 @@ const DOCX_TYPE =
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-   
+
     const { headers } = request;
     const contentType = headers.get('content-type');
     if (!contentType || !contentType.includes('multipart/form-data')) {

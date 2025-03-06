@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Together from 'together-ai'
 
 
-export const maxDuration = 300
+//export const maxDuration = 300
 
 async function analyzePage({
   together,
