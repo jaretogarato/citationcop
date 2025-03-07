@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
 export const maxDuration = 300
-export const runtime = 'edge'
 
 // Helper functions
 function isBase64Image(str: string) {

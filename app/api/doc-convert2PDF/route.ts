@@ -15,7 +15,7 @@ import os from 'os';
 import { Readable } from 'stream';
 import type { IncomingMessage } from 'http';
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 // Helper to convert Next.js Request to a readable Node stream that resembles IncomingMessage
 function requestToIncomingMessage(request: Request): IncomingMessage {
