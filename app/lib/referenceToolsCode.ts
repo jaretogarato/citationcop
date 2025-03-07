@@ -121,7 +121,7 @@ function getStatusSpecificInfo(status: number) {
       suggestion:
         'This URL is confirmed to not exist. Try verifying the reference through DOI lookup or literature search.'
     }
-  } else if ((status = 403)) {
+  } else if ((status === 403)) {
     info = {
       meaning: 'Forbidden (403)',
       reasons: [
