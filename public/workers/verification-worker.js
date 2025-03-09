@@ -25538,6 +25538,16 @@
       );
       return lines;
     }
+    /**
+     * Clean up resources by destroying the PDF document.
+     */
+    async cleanup() {
+      if (this.pdfDoc) {
+        await this.pdfDoc.destroy();
+        this.pdfDoc = null;
+        console.log("Cleaned up PDF document resources.");
+      }
+    }
   };
 
   // node_modules/pdf-lib/node_modules/tslib/tslib.es6.js
@@ -40952,7 +40962,7 @@
     }
   };
 
-  // app/services/reference-page-detection-service.ts
+  // app/services/o;d/reference-page-detection-service.ts
   __webpack_exports__GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
   var ReferencePageDetectionService = class {
     pdfDoc = null;
@@ -41279,6 +41289,91 @@
         ...lines[lines.length - 1]._height
       );
       return lines;
+    }
+  };
+
+  // app/services/ref-page-image-service.ts
+  var ReferencePageImageService = class {
+    refPageDetectionService;
+    constructor() {
+      this.refPageDetectionService = new ReferencePageDetectionService();
+    }
+    /**
+     * Initialize the service with a PDF file.
+     */
+    async initialize(file) {
+      await this.refPageDetectionService.initialize(file);
+    }
+    /**
+     * Given a RefPagesResult (with pages and rawText) from the detect-pages API,
+     * retrieves the image data for each page and returns an updated result.
+     */
+    async addImageData(refPagesResult) {
+      const updatedImageData = await Promise.all(
+        refPagesResult.pages.map(async (pageNum) => {
+          try {
+            const imageData = await this.refPageDetectionService.getPageImage(pageNum);
+            return imageData;
+          } catch (error2) {
+            console.error(`Failed to get image for page ${pageNum}:`, error2);
+            return "";
+          }
+        })
+      );
+      return {
+        pages: refPagesResult.pages,
+        rawText: refPagesResult.rawText,
+        imageData: updatedImageData
+      };
+    }
+    /**
+     * Clean up resources used by the detection service.
+     */
+    async cleanup() {
+      await this.refPageDetectionService.cleanup();
+    }
+  };
+
+  // app/services/image-to-markdown-extraction-service.ts
+  var ReferenceMarkdownService = class {
+    /**
+     * Extracts markdown content from each reference page.
+     *
+     * For each page provided in the RefPagesResult, this method calls the
+     * '/api/open-ai-vision/image-2-ref-markdown' endpoint with the corresponding image data
+     * and parsed text. It returns an array of markdown extraction results.
+     *
+     * @param refPagesResult The result object containing pages, raw text, and image data.
+     * @returns An array of ReferenceMarkdownResult.
+     */
+    async extractMarkdown(refPagesResult) {
+      const { pages, rawText, imageData } = refPagesResult;
+      const markdownResults = await Promise.all(
+        pages.map(async (page, index) => {
+          const filePath = imageData[index];
+          const parsedText = rawText[index];
+          const response = await fetch("/api/open-ai-vision/image-2-ref-markdown", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              filePath,
+              parsedText,
+              model: "free"
+            })
+          });
+          if (!response.ok) {
+            throw new Error("Failed to extract references content");
+          }
+          const { markdown } = await response.json();
+          return {
+            pageNumber: page,
+            markdown
+          };
+        })
+      );
+      return markdownResults;
     }
   };
 
@@ -42013,6 +42108,8 @@ Reference error [${errorPath}]: ${errorMessage}`,
   // app/services/workers/verification.worker.ts
   var documentParsingService = new DocumentParsingService();
   var refPageDetectionService = new ReferencePageDetectionService();
+  var refPageImageService = new ReferencePageImageService();
+  var refPageMarkdownService = new ReferenceMarkdownService();
   var extractionService = new ReferenceExtractFromTextService();
   var o3VerificationService = new o3ReferenceVerificationService();
   self.onmessage = async (e) => {
@@ -42022,12 +42119,11 @@ Reference error [${errorPath}]: ${errorMessage}`,
         self.postMessage({
           type: "update",
           pdfId,
-          message: `Starting!`
+          message: `Searching for references`
         });
-        console.log("file: ", file);
-        console.log("calling document parsing servie");
         await documentParsingService.initialize(file);
         const parsingResponse = await documentParsingService.parseDocument();
+        await documentParsingService.cleanup();
         const documentText = parsingResponse.map((page) => `Page ${page.pageNumber}:
 ${page.rawText}`).join("\n\n");
         const response = await fetch("/api/references/detect-pages", {
@@ -42040,55 +42136,31 @@ ${page.rawText}`).join("\n\n");
           })
         });
         const result = await response.json();
-        console.log("REFERENCES ARE ON PAGES: ", result.references);
-        await new Promise((r) => setTimeout(r, 1e4));
-        await refPageDetectionService.initialize(file);
+        console.log("REFERENCES ARE ON PAGES: ", result.pages);
+        const updatedRawText = result.pages.map((refPageNumber) => {
+          const matchingPage = parsingResponse.find(
+            (page) => page.pageNumber === refPageNumber
+          );
+          return matchingPage ? matchingPage.rawText : "";
+        });
+        result.rawText = updatedRawText;
+        console.log("Updated raw text for reference pages:", result);
         self.postMessage({
           type: "update",
           pdfId,
-          message: `Searching for references`
+          message: `Found references on pages ${result.pages.join(", ")}`
         });
-        const referencePages = await refPageDetectionService.findReferencePages(file);
-        const referencesSectionStart = referencePages[0].pageNumber;
-        self.postMessage({
-          type: "update",
-          pdfId,
-          message: `Found references section starting on page ${referencesSectionStart}`
-        });
-        console.log("ENTERING STEP 2 ***** ");
-        console.log("referencePages: ", referencePages.length);
-        const markdownContents = await Promise.all(
-          referencePages.map(async (page) => {
-            const markdownResponse = await fetch(
-              "/api/open-ai-vision/image-2-ref-markdown",
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  filePath: page.imageData,
-                  parsedText: page.parsedContent.rawText,
-                  model: "free"
-                })
-              }
-            );
-            if (!markdownResponse.ok) {
-              throw new Error("Failed to extract references content");
-            }
-            const { markdown } = await markdownResponse.json();
-            self.postMessage({
-              type: "update",
-              pdfId,
-              message: `Grabbing references from page ${page.pageNumber}.`
-            });
-            return {
-              pageNumber: page.pageNumber,
-              markdown,
-              isStartOfSection: page.pageNumber === referencesSectionStart,
-              isNewSectionStart: page.analysis.hasNewSectionStart
-            };
-          })
-        );
+        await refPageImageService.initialize(file);
+        const updatedResult = await refPageImageService.addImageData(result);
+        console.log("Updated result with image data:", updatedResult);
+        await refPageImageService.cleanup();
         console.log("ENTERING STEP 3 ***** ");
+        const markdownResponse = await refPageMarkdownService.extractMarkdown(updatedResult);
+        const markdownContents = markdownResponse.map((content) => ({
+          pageNumber: content.pageNumber,
+          markdown: content.markdown
+        }));
+        console.log("\u{1F4C4} Extracted markdown contents:", markdownContents);
         self.postMessage({
           type: "update",
           pdfId,
@@ -42117,9 +42189,8 @@ ${page.rawText}`).join("\n\n");
           message: `Found ${extractedReferencesWithIndex.length} unique references: ${pdfId}`,
           references: extractedReferencesWithIndex
         });
-        let referencesWithDOI = extractedReferencesWithIndex;
         const verificationResults = await o3VerificationService.processBatch(
-          referencesWithDOI,
+          extractedReferencesWithIndex,
           (batchResults) => {
             self.postMessage({
               type: "verification-update",

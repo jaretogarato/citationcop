@@ -129,4 +129,15 @@ export class DocumentParsingService {
     )
     return lines
   }
+
+  /**
+   * Clean up resources by destroying the PDF document.
+   */
+  async cleanup(): Promise<void> {
+    if (this.pdfDoc) {
+      await this.pdfDoc.destroy()
+      this.pdfDoc = null
+      console.log('Cleaned up PDF document resources.')
+    }
+  }
 }

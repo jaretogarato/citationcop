@@ -1,5 +1,5 @@
 import { getDocument, PDFDocumentProxy, GlobalWorkerOptions } from 'pdfjs-dist'
-import { PdfSlicerService } from './pdf-slicer-service'
+import { PdfSlicerService } from '../pdf-slicer-service'
 
 // Ensure the correct worker is used
 GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js'
