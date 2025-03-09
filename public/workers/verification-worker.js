@@ -41495,126 +41495,16 @@
   };
 
   // app/lib/referenceToolsCode.ts
-  async function fetchWithTimeout(url, options, timeout = 6e4) {
-    const controller = new AbortController();
-    const { signal } = controller;
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-    try {
-      const response = await fetch(url, {
-        ...options,
-        signal
-      });
-      return response;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-  async function retryableFetch(url, options, config = {}) {
-    const { maxRetries = 3, requestTimeout = 6e4 } = config;
-    let lastError = null;
-    let lastResponse = null;
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        if (attempt > 0) {
-          await new Promise(
-            (resolve) => setTimeout(resolve, 1e3 * Math.pow(2, attempt - 1))
-          );
-        }
-        const response = await fetchWithTimeout(url, options, requestTimeout);
-        lastResponse = response;
-        if (url.includes("/api/fetch-url")) {
-          return response;
-        }
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => "No error details available");
-          throw new Error(
-            `HTTP error ${response.status}: ${response.statusText}. Details: ${errorText}`
-          );
-        }
-        return response;
-      } catch (error2) {
-        console.error(`Attempt ${attempt + 1}/${maxRetries} failed:`, error2);
-        lastError = error2 instanceof Error ? error2 : new Error(String(error2));
-        if (error2 instanceof DOMException && error2.name === "AbortError") {
-          console.error(`Request timed out after ${requestTimeout}ms`);
-          throw new Error(`Request timed out after ${requestTimeout}ms`);
-        }
-      }
-    }
-    if (options.body && typeof options.body === "string" && options.body.includes("/api/fetch-url") && lastResponse) {
-      return lastResponse;
-    }
-    throw lastError || new Error("All retry attempts failed");
-  }
-  function getStatusSpecificInfo(status) {
-    let info2 = {
-      meaning: "Unknown error",
-      reasons: ["The URL couldn't be accessed due to an unknown error"],
-      suggestion: "Consider verifying the reference using DOI or literature search instead."
-    };
-    if (status === 404) {
-      info2 = {
-        meaning: "Not Found (404)",
-        reasons: [
-          "The resource no longer exists at this URL",
-          "The URL may have been mistyped or is incorrect",
-          "The content has been moved or deleted"
-        ],
-        suggestion: "This URL is confirmed to not exist. Try verifying the reference through DOI lookup or literature search."
-      };
-    } else if (status === 403) {
-      info2 = {
-        meaning: "Forbidden (403)",
-        reasons: [
-          "Access to this resource is restricted",
-          "The server understood the request but refuses to authorize it",
-          "Authentication may be required"
-        ],
-        suggestion: "This URL exists but is not publicly accessible. Try verifying the reference through other sources."
-      };
-    } else if (status === 401) {
-      info2 = {
-        meaning: "Unauthorized (401)",
-        reasons: [
-          "Authentication is required to access this resource",
-          "The citation may refer to a paywalled or private resource"
-        ],
-        suggestion: "This resource requires authentication. Consider verifying through academic databases."
-      };
-    } else if (status >= 400 && status < 500) {
-      info2 = {
-        meaning: `Client Error (${status})`,
-        reasons: [
-          "The request was malformed or invalid",
-          "The URL may be incorrect or incomplete",
-          "The resource may no longer be available at this location"
-        ],
-        suggestion: "There's a problem with the URL format or the resource doesn't exist. Try alternative verification methods."
-      };
-    } else if (status >= 500 && status < 600) {
-      info2 = {
-        meaning: `Server Error (${status})`,
-        reasons: [
-          "The server encountered an error while processing the request",
-          "The website may be temporarily down or experiencing issues",
-          "The service might be overloaded"
-        ],
-        suggestion: "The server is currently unable to handle the request. This may be temporary, but you should try DOI or literature search instead."
-      };
-    }
-    return info2;
-  }
   async function checkDOI(doi, title, config = {}) {
     try {
-      const response = await retryableFetch(
-        "/api/references/verify-doi",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ references: [{ DOI: doi, title }] })
-        },
-        config
-      );
+      const response = await fetch("/api/references/verify-doi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doi, title })
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to verify DOI: ${response.statusText}`);
+      }
       return await response.json();
     } catch (error2) {
       console.error("Error checking DOI:", error2);
@@ -41627,58 +41517,70 @@
   }
   async function searchReference(reference, config = {}) {
     try {
-      const response = await retryableFetch(
-        "/api/references/verify-search",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reference })
-        },
-        config
-      );
+      const response = await fetch("/api/references/verify-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference })
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to search reference: ${response.statusText}`);
+      }
       return await response.json();
     } catch (error2) {
       console.error("Error searching reference:", error2);
       return {
         success: false,
         error: `Failed to search reference: ${error2 instanceof Error ? error2.message : String(error2)}`,
-        suggestion: "Try using DOI lookup if available, or check the URL directly."
+        suggestion: "Try scholar search if available, or check the URL directly."
+      };
+    }
+  }
+  async function searchScholar(query, config = {}) {
+    console.log("Payload to be sent:", JSON.stringify({ query }));
+    try {
+      const response = await fetch("/api/references/verify-search-scholar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query })
+      });
+      console.log("Response google scholar:", response);
+      if (!response.ok) {
+        throw new Error(`Failed to search scholar: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error2) {
+      console.error("Error with scholar search:", error2);
+      return {
+        success: false,
+        error: `Failed to do scholar search: ${error2 instanceof Error ? error2.message : String(error2)}`,
+        suggestion: "If there is a DOI or URL, check them directly."
       };
     }
   }
   async function checkURL(url, reference, config = {}) {
     try {
-      const response = await retryableFetch(
-        "/api/fetch-url",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url })
-        },
-        config
-      );
-      const jsonResponse = await response.json().catch((e) => {
+      const response = await fetch("/api/fetch-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      });
+      const jsonResponse = await response.json().catch(() => {
         return {
-          error: `Failed to parse response: ${e.message}`,
+          error: `Failed to parse response`,
           statusCode: response.status
         };
       });
       if (!response.ok || jsonResponse.error) {
-        const statusInfo = getStatusSpecificInfo(response.status);
         return {
-          // Structure this in a way that helps the LLM understand this isn't a system error
-          // but rather information about the reference
           success: false,
           url,
           status: response.status,
           statusText: response.statusText,
           error: jsonResponse.error || `URL check failed with status ${response.status}`,
-          // Include actionable guidance for the LLM
           verificationInfo: {
             isAccessible: false,
-            statusMeaning: statusInfo.meaning,
-            possibleReasons: statusInfo.reasons,
-            suggestion: statusInfo.suggestion
+            statusMeaning: `Error ${response.status}`,
+            suggestion: "Consider verifying the reference using DOI or literature search instead."
           }
         };
       }
@@ -41688,34 +41590,16 @@
       };
     } catch (error2) {
       console.error("Error checking URL:", error2);
-      let statusCode = 500;
-      if (error2 instanceof Error) {
-        if ("code" in error2) {
-          const code = error2.code;
-          if (code === "ENOTFOUND") statusCode = 404;
-          if (code === "ECONNREFUSED") statusCode = 503;
-        }
-        if ("status" in error2) {
-          statusCode = error2.status;
-        }
-      }
-      const statusInfo = getStatusSpecificInfo(statusCode);
       return {
         success: false,
         url,
         error: `Failed to access URL: ${error2 instanceof Error ? error2.message : String(error2)}`,
-        status: statusCode,
+        status: 500,
         verificationInfo: {
           isAccessible: false,
-          statusMeaning: statusInfo.meaning,
+          statusMeaning: "Network Error",
           networkError: true,
-          possibleReasons: [
-            ...statusInfo.reasons,
-            "Network error when attempting to access the URL",
-            "The URL may be malformed or invalid",
-            "The host server may be unreachable"
-          ],
-          suggestion: statusInfo.suggestion
+          suggestion: "Consider verifying through other sources."
         }
       };
     }
@@ -41731,7 +41615,7 @@
         maxRetries: 3,
         requestTimeout: 6e4,
         // 60 seconds
-        maxIterations: 15,
+        maxIterations: 30,
         batchSize: 15,
         ...config
       };
@@ -41825,17 +41709,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
       throw lastError || new Error("All retry attempts failed");
     }
     // Enhanced wrapper around the o3-agent API call
-    async callVerificationAgent(reference, iteration, messages, functionResult, lastToolCallId) {
-      if (functionResult && functionResult.success === false && functionResult.url && lastToolCallId) {
-        const enhancedResult = {
-          ...functionResult,
-          // Add an explicit message to help the LLM interpret the result
-          message: `URL check for ${functionResult.url} was unsuccessful (${functionResult.status ? `HTTP ${functionResult.status}: ${functionResult.verificationInfo?.statusMeaning || "Error"}` : "Network Error"}). ${functionResult.verificationInfo?.suggestion || "Consider other verification methods."}`,
-          // Keep original error information for debugging
-          originalError: functionResult.error
-        };
-        functionResult = enhancedResult;
-      }
+    async callVerificationAgent(reference, iteration, messages, functionResults = [], toolCallIds = []) {
       try {
         const response = await this.retryableFetch("/api/o3-agent", {
           method: "POST",
@@ -41844,8 +41718,10 @@ Reference error [${errorPath}]: ${errorMessage}`,
             reference,
             iteration,
             previousMessages: messages,
-            functionResult,
-            lastToolCallId
+            functionResults,
+            // Now an array
+            toolCallIds
+            // Now an array
           })
         });
         const responseData = await response.json();
@@ -41896,6 +41772,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
           result: { error: "Invalid reference provided" }
         };
       }
+      console.log("Verifying reference:", reference);
       onStatusUpdate?.("initializing");
       let currentState = {
         status: "pending",
@@ -41912,42 +41789,59 @@ Reference error [${errorPath}]: ${errorMessage}`,
       try {
         while (currentState.status === "pending" && currentState.iteration < this.config.maxIterations) {
           try {
+            console.log("Iteration:", currentState.iteration);
+            console.log("Current state:", currentState);
+            console.log("Reference:", reference);
             const llmResponse = await this.callVerificationAgent(
               reference.raw || JSON.stringify(reference),
               currentState.iteration || 0,
               currentState.messages || [],
-              currentState.functionResult,
-              currentState.lastToolCallId || null
+              currentState.functionResults || [],
+              // Now an array
+              currentState.toolCallIds || []
+              // Now an array
             );
-            if (llmResponse.functionToCall) {
-              const { name, arguments: args } = llmResponse.functionToCall;
-              let functionResult;
-              if (onStatusUpdate && name) {
-                if (name === "check_doi" || name === "search_reference" || name === "check_url") {
-                  onStatusUpdate(name, args);
+            if (llmResponse.toolCalls && llmResponse.toolCalls.length > 0) {
+              const toolCalls = llmResponse.toolCalls;
+              const functionResults = [];
+              const toolCallIds = [];
+              for (const toolCall of toolCalls) {
+                const { id, name, arguments: args } = toolCall;
+                let functionResult;
+                if (onStatusUpdate && name) {
+                  if (name === "check_doi" || name === "search_reference" || name === "scholar_search" || name === "check_url") {
+                    onStatusUpdate(name, args);
+                  }
                 }
-              }
-              switch (name) {
-                case "check_doi":
-                  functionResult = await checkDOI(args.doi, args.title);
-                  break;
-                case "search_reference":
-                  functionResult = await searchReference(args.reference);
-                  break;
-                case "check_url":
-                  functionResult = await checkURL(args.url, args.reference);
-                  break;
-                default:
-                  functionResult = {
-                    success: false,
-                    error: `Unknown function: ${name}`,
-                    suggestion: "Try another verification method."
-                  };
+                console.log("Tool call name:@@@@", name);
+                switch (name) {
+                  case "check_doi":
+                    functionResult = await checkDOI(args.doi, args.title);
+                    break;
+                  case "search_reference":
+                    functionResult = await searchReference(args.reference);
+                    break;
+                  case "scholar_search":
+                    console.log("Searching scholar for:", args.query);
+                    functionResult = await searchScholar(args.query);
+                    break;
+                  case "check_url":
+                    functionResult = await checkURL(args.url, args.reference);
+                    break;
+                  default:
+                    functionResult = {
+                      success: false,
+                      error: `Unknown function: ${name}`,
+                      suggestion: "Try another verification method."
+                    };
+                }
+                functionResults.push(functionResult);
+                toolCallIds.push(id);
               }
               currentState = {
                 ...llmResponse,
-                functionResult,
-                lastToolCallId: llmResponse.lastToolCallId
+                functionResults,
+                toolCallIds
               };
             } else {
               onStatusUpdate?.("finalizing");

@@ -1,4 +1,4 @@
-// app/api/o3-agent/route.ts
+// app/api/o3-agent/route.ts - with diagnostic checks
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { ChatCompletionMessageParam } from 'openai/resources/chat'
@@ -12,25 +12,109 @@ const openai = new OpenAI({
 
 export async function POST(request: Request) {
   try {
+    // Clone request body for deeper analysis
+    const requestBody = await request.json()
+    const diagnosticInfo = {
+      messageCount: requestBody.previousMessages?.length || 0,
+      hasFunctionResult: !!requestBody.functionResult,
+      hasLastToolCallId: !!requestBody.lastToolCallId,
+      iteration: requestBody.iteration || 0
+    }
+
+    console.log('DIAGNOSTIC INFO - REQUEST:', diagnosticInfo)
+
+    // Check for inconsistencies that might cause problems
+    if (requestBody.functionResult && !requestBody.lastToolCallId) {
+      console.warn(
+        '⚠️ WARNING: functionResult provided but lastToolCallId is missing'
+      )
+    }
+    if (!requestBody.functionResult && requestBody.lastToolCallId) {
+      console.warn(
+        '⚠️ WARNING: lastToolCallId provided but functionResult is missing'
+      )
+    }
+
+    // Extract params with detailed logging
     const {
       reference,
       iteration = 0,
       previousMessages = [],
       functionResult = null,
       lastToolCallId = null
-    } = await request.json()
-
-    //console.log(`\n=== Starting Iteration ${iteration} ===`)
-    //console.log(`Reference text: ${reference?.substring(0, 100)}...`)
-    //console.log(`Previous messages: ${previousMessages?.length}`)
+    } = requestBody
 
     // Always ensure we have a valid messages array
     let messages: ChatCompletionMessageParam[] = []
 
     if (previousMessages?.length > 0) {
       messages = [...previousMessages]
+
+      // DIAGNOSTIC: Check each message in history
+      console.log('ANALYZING MESSAGE HISTORY:')
+      let toolCallCount = 0
+      let toolResponseCount = 0
+      let unresolvedToolCalls: string[] = []
+
+      previousMessages.forEach((msg: any, i: number) => {
+        if (
+          msg.role === 'assistant' &&
+          msg.tool_calls &&
+          msg.tool_calls.length > 0
+        ) {
+          toolCallCount += msg.tool_calls.length
+          console.log(
+            `Message ${i}: Assistant with ${msg.tool_calls.length} tool call(s):`
+          )
+          msg.tool_calls.forEach((call: any) => {
+            console.log(`  - ${call.function.name} (ID: ${call.id})`)
+
+            // Check if this tool call has a response
+            const hasResponse = previousMessages.some(
+              (m: any) => m.role === 'tool' && m.tool_call_id === call.id
+            )
+            if (!hasResponse) {
+              unresolvedToolCalls.push(call.id)
+            }
+          })
+        } else if (msg.role === 'tool') {
+          toolResponseCount++
+          console.log(`Message ${i}: Tool response for ID: ${msg.tool_call_id}`)
+        }
+      })
+
+      console.log(
+        `FOUND: ${toolCallCount} tool calls, ${toolResponseCount} tool responses`
+      )
+      if (unresolvedToolCalls.length > 0) {
+        console.warn(
+          `⚠️ UNRESOLVED TOOL CALLS: ${unresolvedToolCalls.join(', ')}`
+        )
+      }
+
+      // Check if the current request is properly responding to a tool call
+      if (lastToolCallId) {
+        const isResolvingKnownCall = previousMessages.some(
+          (msg: any) =>
+            msg.role === 'assistant' &&
+            msg.tool_calls &&
+            msg.tool_calls.some((call: any) => call.id === lastToolCallId)
+        )
+
+        if (!isResolvingKnownCall) {
+          console.warn(
+            `⚠️ Current request is responding to tool_call_id ${lastToolCallId} but this ID wasn't found in message history!`
+          )
+        } else {
+          console.log(
+            `✅ Current request is properly responding to tool_call_id ${lastToolCallId}`
+          )
+        }
+      }
+
       // If we have a function result from previous iteration, add it
       if (functionResult && lastToolCallId) {
+        console.log(`Adding tool response for tool_call_id=${lastToolCallId}`)
         messages.push({
           role: 'tool',
           tool_call_id: lastToolCallId,
@@ -39,15 +123,16 @@ export async function POST(request: Request) {
       }
     } else {
       // Initial messages if we don't have any previous ones
+      console.log('First request - initializing with system message')
       messages = [
         {
           role: 'system',
           content: `You are a reference verification assistant. Your task is to verify academic and web references using available tools.
 
 A reference status must be one of:
-- "verified": if validity can be confirmed with high confidence. If the DOI is off by just a numbner, the reference is still verified. Correct the DOI in the final reference.
+- "verified": if validity can be confirmed with high confidence. You must actually find the reference either through a DIRECT DOI match or finding the article itself. A reference to the article is NOT SUFFICIENT. 
 - "unverified": if there is no evidence of its existence
-- "needs-human": if the reference exists but has discrepancies or missing information that requires human verification
+- "needs-human": if the reference might exist, but has discrepancies or missing information that requires human verification
 
 When searching:
 1. First identify key elements from the reference (authors, title, year, publication)
@@ -61,7 +146,7 @@ When searching:
    - Similar content descriptions
 5. If the reference lacks information but appears to be a real reference, use the available information to search for more details and fill them in. 
 
-Do not provide a response unless you have used at least one tool to verify the reference.
+Do not provide a response unless you have used at least one tool to verify the reference. 
 
 Return a final JSON response only when you have sufficient evidence:
 {
@@ -72,6 +157,8 @@ Return a final JSON response only when you have sufficient evidence:
 
 IMPORTANT: Your final response must be valid JSON. Do NOT include any additional text, markdown, or formatting outside the JSON object.
 
+MAKE ONLY ONE TOOL CALL AT A TIME. Do NOT use multiple tool calls in a single response.
+
 Do NOT use tool_calls when giving your final response. Make sure to try multiple searches if the first attempt is inconclusive.`
         },
         {
@@ -81,31 +168,51 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
       ]
     }
 
-    // Verify we have messages before making the API call
-    if (!messages || messages.length === 0) {
-      throw new Error('No messages available for LLM call')
-    }
-
-    //console.log('Messages to send:', messages.length)
-    //console.log('First message role:', messages[0]?.role)
-    //console.log('Last message role:', messages[messages.length - 1]?.role)
+    // Log tool definitions for debugging
+    console.log('TOOL DEFINITIONS:')
+    referenceTools.forEach((tool: any, i: number) => {
+      console.log(`Tool ${i + 1}: ${tool.function.name}`)
+    })
 
     const completion = await openai.chat.completions.create({
       model: 'o3-mini',
       messages,
       tools: referenceTools,
+      tool_choice: 'auto',
       store: true
     })
 
     const message = completion.choices[0].message
-    //console.log('LLM Response received :', message.content)
+    console.log('RESPONSE FROM OPENAI:')
+    console.log(`- Content: ${message.content ? 'present' : 'null'}`)
+    console.log(
+      `- Tool calls: ${message.tool_calls ? message.tool_calls.length : 0}`
+    )
 
-    const tokenUsage = completion.usage
-    //console.log('Token usage:', tokenUsage)
+    // DIAGNOSTIC: Validate no duplicate tool call IDs exist in history
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      const newToolCallIds = message.tool_calls.map((call) => call.id)
+      const existingIds = new Set()
+
+      previousMessages.forEach((msg: any) => {
+        if (msg.role === 'assistant' && msg.tool_calls) {
+          msg.tool_calls.forEach((call: any) => {
+            existingIds.add(call.id)
+          })
+        }
+      })
+
+      const duplicateIds = newToolCallIds.filter((id) => existingIds.has(id))
+      if (duplicateIds.length > 0) {
+        console.warn(
+          `⚠️ DUPLICATE TOOL CALL IDS DETECTED: ${duplicateIds.join(', ')}`
+        )
+      }
+    }
 
     // If no tool_calls, we have our final answer
-    if (!message.tool_calls) {
-      //console.log('Final answer received')
+    if (!message.tool_calls || message.tool_calls.length === 0) {
+      console.log('Processing final answer (no tool calls)')
       try {
         if (message.content === null) {
           throw new Error('Message content is null')
@@ -119,7 +226,6 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
         if (!jsonContent.trim().startsWith('{')) {
           const jsonMatch = jsonContent.match(/\{[\s\S]*\}/)
           if (jsonMatch) {
-            //console.log('Found JSON embedded in non-JSON response')
             jsonContent = jsonMatch[0]
             extractedJson = true
           }
@@ -127,13 +233,6 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
 
         // Parse the JSON content
         const result = JSON.parse(jsonContent)
-
-        // Log extraction if we had to fix the response
-        /*if (extractedJson) {
-          console.log('Successfully extracted JSON from malformed response')
-          console.log('Original:', message.content.substring(0, 100) + '...')
-          console.log('Extracted:', jsonContent.substring(0, 100) + '...')
-        }*/
 
         // Ensure required fields are present
         const requiredFields = ['status', 'message', 'reference']
@@ -147,18 +246,15 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
           // Add missing fields with defaults
           if (!result.status) {
             result.status = 'needs-human'
-            //console.log('Added default status: "needs-human"')
           }
 
           if (!result.message) {
             result.message =
               'Verification produced incomplete results. Human review recommended.'
-            //console.log('Added default message')
           }
 
           if (!result.reference) {
             result.reference = reference
-            //console.log('Used original reference as fallback')
           }
 
           // Track performed checks if missing
@@ -178,30 +274,29 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
                     tools.add('Literature Search')
                   if (call.function?.name === 'check_url')
                     tools.add('URL Verification')
+                  if (call.function?.name === 'scholar_search')
+                    tools.add('Scholar Search')
                 })
               }
             })
 
             if (tools.size > 0) {
               result.checks_performed = Array.from(tools)
-              //console.log(
-              //  `Added checks_performed: ${result.checks_performed.join(', ')}`
-              //)
             } else {
               result.checks_performed = ['Reference Analysis']
             }
           }
         }
 
+        console.log('Returning complete status with result:', result)
         return NextResponse.json({
           status: 'complete',
           result,
           resultWasRepaired: extractedJson || missingFields.length > 0,
           messages: [...messages, message],
-          tokenUsage: tokenUsage
+          tokenUsage: completion.usage
         })
       } catch (e) {
-        // Log detailed error information
         console.error('JSON parsing error:', {
           error: e instanceof Error ? e.message : String(e),
           content: message.content?.substring(0, 500) || '[null content]',
@@ -232,48 +327,80 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
                 fallbackResult.checks_performed.push('DOI Lookup')
               if (
                 call.function?.name === 'search_reference' &&
-                !fallbackResult.checks_performed.includes('Literature Search')
+                !fallbackResult.checks_performed.includes('Google Search')
               )
-                fallbackResult.checks_performed.push('Literature Search')
+                fallbackResult.checks_performed.push('Google Search')
               if (
                 call.function?.name === 'check_url' &&
                 !fallbackResult.checks_performed.includes('URL Verification')
               )
                 fallbackResult.checks_performed.push('URL Verification')
+              if (
+                call.function?.name === 'scholar_search' &&
+                !fallbackResult.checks_performed.includes('Scholar Search')
+              )
+                fallbackResult.checks_performed.push('Scholar Search')
             })
           }
         })
 
-        //console.log('Created fallback result due to parsing failure')
-
-        // CHANGED: Return parsingError flag instead of changing status to error
         return NextResponse.json({
           status: 'complete',
           result: fallbackResult,
-          parsingError: true, // Add this flag for the service to detect
+          parsingError: true,
           parseErrorMessage: e instanceof Error ? e.message : String(e),
           rawContent: message.content,
           messages: [...messages, message],
-          tokenUsage: tokenUsage
+          tokenUsage: completion.usage
         })
       }
     }
 
-    // If we have tool calls, return the first one to be executed
+    // Take the first tool call
     const toolCall = message.tool_calls[0]
-    //console.log('Function to call:', toolCall.function.name)
 
-    // Return what we need for the next iteration
+    // DIAGNOSTIC: More detailed tool call info
+    console.log('TOOL CALL DETAILS:')
+    message.tool_calls.forEach((call, idx) => {
+      console.log(`Call ${idx + 1}: ${call.function.name} (ID: ${call.id})`)
+      console.log(`  Arguments: ${call.function.arguments}`)
+
+      // Analyze arguments format
+      try {
+        const args = JSON.parse(call.function.arguments)
+        console.log(
+          `  Parsed args successfully: ${Object.keys(args).join(', ')}`
+        )
+      } catch (e) {
+        console.warn(`  ⚠️ ERROR parsing arguments: ${e}`)
+      }
+    })
+
+    console.log('FINAL RESPONSE STRUCTURE:')
+    const responseStructure = {
+      status: 'pending',
+      messages: `[${messages.length + 1} messages]`,
+      iteration: iteration + 1,
+      functionToCall: {
+        name: toolCall.function.name,
+        arguments: `[parsed JSON with ${Object.keys(JSON.parse(toolCall.function.arguments)).length} keys]`
+      },
+      lastToolCallId: toolCall.id,
+      tokenUsage: `[Usage data with ${Object.keys(completion.usage || {}).length} properties]`
+    }
+    console.log(JSON.stringify(responseStructure, null, 2))
+
+    // Return what we need for the next iteration - simple approach
     return NextResponse.json({
       status: 'pending',
-      messages: [...messages, message], // Include the assistant's message with tool calls
+      messages: [...messages, message],
       iteration: iteration + 1,
       functionToCall: {
         name: toolCall.function.name,
         arguments: JSON.parse(toolCall.function.arguments)
       },
       lastToolCallId: toolCall.id,
-      tokenUsage: tokenUsage // Add the token usage information
+      tokenUsage: completion.usage
     })
   } catch (error) {
     console.error('Error in o3-agent endpoint:', error)

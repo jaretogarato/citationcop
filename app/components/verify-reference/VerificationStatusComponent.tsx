@@ -1,9 +1,9 @@
 // app/components/verification/VerificationStatusComponents.tsx
 import React from 'react'
-import { 
-  FileText, 
-  Search, 
-  Link, 
+import {
+  FileText,
+  Search,
+  Link,
   CheckCircle,
   AlertCircle,
   XCircle,
@@ -39,6 +39,18 @@ export const ProcessingStepDisplay: React.FC<ProcessingStepDisplayProps> = ({
         </div>
       )
     case 'search_reference':
+      return (
+        <div className="flex items-center gap-2">
+          <Search className="h-4 w-4 text-purple-400" />
+          <span>
+            searching:{' '}
+            {currentToolArgs?.reference
+              ? `"${currentToolArgs.reference.substring(0, 30)}${currentToolArgs.reference.length > 30 ? '...' : ''}"`
+              : 'reference'}
+          </span>
+        </div>
+      )
+    case 'scholar_search':
       return (
         <div className="flex items-center gap-2">
           <Search className="h-4 w-4 text-purple-400" />
@@ -89,7 +101,7 @@ interface VerificationAlertProps {
   status: UIStatus
 }
 
-export const VerificationAlert: React.FC<VerificationAlertProps> = ({ 
+export const VerificationAlert: React.FC<VerificationAlertProps> = ({
   status
 }) => {
   return (
@@ -122,8 +134,7 @@ export const VerificationAlert: React.FC<VerificationAlertProps> = ({
 
         <AlertTitle className="text-sm">
           {status === 'verified' && 'Reference Verified'}
-          {status === 'requires-verification' &&
-            'Requires Human Verification'}
+          {status === 'requires-verification' && 'Requires Human Verification'}
           {status === 'unverified' && 'Reference Unverified'}
           {status === 'error' && 'Error Processing Reference'}
         </AlertTitle>
@@ -213,10 +224,10 @@ export const StatusSummaryBar: React.FC<StatusSummaryBarProps> = ({
           {status === 'extracting'
             ? 'Extracting references...'
             : status === 'processing'
-            ? 'Verifying references...'
-            : status === 'complete'
-            ? 'All references processed'
-            : 'Error processing references'}
+              ? 'Verifying references...'
+              : status === 'complete'
+                ? 'All references processed'
+                : 'Error processing references'}
         </span>
       </div>
       <div className="flex items-center space-x-4">

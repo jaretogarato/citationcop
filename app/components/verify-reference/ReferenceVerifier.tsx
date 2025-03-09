@@ -15,9 +15,9 @@ import {
   ReferenceResult,
   UIStatus
 } from '@/app/components/verify-reference/VerificationStatusComponent'
-import { 
-  verifyReference, 
-  ProcessingStep, 
+import {
+  verifyReference,
+  ProcessingStep,
   VerificationStatus,
   TokenUsage
 } from '@/app/lib/verification-service'
@@ -26,8 +26,10 @@ import type { Reference } from '@/app/types/reference'
 export default function ReferenceVerifier() {
   const [reference, setReference] = useState('')
   const [uiStatus, setUIStatus] = useState<UIStatus>('idle')
-  const [verificationState, setVerificationState] = useState<VerificationStatus | null>(null)
-  const [processingStep, setProcessingStep] = useState<ProcessingStep>('initializing')
+  const [verificationState, setVerificationState] =
+    useState<VerificationStatus | null>(null)
+  const [processingStep, setProcessingStep] =
+    useState<ProcessingStep>('initializing')
   const [currentToolArgs, setCurrentToolArgs] = useState<any>(null)
   const [result, setResult] = useState<{
     formattedReference: string
@@ -61,7 +63,8 @@ export default function ReferenceVerifier() {
       // Create a temporary reference object
       const referenceObj: Reference = {
         id: `ref-${Date.now()}`,
-        title: reference.substring(0, 30) + (reference.length > 30 ? '...' : ''),
+        title:
+          reference.substring(0, 30) + (reference.length > 30 ? '...' : ''),
         authors: [],
         raw: reference,
         status: 'pending',
@@ -78,7 +81,9 @@ export default function ReferenceVerifier() {
         },
         performedChecksRef.current
       )
-
+      console.log('Verified reference:', verifiedRef)
+      console.log('Performed checks:', Array.from(performedChecksRef.current))
+      console.log('Status:', verifiedRef.status)
       // Map the status from the verification API to our UI statuses
       let finalUIStatus: UIStatus = 'idle'
 
@@ -97,12 +102,16 @@ export default function ReferenceVerifier() {
           break
       }
 
-      setResult({
+      setResult((prev) => ({
+        ...prev, // Ensure we're creating a new object
         formattedReference: verifiedRef.fixedReference || reference,
         explanation: verifiedRef.message || 'Verification completed.',
         wasModified: !!verifiedRef.fixedReference,
-        checksPerformed: verifiedRef.checksPerformed || [],
-      })
+        checksPerformed: verifiedRef.checksPerformed || []
+      }))
+
+      console.log('Final UI Status:', finalUIStatus)
+      console.log('Result State Before Updating:', result)
 
       setUIStatus(finalUIStatus)
     } catch (error) {
@@ -110,8 +119,8 @@ export default function ReferenceVerifier() {
       setResult({
         formattedReference: reference,
         explanation:
-          error instanceof Error 
-            ? error.message 
+          error instanceof Error
+            ? error.message
             : 'An error occurred while connecting to the verification service. Please try again later.',
         wasModified: false,
         checksPerformed: Array.from(performedChecksRef.current)
@@ -136,9 +145,7 @@ export default function ReferenceVerifier() {
     <div className="w-full max-w-3xl mx-auto">
       <Card className="w-full bg-gray-900/60 backdrop-blur-sm shadow-lg !border-0">
         <CardHeader className="pb-3">
-            <CardTitle className="text-white">
-            Try Source Verify 👇  
-            </CardTitle>
+          <CardTitle className="text-white">Try Source Verify 👇</CardTitle>
           <CardDescription className="text-gray-300">
             Paste a single reference to verify and repair
           </CardDescription>
@@ -181,7 +188,7 @@ export default function ReferenceVerifier() {
                   Verifying reference...
                 </p>
                 <div className="text-sm text-gray-400 ml-auto">
-                  <ProcessingStepDisplay 
+                  <ProcessingStepDisplay
                     processingStep={processingStep}
                     currentToolArgs={currentToolArgs}
                   />
@@ -193,7 +200,7 @@ export default function ReferenceVerifier() {
               <VerificationAlert status={uiStatus} />
 
               {result && (
-                <ReferenceResult 
+                <ReferenceResult
                   formattedReference={result.formattedReference}
                   explanation={result.explanation}
                   wasModified={result.wasModified}
