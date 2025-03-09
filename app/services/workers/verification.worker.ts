@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { WorkerMessage } from '../types'
+import { DocumentParsingService } from '../document-parsing-service'
 import { ReferencePageDetectionService } from '../reference-page-detection-service'
 import { ReferenceExtractFromTextService } from '../reference-extract-from-text-service'
 import { o3ReferenceVerificationService } from '../o3-reference-verification-service'
@@ -12,6 +13,7 @@ interface ExtractedReferenceWithIndex extends Reference {
 
 declare const self: DedicatedWorkerGlobalScope
 
+const documentParsingService = new DocumentParsingService()
 const refPageDetectionService = new ReferencePageDetectionService()
 const extractionService = new ReferenceExtractFromTextService()
 const o3VerificationService = new o3ReferenceVerificationService()
@@ -26,6 +28,36 @@ self.onmessage = async (e: MessageEvent) => {
         pdfId,
         message: `Starting!`
       })
+      console.log('file: ', file)
+      // Initialize the document parsing service
+      console.log('calling document parsing servie')
+
+      await documentParsingService.initialize(file)
+      const parsingResponse = await documentParsingService.parseDocument()
+
+      /*console.log(
+        'page 4 lines text join: ',
+        parsingResponse[3].lines.map((line) => line.text).join('\n')
+      )
+*/
+      const documentText = parsingResponse
+        .map((page) => `Page ${page.pageNumber}:\n${page.rawText}`)
+        .join('\n\n')
+
+      const response = await fetch('/api/references/detect-pages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: documentText
+        })
+      })
+
+      const result = await response.json()
+      console.log('REFERENCES ARE ON PAGES: ', result.references)
+
+      await new Promise((r) => setTimeout(r, 10000))
 
       // Initialize the detection service
       await refPageDetectionService.initialize(file)

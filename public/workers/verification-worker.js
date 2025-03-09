@@ -25456,6 +25456,90 @@
   var __webpack_exports__stopEvent = __webpack_exports__.stopEvent;
   var __webpack_exports__version = __webpack_exports__.version;
 
+  // app/services/document-parsing-service.ts
+  __webpack_exports__GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+  var DocumentParsingService = class {
+    pdfDoc = null;
+    /**
+     * Initialize the service with a PDF file
+     */
+    async initialize(file) {
+      let arrayBuffer;
+      if (file instanceof File || file instanceof Blob) {
+        arrayBuffer = await file.arrayBuffer();
+      } else {
+        arrayBuffer = file;
+      }
+      this.pdfDoc = await __webpack_exports__getDocument({ data: arrayBuffer }).promise;
+      console.log(`Loaded PDF with ${this.pdfDoc.numPages} pages`);
+    }
+    /**
+     * Parse the entire document and return an array with the text content for each page.
+     */
+    async parseDocument() {
+      if (!this.pdfDoc) {
+        throw new Error("PDF document not initialized");
+      }
+      const numPages = this.pdfDoc.numPages;
+      const results = [];
+      for (let pageNumber = 1; pageNumber <= numPages; pageNumber++) {
+        const page = await this.pdfDoc.getPage(pageNumber);
+        const textContent = await page.getTextContent();
+        const items = textContent.items.map((item) => ({
+          str: item.str,
+          height: item.transform[3],
+          width: item.width,
+          transform: item.transform
+        }));
+        const lines = this.mergeSameLine(items);
+        const rawText = lines.map((line) => line.text).join("\n").trim();
+        results.push({ pageNumber, rawText, lines });
+      }
+      return results;
+    }
+    /**
+     * Merge text items that are on the same line.
+     */
+    mergeSameLine(items) {
+      if (items.length === 0) return [];
+      const toLine = (item) => {
+        let x = Number(item.transform[4].toFixed(1));
+        let y = Number(item.transform[5].toFixed(1));
+        let w = item.width;
+        if (w < 0) {
+          x += w;
+          w = -w;
+        }
+        return {
+          x,
+          y,
+          width: w,
+          height: item.height,
+          text: item.str,
+          _height: [item.height]
+        };
+      };
+      const lines = [toLine(items[0])];
+      for (let i = 1; i < items.length; i++) {
+        const current = toLine(items[i]);
+        const prevLine = lines[lines.length - 1];
+        const sameLine = current.y === prevLine.y || current.y >= prevLine.y && current.y < prevLine.y + prevLine.height || current.y + current.height > prevLine.y && current.y + current.height <= prevLine.y + prevLine.height;
+        if (sameLine) {
+          prevLine.text += " " + current.text;
+          prevLine.width += current.width;
+          prevLine._height.push(current.height);
+        } else {
+          prevLine.height = Math.max(...prevLine._height);
+          lines.push(current);
+        }
+      }
+      lines[lines.length - 1].height = Math.max(
+        ...lines[lines.length - 1]._height
+      );
+      return lines;
+    }
+  };
+
   // node_modules/pdf-lib/node_modules/tslib/tslib.es6.js
   var extendStatics = function(d, b) {
     extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d2, b2) {
@@ -41927,6 +42011,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
   };
 
   // app/services/workers/verification.worker.ts
+  var documentParsingService = new DocumentParsingService();
   var refPageDetectionService = new ReferencePageDetectionService();
   var extractionService = new ReferenceExtractFromTextService();
   var o3VerificationService = new o3ReferenceVerificationService();
@@ -41939,6 +42024,24 @@ Reference error [${errorPath}]: ${errorMessage}`,
           pdfId,
           message: `Starting!`
         });
+        console.log("file: ", file);
+        console.log("calling document parsing servie");
+        await documentParsingService.initialize(file);
+        const parsingResponse = await documentParsingService.parseDocument();
+        const documentText = parsingResponse.map((page) => `Page ${page.pageNumber}:
+${page.rawText}`).join("\n\n");
+        const response = await fetch("/api/references/detect-pages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            text: documentText
+          })
+        });
+        const result = await response.json();
+        console.log("REFERENCES ARE ON PAGES: ", result.references);
+        await new Promise((r) => setTimeout(r, 1e4));
         await refPageDetectionService.initialize(file);
         self.postMessage({
           type: "update",
@@ -42042,10 +42145,10 @@ Reference error [${errorPath}]: ${errorMessage}`,
             });
           }
         );
-        const processedReferences = verificationResults.map((result) => ({
-          ...result.reference,
-          message: result.result?.message,
-          verificationDetails: result.result
+        const processedReferences = verificationResults.map((result2) => ({
+          ...result2.reference,
+          message: result2.result?.message,
+          verificationDetails: result2.result
         }));
         self.postMessage({
           type: "complete",
