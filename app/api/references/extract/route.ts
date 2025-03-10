@@ -11,7 +11,13 @@ const openAI = new OpenAI({
 
 const model = process.env.LLM_MODEL_ID || 'o3-mini' // 'gpt-4o-mini'
 
-const REFERENCE_EXTRACTION_PROMPT = `Your role is to precisely extract references from the following text. ONLY INCLUDE INFORMATION THAT IS ON THE TEXT. Provide information found the following JSON format:
+const REFERENCE_EXTRACTION_PROMPT = `Your role is to precisely extract ALL the references from the following text. 
+
+CRITICAL:
+1. ONLY INCLUDE INFORMATION THAT IS ON THE TEXT. 
+2. Capture ALL the references
+
+Provide information found the following JSON format:
 
 {
   "references": [
@@ -46,10 +52,12 @@ References (in JSON format):`
 const MAX_RETRIES = 3
 const RETRY_DELAY_MS = 1000 // Start with 1 second delay
 
+//console.log('Prompt for extraction:', REFERENCE_EXTRACTION_PROMPT)
+
 /**
  * Sleep function for implementing delay between retries
  */
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
  * Makes a request to OpenAI with exponential backoff retry logic
@@ -57,11 +65,11 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function makeOpenAIRequestWithRetry(text: string) {
   let attempt = 0
   let lastError: Error | null = null
-  
+
   while (attempt < MAX_RETRIES) {
     try {
       const llmStartTime = performance.now()
-      
+      console.log(REFERENCE_EXTRACTION_PROMPT.replace('{text}', text))
       const response = await openAI.chat.completions.create({
         model: model,
         messages: [
@@ -73,32 +81,33 @@ async function makeOpenAIRequestWithRetry(text: string) {
         temperature: 0,
         response_format: { type: 'json_object' }
       })
-      
+
       const llmEndTime = performance.now()
       const llmTime = llmEndTime - llmStartTime
-      
+
       const content = response.choices[0]?.message?.content
       if (!content) {
         throw new Error('Empty response from OpenAI')
       }
-      
+
       const result = JSON.parse(content)
       return { result, llmTime }
     } catch (error) {
       attempt++
       lastError = error instanceof Error ? error : new Error('Unknown error')
-      
+
       if (attempt >= MAX_RETRIES) {
         break
       }
-      
+
       // Exponential backoff with jitter
-      const delay = RETRY_DELAY_MS * Math.pow(2, attempt - 1) * (0.5 + Math.random())
+      const delay =
+        RETRY_DELAY_MS * Math.pow(2, attempt - 1) * (0.5 + Math.random())
       //console.log(`Retry attempt ${attempt}/${MAX_RETRIES} after ${delay.toFixed(0)}ms: ${lastError.message}`)
       await sleep(delay)
     }
   }
-  
+
   throw lastError || new Error('Failed after multiple retries')
 }
 
@@ -114,26 +123,26 @@ export async function POST(request: Request) {
 
   try {
     const { text } = await request.json()
-    
+
     if (!text) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 })
     }
-    
+
     metrics.inputLength = text.length
-    
+
     const { result, llmTime } = await makeOpenAIRequestWithRetry(text)
     metrics.llmTime = llmTime
     metrics.referencesFound = result.references?.length || 0
-    
+
     const endTime = performance.now()
     metrics.totalTime = endTime - startTime
-    
+
     /*console.log(`📊 Reference extraction successful:
       Total time: ${metrics.totalTime.toFixed(2)}ms
       LLM time: ${metrics.llmTime.toFixed(2)}ms
       Input length: ${metrics.inputLength} chars
       References found: ${metrics.referencesFound}`)*/
-    
+
     return NextResponse.json({
       ...result,
       _metadata: {
@@ -145,21 +154,25 @@ export async function POST(request: Request) {
   } catch (error) {
     const endTime = performance.now()
     metrics.totalTime = endTime - startTime
-    
-    const errorMessage = error instanceof Error ? error.message : 'Failed to extract references'
-    
+
+    const errorMessage =
+      error instanceof Error ? error.message : 'Failed to extract references'
+
     /*console.error(`❌ Reference extraction failed:
       Error: ${errorMessage}
       Total time: ${metrics.totalTime.toFixed(2)}ms
       Input length: ${metrics.inputLength} chars`)
     */
-    return NextResponse.json({
-      error: errorMessage,
-      _metadata: {
-        processingTimeMs: metrics.totalTime,
-        inputLength: metrics.inputLength,
-        status: 'failed'
-      }
-    }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: errorMessage,
+        _metadata: {
+          processingTimeMs: metrics.totalTime,
+          inputLength: metrics.inputLength,
+          status: 'failed'
+        }
+      },
+      { status: 500 }
+    )
   }
 }
