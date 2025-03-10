@@ -2,7 +2,14 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { PDFQueueService } from '@/app/services/queue-service'
-import { FileText, CheckCircle, XCircle, Cog } from 'lucide-react'
+import {
+  FileText,
+  CheckCircle,
+  XCircle,
+  Cog,
+  DownloadCloud,
+  RefreshCw
+} from 'lucide-react'
 import { PDFDropZone } from './PDFDropZone'
 import ReferenceGrid from '@/app/components/reference-display/ReferenceGrid'
 import type {
@@ -11,10 +18,19 @@ import type {
   Document
 } from '@/app/types/reference'
 import StatusDisplay from '@/app/components/reference-display/StatusDisplay'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/app/components/ui/dropdown-menu'
+import Button from '@/app/components/ui/Button'
+import { exportReferencesToCSV, exportReferencesToExcel } from '@/app/utils/reference-helpers/reference-export-utility'
 
 const PDFProcessor = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const [allProcessingComplete, setAllProcessingComplete] = useState(false)
   const [status, setStatus] = useState({
     pending: 0,
     processing: 0,
@@ -57,6 +73,21 @@ const PDFProcessor = () => {
       '/workers/verification-worker.js'
     )
 
+    // Register the completion callback
+    if (queueServiceRef.current) {
+      queueServiceRef.current.onAllComplete(() => {
+        console.log('Queue service signaled all processing complete')
+        setAllProcessingComplete(true)
+        setIsProcessing(false)
+
+        // Add a notification to the log messages
+        setLogMessages((prev) => [
+          ...prev,
+          '✅ All PDFs have been processed. You can now export the results or start a new batch.'
+        ])
+      })
+    }
+
     queueServiceRef.current.onUpdate((message) => {
       switch (message.type) {
         case 'update':
@@ -71,6 +102,13 @@ const PDFProcessor = () => {
             })
             return newJobs
           })
+          break
+
+        case 'batch-complete':
+          // This is a new message type from the queue service
+          setLogMessages((prev) => [...prev, `${message.message}`])
+          setIsProcessing(false)
+          setAllProcessingComplete(true)
           break
 
         case 'references':
@@ -250,8 +288,6 @@ const PDFProcessor = () => {
             }, 5000)
             return newJobs
           })
-
-          updateProcessingState()
           break
 
         case 'error':
@@ -270,7 +306,6 @@ const PDFProcessor = () => {
             ...prev,
             `❌ Error processing PDF ${message.pdfId}: ${message.error}`
           ])
-          updateProcessingState()
           break
 
         default:
@@ -294,6 +329,7 @@ const PDFProcessor = () => {
   const handleProcessFiles = () => {
     if (queueServiceRef.current && selectedFiles.length > 0) {
       setIsProcessing(true)
+      setAllProcessingComplete(false)
       // Reset PDF-specific tracking for each new file
       selectedFiles.forEach((file) => {
         const pdfId = file.name
@@ -322,15 +358,77 @@ const PDFProcessor = () => {
     }
   }
 
-  const updateProcessingState = () => {
+  const handleReset = () => {
+    setSelectedFiles([])
+    setLogMessages([])
+    setDocuments([])
+    setProcessedReferenceIds(new Set())
+    setCompletedPdfs(new Set())
+    setCurrentJobs(new Map())
+    setReferenceCountByPdf({})
+    setVerifiedCountByPdf({})
+    setAllProcessingComplete(false)
+
+    // Reset queue service status
     if (queueServiceRef.current) {
-      const { processing } = queueServiceRef.current.getStatus()
-      setIsProcessing(processing > 0)
+      queueServiceRef.current.reset()
+      setStatus({
+        pending: 0,
+        processing: 0,
+        complete: 0,
+        error: 0
+      })
     }
+  }
+
+  // Instead of defining export functions here, we now just pass the documents to the utility functions
+  const handleExportCSV = () => {
+    exportReferencesToCSV(documents)
+  }
+
+  const handleExportExcel = async () => {
+    await exportReferencesToExcel(documents)
   }
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold text-slate-200">
+          PDF Reference Processor
+        </h2>
+
+        <div className="flex gap-2">
+          {allProcessingComplete && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="bg-blue-700 hover:bg-blue-600 text-white">
+                  <DownloadCloud className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleExportCSV}>
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportExcel}>
+                  Export as Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
+          {allProcessingComplete && (
+            <Button
+              onClick={handleReset}
+              className="bg-indigo-700 hover:bg-indigo-600 text-white"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Start New Batch
+            </Button>
+          )}
+        </div>
+      </div>
+
       <div className="mb-8">
         <PDFDropZone
           onFilesSelected={handleFilesSelected}

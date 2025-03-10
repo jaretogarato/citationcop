@@ -27,12 +27,12 @@ async function fetchGoogleSearchResults(query: string) {
 
     const responseData = await response.json()
 
-    console.log(
+    /*console.log(
       'Search results:',
       responseData.organic.map((result: any) => result.title),
       responseData.organic.map((result: any) => result.link),
       responseData.organic.map((result: any) => result.snippet)
-    )
+    )*/
 
     // Just return the organic search results
     return {
