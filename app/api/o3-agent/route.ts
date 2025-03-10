@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       iteration: requestBody.iteration || 0
     }
 
-    console.log('DIAGNOSTIC INFO - REQUEST:', diagnosticInfo)
+    //console.log('DIAGNOSTIC INFO - REQUEST:', diagnosticInfo)
 
     // Check for inconsistencies that might cause problems
     if (requestBody.functionResult && !requestBody.lastToolCallId) {
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       messages = [...previousMessages]
 
       // DIAGNOSTIC: Check each message in history
-      console.log('ANALYZING MESSAGE HISTORY:')
+      //console.log('ANALYZING MESSAGE HISTORY:')
       let toolCallCount = 0
       let toolResponseCount = 0
       let unresolvedToolCalls: string[] = []
@@ -63,11 +63,9 @@ export async function POST(request: Request) {
           msg.tool_calls.length > 0
         ) {
           toolCallCount += msg.tool_calls.length
-          console.log(
-            `Message ${i}: Assistant with ${msg.tool_calls.length} tool call(s):`
-          )
+         
           msg.tool_calls.forEach((call: any) => {
-            console.log(`  - ${call.function.name} (ID: ${call.id})`)
+            //console.log(`  - ${call.function.name} (ID: ${call.id})`)
 
             // Check if this tool call has a response
             const hasResponse = previousMessages.some(
@@ -79,13 +77,13 @@ export async function POST(request: Request) {
           })
         } else if (msg.role === 'tool') {
           toolResponseCount++
-          console.log(`Message ${i}: Tool response for ID: ${msg.tool_call_id}`)
+          //console.log(`Message ${i}: Tool response for ID: ${msg.tool_call_id}`)
         }
       })
 
-      console.log(
+      /*console.log(
         `FOUND: ${toolCallCount} tool calls, ${toolResponseCount} tool responses`
-      )
+      )*/
       if (unresolvedToolCalls.length > 0) {
         console.warn(
           `⚠️ UNRESOLVED TOOL CALLS: ${unresolvedToolCalls.join(', ')}`
@@ -114,7 +112,7 @@ export async function POST(request: Request) {
 
       // If we have a function result from previous iteration, add it
       if (functionResult && lastToolCallId) {
-        console.log(`Adding tool response for tool_call_id=${lastToolCallId}`)
+        //console.log(`Adding tool response for tool_call_id=${lastToolCallId}`)
         messages.push({
           role: 'tool',
           tool_call_id: lastToolCallId,
@@ -144,14 +142,13 @@ When searching:
    - Publication/venue matches
    - Year matches
    - Similar content descriptions
-5. If the reference lacks information but appears to be a real reference, use the available information to search for more details and fill them in. 
 
 Do not provide a response unless you have used at least one tool to verify the reference. 
 
 Return a final JSON response only when you have sufficient evidence:
 {
   "status": "verified" | "unverified" | "needs-human" ,
-  "message": "Detailed explanation of findings. Include relevant links if available. Use formatting if helpful.",
+  "message": "Detailed explanation of findings. Mention results from all chacks done. Include relevant links if available.",
   "reference": "Reference in APA format including any new information found."
 }
 
@@ -169,7 +166,7 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
     }
 
     // Log tool definitions for debugging
-    console.log('TOOL DEFINITIONS:')
+    //console.log('TOOL DEFINITIONS:')
     referenceTools.forEach((tool: any, i: number) => {
       console.log(`Tool ${i + 1}: ${tool.function.name}`)
     })

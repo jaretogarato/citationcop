@@ -1,20 +1,15 @@
 // First, import the ProcessingStep type to match the verification-service API
 import type { Reference } from '@/app/types/reference'
-import {
+/*import {
   checkDOI,
   searchReference,
   searchScholar,
   checkURL
-} from '@/app/lib/referenceToolsCode'
+} from '@/app/lib/referenceToolsCode'*/
 
-// Use the same ProcessingStep type for compatibility
-export type ProcessingStep =
-  | 'initializing'
-  | 'search_reference'
-  | 'scholar_search'
-  | 'check_doi'
-  | 'check_url'
-  | 'finalizing'
+// now using this so we can have same code everywhere.
+import { verifyReference } from '@/app/lib/verification-service'
+import type { ProcessingStep } from '@/app/lib/verification-service'
 
 type ProcessStatus = 'pending' | 'complete' | 'error'
 
@@ -276,7 +271,87 @@ export class o3ReferenceVerificationService {
     }
   }
 
-  public async verifyReference(
+  public async processBatch(
+    references: Reference[],
+    onBatchProgress?: (verifiedReferences: VerifiedReference[]) => void,
+    onReferenceVerified?: (verifiedReference: VerifiedReference) => void,
+    onStatusUpdate?: (
+      referenceId: string,
+      step: ProcessingStep,
+      args?: any
+    ) => void
+  ): Promise<VerifiedReference[]> {
+    if (!Array.isArray(references)) {
+      console.error('Invalid references array provided')
+      return []
+    }
+
+    const verifiedReferences: VerifiedReference[] = []
+    const validReferences = references.filter((ref) => ref)
+
+    if (validReferences.length === 0) {
+      console.warn('No valid references to process')
+      return []
+    }
+
+    try {
+      for (let i = 0; i < validReferences.length; i += this.config.batchSize) {
+        const batch = validReferences.slice(i, i + this.config.batchSize)
+
+        const batchPromises = batch.map(async (ref) => {
+          const performedChecks = new Set<string>()
+
+          try {
+            const result = await verifyReference(
+              ref,
+              (step, args) => {
+                if (onStatusUpdate) onStatusUpdate(ref.id, step, args)
+              },
+              performedChecks
+            )
+
+            const verified: VerifiedReference = {
+              reference: result,
+              status: result.status as ProcessStatus,
+              result
+            }
+
+            if (onReferenceVerified) onReferenceVerified(verified)
+
+            return verified
+          } catch (error) {
+            console.error('Reference verification failed:', error)
+            return {
+              reference: ref,
+              status: 'error' as ProcessStatus,
+              result: {
+                error: error instanceof Error ? error.message : String(error)
+              }
+            }
+          }
+        })
+
+        try {
+          const batchResults = await Promise.all(batchPromises)
+          verifiedReferences.push(...batchResults)
+
+          if (onBatchProgress) {
+            onBatchProgress(verifiedReferences)
+          }
+        } catch (batchError) {
+          console.error('Error processing batch:', batchError)
+        }
+      }
+    } catch (error) {
+      console.error('Error in batch processing:', error)
+    }
+
+    return verifiedReferences
+  }
+}
+
+// below is old version. now using verification-service in lib...
+/*public async verifyReference(
     reference: Reference,
     onUpdate?: (state: ProcessState) => void,
     onStatusUpdate?: (step: ProcessingStep, args?: any) => void // Add the step update parameter
@@ -389,7 +464,6 @@ export class o3ReferenceVerificationService {
                   functionResult = await searchReference(args.reference)
                   break
                 case 'scholar_search':
-                  console.log('Searching scholar for:', args.query)
                   functionResult = await searchScholar(args.query)
                   break
                 case 'check_url':
@@ -412,7 +486,11 @@ export class o3ReferenceVerificationService {
             currentState = {
               ...llmResponse,
               functionResults,
-              toolCallIds
+              toolCallIds,
+              messages: [
+                ...(currentState.messages || []), // Keep old messages
+                ...(llmResponse.messages || []) // Add new messages
+              ]
             }
           } else {
             // No function called, likely finalizing
@@ -445,7 +523,6 @@ export class o3ReferenceVerificationService {
         }
       }
 
-      // Process the final state
       if (currentState.status === 'complete') {
         // Finalizing step
         onStatusUpdate?.('finalizing')
@@ -519,9 +596,9 @@ export class o3ReferenceVerificationService {
         }
       }
     }
-  }
+  }*/
 
-  public async processBatch(
+/*public async processBatch(
     references: Reference[],
     onBatchProgress?: (verifiedReferences: VerifiedReference[]) => void,
     onReferenceVerified?: (verifiedReference: VerifiedReference) => void,
@@ -622,5 +699,4 @@ export class o3ReferenceVerificationService {
     }
 
     return verifiedReferences
-  }
-}
+  }*/

@@ -128,11 +128,11 @@ export async function POST(request: Request) {
     const endTime = performance.now()
     metrics.totalTime = endTime - startTime
     
-    console.log(`📊 Reference extraction successful:
+    /*console.log(`📊 Reference extraction successful:
       Total time: ${metrics.totalTime.toFixed(2)}ms
       LLM time: ${metrics.llmTime.toFixed(2)}ms
       Input length: ${metrics.inputLength} chars
-      References found: ${metrics.referencesFound}`)
+      References found: ${metrics.referencesFound}`)*/
     
     return NextResponse.json({
       ...result,
@@ -148,11 +148,11 @@ export async function POST(request: Request) {
     
     const errorMessage = error instanceof Error ? error.message : 'Failed to extract references'
     
-    console.error(`❌ Reference extraction failed:
+    /*console.error(`❌ Reference extraction failed:
       Error: ${errorMessage}
       Total time: ${metrics.totalTime.toFixed(2)}ms
       Input length: ${metrics.inputLength} chars`)
-    
+    */
     return NextResponse.json({
       error: errorMessage,
       _metadata: {

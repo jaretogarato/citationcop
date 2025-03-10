@@ -41605,6 +41605,128 @@
     }
   }
 
+  // app/lib/verification-service.ts
+  async function verifyReference(reference, onStatusUpdate, performedChecks) {
+    try {
+      onStatusUpdate?.("initializing");
+      let currentState = {
+        status: "pending",
+        messages: [],
+        iteration: 0
+      };
+      while (currentState.status === "pending" && currentState.iteration < 8) {
+        const response = await fetch("/api/o3-agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reference: reference.raw,
+            iteration: currentState.iteration,
+            previousMessages: currentState.messages,
+            functionResult: currentState.functionResult,
+            lastToolCallId: currentState.lastToolCallId
+          })
+        });
+        const llmResponse = await response.json();
+        if (llmResponse.functionToCall) {
+          const { name, arguments: args } = llmResponse.functionToCall;
+          let functionResult;
+          onStatusUpdate?.(name, args);
+          switch (name) {
+            case "check_doi":
+              performedChecks?.add("DOI Lookup");
+              functionResult = await checkDOI(args.doi, args.title);
+              break;
+            case "search_reference":
+              performedChecks?.add("Google Search");
+              functionResult = await searchReference(args.reference);
+              break;
+            case "scholar_search":
+              performedChecks?.add("Scholar Search");
+              functionResult = await searchScholar(args.query);
+              break;
+            case "check_url":
+              performedChecks?.add("URL Verification");
+              functionResult = await checkURL(args.url, args.reference);
+              break;
+          }
+          currentState = {
+            ...llmResponse,
+            functionResult,
+            lastToolCallId: llmResponse.lastToolCallId
+          };
+        } else {
+          onStatusUpdate?.("finalizing");
+          currentState = llmResponse;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      let refStatus = "pending";
+      let explanation = "";
+      let formattedText = reference.raw;
+      if (currentState.result) {
+        switch (currentState.result.status) {
+          case "verified":
+            refStatus = "verified";
+            break;
+          case "needs-human":
+            refStatus = "needs-human";
+            break;
+          case "unverified":
+            refStatus = "unverified";
+            break;
+          case "error":
+            refStatus = "error";
+            break;
+        }
+        explanation = currentState.result.message || "Verification completed.";
+        formattedText = currentState.result.reference || reference.raw;
+      } else if (currentState.error) {
+        refStatus = "error";
+        explanation = currentState.error || "An error occurred during verification.";
+      }
+      const checksPerformed = getChecksPerformed(currentState, performedChecks);
+      return {
+        ...reference,
+        status: refStatus,
+        message: explanation,
+        fixedReference: formattedText !== reference.raw ? formattedText : null,
+        checksPerformed
+      };
+    } catch (error2) {
+      console.error("Verification error:", error2);
+      return {
+        ...reference,
+        status: "error",
+        message: "An error occurred while connecting to the verification service."
+      };
+    }
+  }
+  function getChecksPerformed(currentState, performedChecks) {
+    if (currentState?.result?.checks_performed && currentState.result.checks_performed.length > 0) {
+      return currentState.result.checks_performed;
+    }
+    if (performedChecks && performedChecks.size > 0) {
+      return Array.from(performedChecks);
+    }
+    const checks = /* @__PURE__ */ new Set();
+    currentState?.messages?.forEach((msg) => {
+      if (msg.role === "assistant" && msg.tool_calls) {
+        msg.tool_calls.forEach((call) => {
+          if (call.function?.name === "check_doi") {
+            checks.add("DOI Lookup");
+          } else if (call.function?.name === "search_reference") {
+            checks.add("Google Search");
+          } else if (call.function?.name === "check_url") {
+            checks.add("URL Verification");
+          } else if (call.function?.name === "scholar_search") {
+            checks.add("Scholar Search");
+          }
+        });
+      }
+    });
+    return Array.from(checks);
+  }
+
   // app/services/o3-reference-verification-service.ts
   var o3ReferenceVerificationService = class {
     config;
@@ -41822,7 +41944,6 @@ Reference error [${errorPath}]: ${errorMessage}`,
                     functionResult = await searchReference(args.reference);
                     break;
                   case "scholar_search":
-                    console.log("Searching scholar for:", args.query);
                     functionResult = await searchScholar(args.query);
                     break;
                   case "check_url":
@@ -41841,7 +41962,13 @@ Reference error [${errorPath}]: ${errorMessage}`,
               currentState = {
                 ...llmResponse,
                 functionResults,
-                toolCallIds
+                toolCallIds,
+                messages: [
+                  ...currentState.messages || [],
+                  // Keep old messages
+                  ...llmResponse.messages || []
+                  // Add new messages
+                ]
               };
             } else {
               onStatusUpdate?.("finalizing");
@@ -41935,58 +42062,33 @@ Reference error [${errorPath}]: ${errorMessage}`,
       try {
         for (let i = 0; i < validReferences.length; i += this.config.batchSize) {
           const batch = validReferences.slice(i, i + this.config.batchSize);
-          const batchPromises = batch.map(
-            (ref) => this.verifyReference(
-              ref,
-              (state) => {
-                console.log(
-                  `Verifying reference ${i + batch.indexOf(ref) + 1}/${validReferences.length}`
-                );
-              },
-              // Pass the step update but add the reference ID
-              onStatusUpdate ? (step, args) => onStatusUpdate(ref.id, step, args) : void 0
-            ).then((result) => {
-              if (onReferenceVerified) {
-                try {
-                  onReferenceVerified(result);
-                } catch (callbackError) {
-                  console.error(
-                    "Error in reference verified callback:",
-                    callbackError
-                  );
-                }
-              }
-              return result;
-            }).catch((error2) => {
-              const errorResult = {
+          const batchPromises = batch.map(async (ref) => {
+            const performedChecks = /* @__PURE__ */ new Set();
+            try {
+              const result = await verifyReference(ref, (step, args) => {
+                if (onStatusUpdate) onStatusUpdate(ref.id, step, args);
+              }, performedChecks);
+              const verified = {
+                reference: result,
+                status: result.status,
+                result
+              };
+              if (onReferenceVerified) onReferenceVerified(verified);
+              return verified;
+            } catch (error2) {
+              console.error("Reference verification failed:", error2);
+              return {
                 reference: ref,
                 status: "error",
-                result: {
-                  error: error2 instanceof Error ? error2.message : String(error2)
-                }
+                result: { error: error2 instanceof Error ? error2.message : String(error2) }
               };
-              if (onReferenceVerified) {
-                try {
-                  onReferenceVerified(errorResult);
-                } catch (callbackError) {
-                  console.error(
-                    "Error in reference verified callback:",
-                    callbackError
-                  );
-                }
-              }
-              return errorResult;
-            })
-          );
+            }
+          });
           try {
             const batchResults = await Promise.all(batchPromises);
             verifiedReferences.push(...batchResults);
             if (onBatchProgress) {
-              try {
-                onBatchProgress(verifiedReferences);
-              } catch (progressError) {
-                console.error("Error in batch progress callback:", progressError);
-              }
+              onBatchProgress(verifiedReferences);
             }
           } catch (batchError) {
             console.error("Error processing batch:", batchError);
@@ -41997,6 +42099,108 @@ Reference error [${errorPath}]: ${errorMessage}`,
       }
       return verifiedReferences;
     }
+    /*public async processBatch(
+        references: Reference[],
+        onBatchProgress?: (verifiedReferences: VerifiedReference[]) => void,
+        onReferenceVerified?: (verifiedReference: VerifiedReference) => void,
+        onStatusUpdate?: (
+          referenceId: string,
+          step: ProcessingStep,
+          args?: any
+        ) => void // Add step update parameter
+      ): Promise<VerifiedReference[]> {
+        // Validate input
+        if (!Array.isArray(references)) {
+          console.error('Invalid references array provided')
+          return []
+        }
+    
+        const verifiedReferences: VerifiedReference[] = []
+        const validReferences = references.filter((ref) => ref)
+    
+        if (validReferences.length === 0) {
+          console.warn('No valid references to process')
+          return []
+        }
+    
+        try {
+          for (let i = 0; i < validReferences.length; i += this.config.batchSize) {
+            const batch = validReferences.slice(i, i + this.config.batchSize)
+    
+            const batchPromises = batch.map((ref) =>
+              this.verifyReference(
+                ref,
+                (state) => {
+                  console.log(
+                    `Verifying reference ${i + batch.indexOf(ref) + 1}/${validReferences.length}`
+                  )
+                },
+                // Pass the step update but add the reference ID
+                onStatusUpdate
+                  ? (step, args) => onStatusUpdate(ref.id, step, args)
+                  : undefined
+              )
+                .then((result) => {
+                  // Call the onReferenceVerified callback when each reference is verified
+                  if (onReferenceVerified) {
+                    try {
+                      onReferenceVerified(result)
+                    } catch (callbackError) {
+                      console.error(
+                        'Error in reference verified callback:',
+                        callbackError
+                      )
+                    }
+                  }
+                  return result
+                })
+                .catch((error) => {
+                  // Error handling...
+                  const errorResult = {
+                    reference: ref,
+                    status: 'error' as ProcessStatus,
+                    result: {
+                      error: error instanceof Error ? error.message : String(error)
+                    }
+                  }
+    
+                  // Also call the callback for error cases
+                  if (onReferenceVerified) {
+                    try {
+                      onReferenceVerified(errorResult)
+                    } catch (callbackError) {
+                      console.error(
+                        'Error in reference verified callback:',
+                        callbackError
+                      )
+                    }
+                  }
+    
+                  return errorResult
+                })
+            )
+    
+            try {
+              const batchResults = await Promise.all(batchPromises)
+              verifiedReferences.push(...batchResults)
+    
+              if (onBatchProgress) {
+                try {
+                  onBatchProgress(verifiedReferences)
+                } catch (progressError) {
+                  console.error('Error in batch progress callback:', progressError)
+                }
+              }
+            } catch (batchError) {
+              console.error('Error processing batch:', batchError)
+            }
+          }
+        } catch (error) {
+          console.error('Error in batch processing:', error)
+        }
+    
+        return verifiedReferences
+      }*/
   };
 
   // app/services/workers/verification.worker.ts
