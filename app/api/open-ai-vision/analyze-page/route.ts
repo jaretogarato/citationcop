@@ -122,7 +122,7 @@ Note that all three three can be yes.
     }
 
     const content = output.choices[0].message.content.trim()
-    console.log('LLM Response: VISION PAGE: ', content)
+    //console.log('LLM Response: VISION PAGE: ', content)
 
     // Handle cases where there might be extra text before or after the JSON
     const jsonMatch = content.match(/\{[\s\S]*\}/)

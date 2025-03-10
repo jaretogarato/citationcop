@@ -40989,7 +40989,6 @@
           arrayBuffer = file;
         }
         this.pdfDoc = await __webpack_exports__getDocument({ data: arrayBuffer }).promise;
-        console.log(`Initialized PDF with ${this.pdfDoc.numPages} pages`);
       } catch (error2) {
         console.error("Error initializing PDF document:", error2);
         throw error2;
@@ -41147,7 +41146,6 @@
         let currentPage = totalPages;
         let referencePages = null;
         while (currentPage >= 1 && referencePages === null) {
-          console.log(`Processing page ${currentPage}`);
           const pageResult = await this.processPage(currentPage, totalPages);
           if (pageResult.result.status === "complete") {
             if (pageResult.result.response && pageResult.result.response.content) {
@@ -41157,7 +41155,6 @@
                 );
                 if (parsedResult.references != null) {
                   referencePages = parsedResult.references;
-                  console.log("Found reference pages:", referencePages);
                   break;
                 } else {
                   console.error(
@@ -41869,185 +41866,6 @@ Reference error [${errorPath}]: ${errorMessage}`,
         throw error2;
       }
     }
-    async verifyReference(reference, onUpdate, onStatusUpdate) {
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(
-            new Error(
-              `Verification timed out after ${this.config.requestTimeout * 2}ms`
-            )
-          );
-        }, this.config.requestTimeout * 2);
-      });
-      const verificationPromise = this._verifyReference(
-        reference,
-        onUpdate,
-        onStatusUpdate
-      );
-      return Promise.race([verificationPromise, timeoutPromise]);
-    }
-    async _verifyReference(reference, onUpdate, onStatusUpdate) {
-      if (!reference) {
-        return {
-          reference: reference || {},
-          status: "error",
-          result: { error: "Invalid reference provided" }
-        };
-      }
-      console.log("Verifying reference:", reference);
-      onStatusUpdate?.("initializing");
-      let currentState = {
-        status: "pending",
-        messages: [],
-        iteration: 0
-      };
-      if (onUpdate) {
-        try {
-          onUpdate(currentState);
-        } catch (error2) {
-          console.error("Error in onUpdate callback:", error2);
-        }
-      }
-      try {
-        while (currentState.status === "pending" && currentState.iteration < this.config.maxIterations) {
-          try {
-            console.log("Iteration:", currentState.iteration);
-            console.log("Current state:", currentState);
-            console.log("Reference:", reference);
-            const llmResponse = await this.callVerificationAgent(
-              reference.raw || JSON.stringify(reference),
-              currentState.iteration || 0,
-              currentState.messages || [],
-              currentState.functionResults || [],
-              // Now an array
-              currentState.toolCallIds || []
-              // Now an array
-            );
-            if (llmResponse.toolCalls && llmResponse.toolCalls.length > 0) {
-              const toolCalls = llmResponse.toolCalls;
-              const functionResults = [];
-              const toolCallIds = [];
-              for (const toolCall of toolCalls) {
-                const { id, name, arguments: args } = toolCall;
-                let functionResult;
-                if (onStatusUpdate && name) {
-                  if (name === "check_doi" || name === "search_reference" || name === "scholar_search" || name === "check_url") {
-                    onStatusUpdate(name, args);
-                  }
-                }
-                console.log("Tool call name:@@@@", name);
-                switch (name) {
-                  case "check_doi":
-                    functionResult = await checkDOI(args.doi, args.title);
-                    break;
-                  case "search_reference":
-                    functionResult = await searchReference(args.reference);
-                    break;
-                  case "scholar_search":
-                    functionResult = await searchScholar(args.query);
-                    break;
-                  case "check_url":
-                    functionResult = await checkURL(args.url, args.reference);
-                    break;
-                  default:
-                    functionResult = {
-                      success: false,
-                      error: `Unknown function: ${name}`,
-                      suggestion: "Try another verification method."
-                    };
-                }
-                functionResults.push(functionResult);
-                toolCallIds.push(id);
-              }
-              currentState = {
-                ...llmResponse,
-                functionResults,
-                toolCallIds,
-                messages: [
-                  ...currentState.messages || [],
-                  // Keep old messages
-                  ...llmResponse.messages || []
-                  // Add new messages
-                ]
-              };
-            } else {
-              onStatusUpdate?.("finalizing");
-              currentState = llmResponse;
-            }
-            currentState.iteration = (currentState.iteration || 0) + 1;
-            if (onUpdate) {
-              try {
-                onUpdate(currentState);
-              } catch (error2) {
-                console.error("Error in onUpdate callback:", error2);
-              }
-            }
-          } catch (error2) {
-            console.error("Iteration error:", error2);
-            currentState.iteration = (currentState.iteration || 0) + 1;
-            if (currentState.iteration >= this.config.maxIterations) {
-              currentState.status = "error";
-              currentState.error = `Max iterations reached with error: ${error2 instanceof Error ? error2.message : String(error2)}`;
-            }
-          }
-        }
-        if (currentState.status === "complete") {
-          onStatusUpdate?.("finalizing");
-          if (currentState.parsingError) {
-            this.logError(
-              reference,
-              "json-parsing",
-              currentState.parseErrorMessage || "JSON parsing error occurred",
-              currentState
-            );
-            if (currentState.result) {
-              reference.status = currentState.result.status || "needs-human";
-              reference.message = currentState.result.message || "Verification produced an invalid response format that could not be parsed. Human review recommended.";
-              reference.fixedReference = currentState.result.reference;
-            }
-          } else if (currentState.result) {
-            reference.status = currentState.result.status || "verified";
-            reference.message = currentState.result.message || "Verification complete";
-            reference.fixedReference = currentState.result.reference;
-          }
-        } else if (currentState.status === "error" || currentState.error) {
-          this.logError(
-            reference,
-            "verification-failed",
-            currentState.error || "Verification failed",
-            currentState
-          );
-          reference.status = "error";
-          reference.message = currentState.error || "Something went wrong during verification";
-        } else {
-          this.logError(
-            reference,
-            "undefined-state",
-            "Verification process ended in an undefined state",
-            currentState
-          );
-          reference.status = "error";
-          reference.message = "Verification process ended in an undefined state";
-        }
-        return {
-          reference,
-          status: currentState.status,
-          result: currentState.result
-        };
-      } catch (error2) {
-        console.error("Verification process error:", error2);
-        this.logError(reference, "verifyReference", error2);
-        reference.status = "error";
-        reference.message = `Verification failed: ${error2 instanceof Error ? error2.message : String(error2)}`;
-        return {
-          reference,
-          status: "error",
-          result: {
-            error: error2 instanceof Error ? error2.message : String(error2)
-          }
-        };
-      }
-    }
     async processBatch(references, onBatchProgress, onReferenceVerified, onStatusUpdate) {
       if (!Array.isArray(references)) {
         console.error("Invalid references array provided");
@@ -42065,9 +41883,13 @@ Reference error [${errorPath}]: ${errorMessage}`,
           const batchPromises = batch.map(async (ref) => {
             const performedChecks = /* @__PURE__ */ new Set();
             try {
-              const result = await verifyReference(ref, (step, args) => {
-                if (onStatusUpdate) onStatusUpdate(ref.id, step, args);
-              }, performedChecks);
+              const result = await verifyReference(
+                ref,
+                (step, args) => {
+                  if (onStatusUpdate) onStatusUpdate(ref.id, step, args);
+                },
+                performedChecks
+              );
               const verified = {
                 reference: result,
                 status: result.status,
@@ -42080,7 +41902,9 @@ Reference error [${errorPath}]: ${errorMessage}`,
               return {
                 reference: ref,
                 status: "error",
-                result: { error: error2 instanceof Error ? error2.message : String(error2) }
+                result: {
+                  error: error2 instanceof Error ? error2.message : String(error2)
+                }
               };
             }
           });
@@ -42099,108 +41923,6 @@ Reference error [${errorPath}]: ${errorMessage}`,
       }
       return verifiedReferences;
     }
-    /*public async processBatch(
-        references: Reference[],
-        onBatchProgress?: (verifiedReferences: VerifiedReference[]) => void,
-        onReferenceVerified?: (verifiedReference: VerifiedReference) => void,
-        onStatusUpdate?: (
-          referenceId: string,
-          step: ProcessingStep,
-          args?: any
-        ) => void // Add step update parameter
-      ): Promise<VerifiedReference[]> {
-        // Validate input
-        if (!Array.isArray(references)) {
-          console.error('Invalid references array provided')
-          return []
-        }
-    
-        const verifiedReferences: VerifiedReference[] = []
-        const validReferences = references.filter((ref) => ref)
-    
-        if (validReferences.length === 0) {
-          console.warn('No valid references to process')
-          return []
-        }
-    
-        try {
-          for (let i = 0; i < validReferences.length; i += this.config.batchSize) {
-            const batch = validReferences.slice(i, i + this.config.batchSize)
-    
-            const batchPromises = batch.map((ref) =>
-              this.verifyReference(
-                ref,
-                (state) => {
-                  console.log(
-                    `Verifying reference ${i + batch.indexOf(ref) + 1}/${validReferences.length}`
-                  )
-                },
-                // Pass the step update but add the reference ID
-                onStatusUpdate
-                  ? (step, args) => onStatusUpdate(ref.id, step, args)
-                  : undefined
-              )
-                .then((result) => {
-                  // Call the onReferenceVerified callback when each reference is verified
-                  if (onReferenceVerified) {
-                    try {
-                      onReferenceVerified(result)
-                    } catch (callbackError) {
-                      console.error(
-                        'Error in reference verified callback:',
-                        callbackError
-                      )
-                    }
-                  }
-                  return result
-                })
-                .catch((error) => {
-                  // Error handling...
-                  const errorResult = {
-                    reference: ref,
-                    status: 'error' as ProcessStatus,
-                    result: {
-                      error: error instanceof Error ? error.message : String(error)
-                    }
-                  }
-    
-                  // Also call the callback for error cases
-                  if (onReferenceVerified) {
-                    try {
-                      onReferenceVerified(errorResult)
-                    } catch (callbackError) {
-                      console.error(
-                        'Error in reference verified callback:',
-                        callbackError
-                      )
-                    }
-                  }
-    
-                  return errorResult
-                })
-            )
-    
-            try {
-              const batchResults = await Promise.all(batchPromises)
-              verifiedReferences.push(...batchResults)
-    
-              if (onBatchProgress) {
-                try {
-                  onBatchProgress(verifiedReferences)
-                } catch (progressError) {
-                  console.error('Error in batch progress callback:', progressError)
-                }
-              }
-            } catch (batchError) {
-              console.error('Error processing batch:', batchError)
-            }
-          }
-        } catch (error) {
-          console.error('Error in batch processing:', error)
-        }
-    
-        return verifiedReferences
-      }*/
   };
 
   // app/services/workers/verification.worker.ts
@@ -42242,7 +41964,6 @@ ${page.rawText}`).join("\n\n");
           return matchingPage ? matchingPage.rawText : "";
         });
         result.rawText = updatedRawText;
-        console.log("Updated raw text for reference pages:", result);
         self.postMessage({
           type: "update",
           pdfId,

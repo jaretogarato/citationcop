@@ -27,12 +27,12 @@ async function fetchGoogleScholarResults(query: string) {
 
     const responseData = await response.json()
 
-    console.log(
+    /*console.log(
       'scholar results:',
       responseData.organic.map((result: any) => result.title),
       responseData.organic.map((result: any) => result.link),
       responseData.organic.map((result: any) => result.snippet)
-    )
+    )*/
 
     // Just return the organic search results
     return {
@@ -60,23 +60,23 @@ async function fetchGoogleScholarResults(query: string) {
 export async function POST(request: Request) {
   try {
     const rawBody = await request.text()
-    console.log('@@@@@@@Raw request body:', rawBody)
+    //console.log('@@@@@@@Raw request body:', rawBody)
     const { query } = JSON.parse(rawBody)
-    console.log('!!!!!!!!!!!!!!!!!!!!!!!Parsed query:', query)
+    //console.log('!!!!!!!!!!!!!!!!!!!!!!!Parsed query:', query)
 
-    console.log('scholar query: !!!', query)
+    //console.log('scholar query: !!!', query)
 
     if (!query) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 })
     }
 
     const results = await fetchGoogleScholarResults(query)
-    console.log(
+    /*console.log(
       'SCHOLAR results:',
       results.organic.map((result: any) => result.title),
       results.organic.map((result: any) => result.link),
       results.organic.map((result: any) => result.snippet)
-    )
+    )*/
 
     return NextResponse.json(results)
   } catch (error) {

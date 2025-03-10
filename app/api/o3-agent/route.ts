@@ -63,7 +63,7 @@ export async function POST(request: Request) {
           msg.tool_calls.length > 0
         ) {
           toolCallCount += msg.tool_calls.length
-         
+
           msg.tool_calls.forEach((call: any) => {
             //console.log(`  - ${call.function.name} (ID: ${call.id})`)
 
@@ -180,11 +180,11 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
     })
 
     const message = completion.choices[0].message
-    console.log('RESPONSE FROM OPENAI:')
+    /*console.log('RESPONSE FROM OPENAI:')
     console.log(`- Content: ${message.content ? 'present' : 'null'}`)
     console.log(
       `- Tool calls: ${message.tool_calls ? message.tool_calls.length : 0}`
-    )
+    )*/
 
     // DIAGNOSTIC: Validate no duplicate tool call IDs exist in history
     if (message.tool_calls && message.tool_calls.length > 0) {
@@ -357,23 +357,23 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
     const toolCall = message.tool_calls[0]
 
     // DIAGNOSTIC: More detailed tool call info
-    console.log('TOOL CALL DETAILS:')
+    //console.log('TOOL CALL DETAILS:')
     message.tool_calls.forEach((call, idx) => {
-      console.log(`Call ${idx + 1}: ${call.function.name} (ID: ${call.id})`)
-      console.log(`  Arguments: ${call.function.arguments}`)
+      //console.log(`Call ${idx + 1}: ${call.function.name} (ID: ${call.id})`)
+      //console.log(`  Arguments: ${call.function.arguments}`)
 
       // Analyze arguments format
       try {
         const args = JSON.parse(call.function.arguments)
-        console.log(
+        /*console.log(
           `  Parsed args successfully: ${Object.keys(args).join(', ')}`
-        )
+        )*/
       } catch (e) {
         console.warn(`  ⚠️ ERROR parsing arguments: ${e}`)
       }
     })
 
-    console.log('FINAL RESPONSE STRUCTURE:')
+    //console.log('FINAL RESPONSE STRUCTURE:')
     const responseStructure = {
       status: 'pending',
       messages: `[${messages.length + 1} messages]`,
@@ -385,7 +385,7 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
       lastToolCallId: toolCall.id,
       tokenUsage: `[Usage data with ${Object.keys(completion.usage || {}).length} properties]`
     }
-    console.log(JSON.stringify(responseStructure, null, 2))
+    //console.log(JSON.stringify(responseStructure, null, 2))
 
     // Return what we need for the next iteration - simple approach
     return NextResponse.json({

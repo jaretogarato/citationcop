@@ -69,7 +69,7 @@ export class ReferencePageDetectionService {
         arrayBuffer = file
       }
       this.pdfDoc = await getDocument({ data: arrayBuffer }).promise
-      console.log(`Initialized PDF with ${this.pdfDoc.numPages} pages`)
+      //console.log(`Initialized PDF with ${this.pdfDoc.numPages} pages`)
     } catch (error) {
       console.error('Error initializing PDF document:', error)
       throw error
@@ -264,7 +264,7 @@ export class ReferencePageDetectionService {
 
       // Process pages one at a time until the LLM returns a valid final response
       while (currentPage >= 1 && referencePages === null) {
-        console.log(`Processing page ${currentPage}`)
+        //console.log(`Processing page ${currentPage}`)
 
         // Process the current page
         const pageResult = await this.processPage(currentPage, totalPages)
@@ -281,7 +281,7 @@ export class ReferencePageDetectionService {
               )
               if (parsedResult.references != null) {
                 referencePages = parsedResult.references
-                console.log('Found reference pages:', referencePages)
+                //console.log('Found reference pages:', referencePages)
                 break // Found reference pages, exit the loop
               } else {
                 console.error(

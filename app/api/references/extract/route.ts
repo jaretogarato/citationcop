@@ -94,7 +94,7 @@ async function makeOpenAIRequestWithRetry(text: string) {
       
       // Exponential backoff with jitter
       const delay = RETRY_DELAY_MS * Math.pow(2, attempt - 1) * (0.5 + Math.random())
-      console.log(`Retry attempt ${attempt}/${MAX_RETRIES} after ${delay.toFixed(0)}ms: ${lastError.message}`)
+      //console.log(`Retry attempt ${attempt}/${MAX_RETRIES} after ${delay.toFixed(0)}ms: ${lastError.message}`)
       await sleep(delay)
     }
   }

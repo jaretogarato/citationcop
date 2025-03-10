@@ -21,9 +21,9 @@ export async function POST(request: Request) {
       lastToolCallId = null
     } = await request.json()
 
-    console.log(
+    /*console.log(
       `Reference page detection iteration ${iteration} for page ${pageNumber}/${totalPages}`
-    )
+    )*/
 
     // Build the conversation messages
     let messages: ChatCompletionMessageParam[] = []
@@ -76,7 +76,7 @@ Do not include any other pages that are not part of the references section. IF a
 
     // Debug: log the message size
     const messagesSize = JSON.stringify(messages).length
-    console.log(`Messages size: ${Math.round(messagesSize / 1024)} KB`)
+    //console.log(`Messages size: ${Math.round(messagesSize / 1024)} KB`)
 
     // Set up retry mechanism
     const maxRetries = 3

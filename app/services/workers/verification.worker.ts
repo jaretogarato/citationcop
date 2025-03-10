@@ -82,7 +82,7 @@ self.onmessage = async (e: MessageEvent) => {
       // Now update the result with the mapped raw text.
       result.rawText = updatedRawText
       
-      console.log('Updated raw text for reference pages:', result)
+      //console.log('Updated raw text for reference pages:', result)
 
 
       self.postMessage({
