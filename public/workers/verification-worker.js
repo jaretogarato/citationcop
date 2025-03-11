@@ -25456,6 +25456,100 @@
   var __webpack_exports__stopEvent = __webpack_exports__.stopEvent;
   var __webpack_exports__version = __webpack_exports__.version;
 
+  // app/services/document-parsing-service.ts
+  __webpack_exports__GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
+  var DocumentParsingService = class {
+    pdfDoc = null;
+    /**
+     * Initialize the service with a PDF file
+     */
+    async initialize(file) {
+      let arrayBuffer;
+      if (file instanceof File || file instanceof Blob) {
+        arrayBuffer = await file.arrayBuffer();
+      } else {
+        arrayBuffer = file;
+      }
+      this.pdfDoc = await __webpack_exports__getDocument({ data: arrayBuffer }).promise;
+      console.log(`Loaded PDF with ${this.pdfDoc.numPages} pages`);
+    }
+    /**
+     * Parse the entire document and return an array with the text content for each page.
+     */
+    async parseDocument() {
+      if (!this.pdfDoc) {
+        throw new Error("PDF document not initialized");
+      }
+      const numPages = this.pdfDoc.numPages;
+      const results = [];
+      for (let pageNumber = 1; pageNumber <= numPages; pageNumber++) {
+        const page = await this.pdfDoc.getPage(pageNumber);
+        const textContent = await page.getTextContent();
+        const items = textContent.items.map((item) => ({
+          str: item.str,
+          height: item.transform[3],
+          width: item.width,
+          transform: item.transform
+        }));
+        const lines = this.mergeSameLine(items);
+        const rawText = lines.map((line) => line.text).join("\n").trim();
+        results.push({ pageNumber, rawText, lines });
+      }
+      return results;
+    }
+    /**
+     * Merge text items that are on the same line.
+     */
+    mergeSameLine(items) {
+      if (items.length === 0) return [];
+      const toLine = (item) => {
+        let x = Number(item.transform[4].toFixed(1));
+        let y = Number(item.transform[5].toFixed(1));
+        let w = item.width;
+        if (w < 0) {
+          x += w;
+          w = -w;
+        }
+        return {
+          x,
+          y,
+          width: w,
+          height: item.height,
+          text: item.str,
+          _height: [item.height]
+        };
+      };
+      const lines = [toLine(items[0])];
+      for (let i = 1; i < items.length; i++) {
+        const current = toLine(items[i]);
+        const prevLine = lines[lines.length - 1];
+        const sameLine = current.y === prevLine.y || current.y >= prevLine.y && current.y < prevLine.y + prevLine.height || current.y + current.height > prevLine.y && current.y + current.height <= prevLine.y + prevLine.height;
+        if (sameLine) {
+          prevLine.text += " " + current.text;
+          prevLine.width += current.width;
+          prevLine._height.push(current.height);
+        } else {
+          prevLine.height = Math.max(...prevLine._height);
+          lines.push(current);
+        }
+      }
+      lines[lines.length - 1].height = Math.max(
+        ...lines[lines.length - 1]._height
+      );
+      return lines;
+    }
+    /**
+     * Clean up resources by destroying the PDF document.
+     */
+    async cleanup() {
+      if (this.pdfDoc) {
+        await this.pdfDoc.destroy();
+        this.pdfDoc = null;
+        console.log("Cleaned up PDF document resources.");
+      }
+    }
+  };
+
   // node_modules/pdf-lib/node_modules/tslib/tslib.es6.js
   var extendStatics = function(d, b) {
     extendStatics = Object.setPrototypeOf || { __proto__: [] } instanceof Array && function(d2, b2) {
@@ -40868,7 +40962,7 @@
     }
   };
 
-  // app/services/reference-page-detection-service.ts
+  // app/services/o;d/reference-page-detection-service.ts
   __webpack_exports__GlobalWorkerOptions.workerSrc = "/pdf.worker.min.js";
   var ReferencePageDetectionService = class {
     pdfDoc = null;
@@ -40895,7 +40989,6 @@
           arrayBuffer = file;
         }
         this.pdfDoc = await __webpack_exports__getDocument({ data: arrayBuffer }).promise;
-        console.log(`Initialized PDF with ${this.pdfDoc.numPages} pages`);
       } catch (error2) {
         console.error("Error initializing PDF document:", error2);
         throw error2;
@@ -41053,7 +41146,6 @@
         let currentPage = totalPages;
         let referencePages = null;
         while (currentPage >= 1 && referencePages === null) {
-          console.log(`Processing page ${currentPage}`);
           const pageResult = await this.processPage(currentPage, totalPages);
           if (pageResult.result.status === "complete") {
             if (pageResult.result.response && pageResult.result.response.content) {
@@ -41063,7 +41155,6 @@
                 );
                 if (parsedResult.references != null) {
                   referencePages = parsedResult.references;
-                  console.log("Found reference pages:", referencePages);
                   break;
                 } else {
                   console.error(
@@ -41198,6 +41289,91 @@
     }
   };
 
+  // app/services/ref-page-image-service.ts
+  var ReferencePageImageService = class {
+    refPageDetectionService;
+    constructor() {
+      this.refPageDetectionService = new ReferencePageDetectionService();
+    }
+    /**
+     * Initialize the service with a PDF file.
+     */
+    async initialize(file) {
+      await this.refPageDetectionService.initialize(file);
+    }
+    /**
+     * Given a RefPagesResult (with pages and rawText) from the detect-pages API,
+     * retrieves the image data for each page and returns an updated result.
+     */
+    async addImageData(refPagesResult) {
+      const updatedImageData = await Promise.all(
+        refPagesResult.pages.map(async (pageNum) => {
+          try {
+            const imageData = await this.refPageDetectionService.getPageImage(pageNum);
+            return imageData;
+          } catch (error2) {
+            console.error(`Failed to get image for page ${pageNum}:`, error2);
+            return "";
+          }
+        })
+      );
+      return {
+        pages: refPagesResult.pages,
+        rawText: refPagesResult.rawText,
+        imageData: updatedImageData
+      };
+    }
+    /**
+     * Clean up resources used by the detection service.
+     */
+    async cleanup() {
+      await this.refPageDetectionService.cleanup();
+    }
+  };
+
+  // app/services/image-to-markdown-extraction-service.ts
+  var ReferenceMarkdownService = class {
+    /**
+     * Extracts markdown content from each reference page.
+     *
+     * For each page provided in the RefPagesResult, this method calls the
+     * '/api/open-ai-vision/image-2-ref-markdown' endpoint with the corresponding image data
+     * and parsed text. It returns an array of markdown extraction results.
+     *
+     * @param refPagesResult The result object containing pages, raw text, and image data.
+     * @returns An array of ReferenceMarkdownResult.
+     */
+    async extractMarkdown(refPagesResult) {
+      const { pages, rawText, imageData } = refPagesResult;
+      const markdownResults = await Promise.all(
+        pages.map(async (page, index) => {
+          const filePath = imageData[index];
+          const parsedText = rawText[index];
+          const response = await fetch("/api/open-ai-vision/image-2-ref-markdown", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              filePath,
+              parsedText,
+              model: "free"
+            })
+          });
+          if (!response.ok) {
+            throw new Error("Failed to extract references content");
+          }
+          const { markdown } = await response.json();
+          return {
+            pageNumber: page,
+            markdown
+          };
+        })
+      );
+      return markdownResults;
+    }
+  };
+
   // app/services/reference-extract-from-text-service.ts
   var ReferenceExtractFromTextService = class _ReferenceExtractFromTextService {
     static CHUNK_SIZE = 2e3;
@@ -41316,126 +41492,16 @@
   };
 
   // app/lib/referenceToolsCode.ts
-  async function fetchWithTimeout(url, options, timeout = 6e4) {
-    const controller = new AbortController();
-    const { signal } = controller;
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-    try {
-      const response = await fetch(url, {
-        ...options,
-        signal
-      });
-      return response;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-  async function retryableFetch(url, options, config = {}) {
-    const { maxRetries = 3, requestTimeout = 6e4 } = config;
-    let lastError = null;
-    let lastResponse = null;
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        if (attempt > 0) {
-          await new Promise(
-            (resolve) => setTimeout(resolve, 1e3 * Math.pow(2, attempt - 1))
-          );
-        }
-        const response = await fetchWithTimeout(url, options, requestTimeout);
-        lastResponse = response;
-        if (url.includes("/api/fetch-url")) {
-          return response;
-        }
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => "No error details available");
-          throw new Error(
-            `HTTP error ${response.status}: ${response.statusText}. Details: ${errorText}`
-          );
-        }
-        return response;
-      } catch (error2) {
-        console.error(`Attempt ${attempt + 1}/${maxRetries} failed:`, error2);
-        lastError = error2 instanceof Error ? error2 : new Error(String(error2));
-        if (error2 instanceof DOMException && error2.name === "AbortError") {
-          console.error(`Request timed out after ${requestTimeout}ms`);
-          throw new Error(`Request timed out after ${requestTimeout}ms`);
-        }
-      }
-    }
-    if (options.body && typeof options.body === "string" && options.body.includes("/api/fetch-url") && lastResponse) {
-      return lastResponse;
-    }
-    throw lastError || new Error("All retry attempts failed");
-  }
-  function getStatusSpecificInfo(status) {
-    let info2 = {
-      meaning: "Unknown error",
-      reasons: ["The URL couldn't be accessed due to an unknown error"],
-      suggestion: "Consider verifying the reference using DOI or literature search instead."
-    };
-    if (status === 404) {
-      info2 = {
-        meaning: "Not Found (404)",
-        reasons: [
-          "The resource no longer exists at this URL",
-          "The URL may have been mistyped or is incorrect",
-          "The content has been moved or deleted"
-        ],
-        suggestion: "This URL is confirmed to not exist. Try verifying the reference through DOI lookup or literature search."
-      };
-    } else if (status === 403) {
-      info2 = {
-        meaning: "Forbidden (403)",
-        reasons: [
-          "Access to this resource is restricted",
-          "The server understood the request but refuses to authorize it",
-          "Authentication may be required"
-        ],
-        suggestion: "This URL exists but is not publicly accessible. Try verifying the reference through other sources."
-      };
-    } else if (status === 401) {
-      info2 = {
-        meaning: "Unauthorized (401)",
-        reasons: [
-          "Authentication is required to access this resource",
-          "The citation may refer to a paywalled or private resource"
-        ],
-        suggestion: "This resource requires authentication. Consider verifying through academic databases."
-      };
-    } else if (status >= 400 && status < 500) {
-      info2 = {
-        meaning: `Client Error (${status})`,
-        reasons: [
-          "The request was malformed or invalid",
-          "The URL may be incorrect or incomplete",
-          "The resource may no longer be available at this location"
-        ],
-        suggestion: "There's a problem with the URL format or the resource doesn't exist. Try alternative verification methods."
-      };
-    } else if (status >= 500 && status < 600) {
-      info2 = {
-        meaning: `Server Error (${status})`,
-        reasons: [
-          "The server encountered an error while processing the request",
-          "The website may be temporarily down or experiencing issues",
-          "The service might be overloaded"
-        ],
-        suggestion: "The server is currently unable to handle the request. This may be temporary, but you should try DOI or literature search instead."
-      };
-    }
-    return info2;
-  }
   async function checkDOI(doi, title, config = {}) {
     try {
-      const response = await retryableFetch(
-        "/api/references/verify-doi",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ references: [{ DOI: doi, title }] })
-        },
-        config
-      );
+      const response = await fetch("/api/references/verify-doi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doi, title })
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to verify DOI: ${response.statusText}`);
+      }
       return await response.json();
     } catch (error2) {
       console.error("Error checking DOI:", error2);
@@ -41448,58 +41514,70 @@
   }
   async function searchReference(reference, config = {}) {
     try {
-      const response = await retryableFetch(
-        "/api/references/verify-search",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reference })
-        },
-        config
-      );
+      const response = await fetch("/api/references/verify-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference })
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to search reference: ${response.statusText}`);
+      }
       return await response.json();
     } catch (error2) {
       console.error("Error searching reference:", error2);
       return {
         success: false,
         error: `Failed to search reference: ${error2 instanceof Error ? error2.message : String(error2)}`,
-        suggestion: "Try using DOI lookup if available, or check the URL directly."
+        suggestion: "Try scholar search if available, or check the URL directly."
+      };
+    }
+  }
+  async function searchScholar(query, config = {}) {
+    console.log("Payload to be sent:", JSON.stringify({ query }));
+    try {
+      const response = await fetch("/api/references/verify-search-scholar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query })
+      });
+      console.log("Response google scholar:", response);
+      if (!response.ok) {
+        throw new Error(`Failed to search scholar: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error2) {
+      console.error("Error with scholar search:", error2);
+      return {
+        success: false,
+        error: `Failed to do scholar search: ${error2 instanceof Error ? error2.message : String(error2)}`,
+        suggestion: "If there is a DOI or URL, check them directly."
       };
     }
   }
   async function checkURL(url, reference, config = {}) {
     try {
-      const response = await retryableFetch(
-        "/api/fetch-url",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url })
-        },
-        config
-      );
-      const jsonResponse = await response.json().catch((e) => {
+      const response = await fetch("/api/fetch-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url })
+      });
+      const jsonResponse = await response.json().catch(() => {
         return {
-          error: `Failed to parse response: ${e.message}`,
+          error: `Failed to parse response`,
           statusCode: response.status
         };
       });
       if (!response.ok || jsonResponse.error) {
-        const statusInfo = getStatusSpecificInfo(response.status);
         return {
-          // Structure this in a way that helps the LLM understand this isn't a system error
-          // but rather information about the reference
           success: false,
           url,
           status: response.status,
           statusText: response.statusText,
           error: jsonResponse.error || `URL check failed with status ${response.status}`,
-          // Include actionable guidance for the LLM
           verificationInfo: {
             isAccessible: false,
-            statusMeaning: statusInfo.meaning,
-            possibleReasons: statusInfo.reasons,
-            suggestion: statusInfo.suggestion
+            statusMeaning: `Error ${response.status}`,
+            suggestion: "Consider verifying the reference using DOI or literature search instead."
           }
         };
       }
@@ -41509,37 +41587,141 @@
       };
     } catch (error2) {
       console.error("Error checking URL:", error2);
-      let statusCode = 500;
-      if (error2 instanceof Error) {
-        if ("code" in error2) {
-          const code = error2.code;
-          if (code === "ENOTFOUND") statusCode = 404;
-          if (code === "ECONNREFUSED") statusCode = 503;
-        }
-        if ("status" in error2) {
-          statusCode = error2.status;
-        }
-      }
-      const statusInfo = getStatusSpecificInfo(statusCode);
       return {
         success: false,
         url,
         error: `Failed to access URL: ${error2 instanceof Error ? error2.message : String(error2)}`,
-        status: statusCode,
+        status: 500,
         verificationInfo: {
           isAccessible: false,
-          statusMeaning: statusInfo.meaning,
+          statusMeaning: "Network Error",
           networkError: true,
-          possibleReasons: [
-            ...statusInfo.reasons,
-            "Network error when attempting to access the URL",
-            "The URL may be malformed or invalid",
-            "The host server may be unreachable"
-          ],
-          suggestion: statusInfo.suggestion
+          suggestion: "Consider verifying through other sources."
         }
       };
     }
+  }
+
+  // app/lib/verification-service.ts
+  async function verifyReference(reference, onStatusUpdate, performedChecks) {
+    try {
+      onStatusUpdate?.("initializing");
+      let currentState = {
+        status: "pending",
+        messages: [],
+        iteration: 0
+      };
+      while (currentState.status === "pending" && currentState.iteration < 8) {
+        const response = await fetch("/api/o3-agent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reference: reference.raw,
+            iteration: currentState.iteration,
+            previousMessages: currentState.messages,
+            functionResult: currentState.functionResult,
+            lastToolCallId: currentState.lastToolCallId
+          })
+        });
+        const llmResponse = await response.json();
+        if (llmResponse.functionToCall) {
+          const { name, arguments: args } = llmResponse.functionToCall;
+          let functionResult;
+          onStatusUpdate?.(name, args);
+          switch (name) {
+            case "check_doi":
+              performedChecks?.add("DOI Lookup");
+              functionResult = await checkDOI(args.doi, args.title);
+              break;
+            case "search_reference":
+              performedChecks?.add("Google Search");
+              functionResult = await searchReference(args.reference);
+              break;
+            case "scholar_search":
+              performedChecks?.add("Scholar Search");
+              functionResult = await searchScholar(args.query);
+              break;
+            case "check_url":
+              performedChecks?.add("URL Verification");
+              functionResult = await checkURL(args.url, args.reference);
+              break;
+          }
+          currentState = {
+            ...llmResponse,
+            functionResult,
+            lastToolCallId: llmResponse.lastToolCallId
+          };
+        } else {
+          onStatusUpdate?.("finalizing");
+          currentState = llmResponse;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      let refStatus = "pending";
+      let explanation = "";
+      let formattedText = reference.raw;
+      if (currentState.result) {
+        switch (currentState.result.status) {
+          case "verified":
+            refStatus = "verified";
+            break;
+          case "needs-human":
+            refStatus = "needs-human";
+            break;
+          case "unverified":
+            refStatus = "unverified";
+            break;
+          case "error":
+            refStatus = "error";
+            break;
+        }
+        explanation = currentState.result.message || "Verification completed.";
+        formattedText = currentState.result.reference || reference.raw;
+      } else if (currentState.error) {
+        refStatus = "error";
+        explanation = currentState.error || "An error occurred during verification.";
+      }
+      const checksPerformed = getChecksPerformed(currentState, performedChecks);
+      return {
+        ...reference,
+        status: refStatus,
+        message: explanation,
+        fixedReference: formattedText !== reference.raw ? formattedText : null,
+        checksPerformed
+      };
+    } catch (error2) {
+      console.error("Verification error:", error2);
+      return {
+        ...reference,
+        status: "error",
+        message: "An error occurred while connecting to the verification service."
+      };
+    }
+  }
+  function getChecksPerformed(currentState, performedChecks) {
+    if (currentState?.result?.checks_performed && currentState.result.checks_performed.length > 0) {
+      return currentState.result.checks_performed;
+    }
+    if (performedChecks && performedChecks.size > 0) {
+      return Array.from(performedChecks);
+    }
+    const checks = /* @__PURE__ */ new Set();
+    currentState?.messages?.forEach((msg) => {
+      if (msg.role === "assistant" && msg.tool_calls) {
+        msg.tool_calls.forEach((call) => {
+          if (call.function?.name === "check_doi") {
+            checks.add("DOI Lookup");
+          } else if (call.function?.name === "search_reference") {
+            checks.add("Google Search");
+          } else if (call.function?.name === "check_url") {
+            checks.add("URL Verification");
+          } else if (call.function?.name === "scholar_search") {
+            checks.add("Scholar Search");
+          }
+        });
+      }
+    });
+    return Array.from(checks);
   }
 
   // app/services/o3-reference-verification-service.ts
@@ -41552,7 +41734,7 @@
         maxRetries: 3,
         requestTimeout: 6e4,
         // 60 seconds
-        maxIterations: 15,
+        maxIterations: 30,
         batchSize: 15,
         ...config
       };
@@ -41646,17 +41828,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
       throw lastError || new Error("All retry attempts failed");
     }
     // Enhanced wrapper around the o3-agent API call
-    async callVerificationAgent(reference, iteration, messages, functionResult, lastToolCallId) {
-      if (functionResult && functionResult.success === false && functionResult.url && lastToolCallId) {
-        const enhancedResult = {
-          ...functionResult,
-          // Add an explicit message to help the LLM interpret the result
-          message: `URL check for ${functionResult.url} was unsuccessful (${functionResult.status ? `HTTP ${functionResult.status}: ${functionResult.verificationInfo?.statusMeaning || "Error"}` : "Network Error"}). ${functionResult.verificationInfo?.suggestion || "Consider other verification methods."}`,
-          // Keep original error information for debugging
-          originalError: functionResult.error
-        };
-        functionResult = enhancedResult;
-      }
+    async callVerificationAgent(reference, iteration, messages, functionResults = [], toolCallIds = []) {
       try {
         const response = await this.retryableFetch("/api/o3-agent", {
           method: "POST",
@@ -41665,8 +41837,10 @@ Reference error [${errorPath}]: ${errorMessage}`,
             reference,
             iteration,
             previousMessages: messages,
-            functionResult,
-            lastToolCallId
+            functionResults,
+            // Now an array
+            toolCallIds
+            // Now an array
           })
         });
         const responseData = await response.json();
@@ -41692,162 +41866,6 @@ Reference error [${errorPath}]: ${errorMessage}`,
         throw error2;
       }
     }
-    async verifyReference(reference, onUpdate, onStatusUpdate) {
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(
-            new Error(
-              `Verification timed out after ${this.config.requestTimeout * 2}ms`
-            )
-          );
-        }, this.config.requestTimeout * 2);
-      });
-      const verificationPromise = this._verifyReference(
-        reference,
-        onUpdate,
-        onStatusUpdate
-      );
-      return Promise.race([verificationPromise, timeoutPromise]);
-    }
-    async _verifyReference(reference, onUpdate, onStatusUpdate) {
-      if (!reference) {
-        return {
-          reference: reference || {},
-          status: "error",
-          result: { error: "Invalid reference provided" }
-        };
-      }
-      onStatusUpdate?.("initializing");
-      let currentState = {
-        status: "pending",
-        messages: [],
-        iteration: 0
-      };
-      if (onUpdate) {
-        try {
-          onUpdate(currentState);
-        } catch (error2) {
-          console.error("Error in onUpdate callback:", error2);
-        }
-      }
-      try {
-        while (currentState.status === "pending" && currentState.iteration < this.config.maxIterations) {
-          try {
-            const llmResponse = await this.callVerificationAgent(
-              reference.raw || JSON.stringify(reference),
-              currentState.iteration || 0,
-              currentState.messages || [],
-              currentState.functionResult,
-              currentState.lastToolCallId || null
-            );
-            if (llmResponse.functionToCall) {
-              const { name, arguments: args } = llmResponse.functionToCall;
-              let functionResult;
-              if (onStatusUpdate && name) {
-                if (name === "check_doi" || name === "search_reference" || name === "check_url") {
-                  onStatusUpdate(name, args);
-                }
-              }
-              switch (name) {
-                case "check_doi":
-                  functionResult = await checkDOI(args.doi, args.title);
-                  break;
-                case "search_reference":
-                  functionResult = await searchReference(args.reference);
-                  break;
-                case "check_url":
-                  functionResult = await checkURL(args.url, args.reference);
-                  break;
-                default:
-                  functionResult = {
-                    success: false,
-                    error: `Unknown function: ${name}`,
-                    suggestion: "Try another verification method."
-                  };
-              }
-              currentState = {
-                ...llmResponse,
-                functionResult,
-                lastToolCallId: llmResponse.lastToolCallId
-              };
-            } else {
-              onStatusUpdate?.("finalizing");
-              currentState = llmResponse;
-            }
-            currentState.iteration = (currentState.iteration || 0) + 1;
-            if (onUpdate) {
-              try {
-                onUpdate(currentState);
-              } catch (error2) {
-                console.error("Error in onUpdate callback:", error2);
-              }
-            }
-          } catch (error2) {
-            console.error("Iteration error:", error2);
-            currentState.iteration = (currentState.iteration || 0) + 1;
-            if (currentState.iteration >= this.config.maxIterations) {
-              currentState.status = "error";
-              currentState.error = `Max iterations reached with error: ${error2 instanceof Error ? error2.message : String(error2)}`;
-            }
-          }
-        }
-        if (currentState.status === "complete") {
-          onStatusUpdate?.("finalizing");
-          if (currentState.parsingError) {
-            this.logError(
-              reference,
-              "json-parsing",
-              currentState.parseErrorMessage || "JSON parsing error occurred",
-              currentState
-            );
-            if (currentState.result) {
-              reference.status = currentState.result.status || "needs-human";
-              reference.message = currentState.result.message || "Verification produced an invalid response format that could not be parsed. Human review recommended.";
-              reference.fixedReference = currentState.result.reference;
-            }
-          } else if (currentState.result) {
-            reference.status = currentState.result.status || "verified";
-            reference.message = currentState.result.message || "Verification complete";
-            reference.fixedReference = currentState.result.reference;
-          }
-        } else if (currentState.status === "error" || currentState.error) {
-          this.logError(
-            reference,
-            "verification-failed",
-            currentState.error || "Verification failed",
-            currentState
-          );
-          reference.status = "error";
-          reference.message = currentState.error || "Something went wrong during verification";
-        } else {
-          this.logError(
-            reference,
-            "undefined-state",
-            "Verification process ended in an undefined state",
-            currentState
-          );
-          reference.status = "error";
-          reference.message = "Verification process ended in an undefined state";
-        }
-        return {
-          reference,
-          status: currentState.status,
-          result: currentState.result
-        };
-      } catch (error2) {
-        console.error("Verification process error:", error2);
-        this.logError(reference, "verifyReference", error2);
-        reference.status = "error";
-        reference.message = `Verification failed: ${error2 instanceof Error ? error2.message : String(error2)}`;
-        return {
-          reference,
-          status: "error",
-          result: {
-            error: error2 instanceof Error ? error2.message : String(error2)
-          }
-        };
-      }
-    }
     async processBatch(references, onBatchProgress, onReferenceVerified, onStatusUpdate) {
       if (!Array.isArray(references)) {
         console.error("Invalid references array provided");
@@ -41862,58 +41880,39 @@ Reference error [${errorPath}]: ${errorMessage}`,
       try {
         for (let i = 0; i < validReferences.length; i += this.config.batchSize) {
           const batch = validReferences.slice(i, i + this.config.batchSize);
-          const batchPromises = batch.map(
-            (ref) => this.verifyReference(
-              ref,
-              (state) => {
-                console.log(
-                  `Verifying reference ${i + batch.indexOf(ref) + 1}/${validReferences.length}`
-                );
-              },
-              // Pass the step update but add the reference ID
-              onStatusUpdate ? (step, args) => onStatusUpdate(ref.id, step, args) : void 0
-            ).then((result) => {
-              if (onReferenceVerified) {
-                try {
-                  onReferenceVerified(result);
-                } catch (callbackError) {
-                  console.error(
-                    "Error in reference verified callback:",
-                    callbackError
-                  );
-                }
-              }
-              return result;
-            }).catch((error2) => {
-              const errorResult = {
+          const batchPromises = batch.map(async (ref) => {
+            const performedChecks = /* @__PURE__ */ new Set();
+            try {
+              const result = await verifyReference(
+                ref,
+                (step, args) => {
+                  if (onStatusUpdate) onStatusUpdate(ref.id, step, args);
+                },
+                performedChecks
+              );
+              const verified = {
+                reference: result,
+                status: result.status,
+                result
+              };
+              if (onReferenceVerified) onReferenceVerified(verified);
+              return verified;
+            } catch (error2) {
+              console.error("Reference verification failed:", error2);
+              return {
                 reference: ref,
                 status: "error",
                 result: {
                   error: error2 instanceof Error ? error2.message : String(error2)
                 }
               };
-              if (onReferenceVerified) {
-                try {
-                  onReferenceVerified(errorResult);
-                } catch (callbackError) {
-                  console.error(
-                    "Error in reference verified callback:",
-                    callbackError
-                  );
-                }
-              }
-              return errorResult;
-            })
-          );
+            }
+          });
           try {
             const batchResults = await Promise.all(batchPromises);
             verifiedReferences.push(...batchResults);
             if (onBatchProgress) {
-              try {
-                onBatchProgress(verifiedReferences);
-              } catch (progressError) {
-                console.error("Error in batch progress callback:", progressError);
-              }
+              onBatchProgress(verifiedReferences);
             }
           } catch (batchError) {
             console.error("Error processing batch:", batchError);
@@ -41927,7 +41926,10 @@ Reference error [${errorPath}]: ${errorMessage}`,
   };
 
   // app/services/workers/verification.worker.ts
+  var documentParsingService = new DocumentParsingService();
   var refPageDetectionService = new ReferencePageDetectionService();
+  var refPageImageService = new ReferencePageImageService();
+  var refPageMarkdownService = new ReferenceMarkdownService();
   var extractionService = new ReferenceExtractFromTextService();
   var o3VerificationService = new o3ReferenceVerificationService();
   self.onmessage = async (e) => {
@@ -41937,55 +41939,47 @@ Reference error [${errorPath}]: ${errorMessage}`,
         self.postMessage({
           type: "update",
           pdfId,
-          message: `Starting!`
-        });
-        await refPageDetectionService.initialize(file);
-        self.postMessage({
-          type: "update",
-          pdfId,
           message: `Searching for references`
         });
-        const referencePages = await refPageDetectionService.findReferencePages(file);
-        const referencesSectionStart = referencePages[0].pageNumber;
+        await documentParsingService.initialize(file);
+        const parsingResponse = await documentParsingService.parseDocument();
+        await documentParsingService.cleanup();
+        const documentText = parsingResponse.map((page) => `Page ${page.pageNumber}:
+${page.rawText}`).join("\n\n");
+        const response = await fetch("/api/references/detect-pages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            text: documentText
+          })
+        });
+        const result = await response.json();
+        console.log("REFERENCES ARE ON PAGES: ", result.pages);
+        const updatedRawText = result.pages.map((refPageNumber) => {
+          const matchingPage = parsingResponse.find(
+            (page) => page.pageNumber === refPageNumber
+          );
+          return matchingPage ? matchingPage.rawText : "";
+        });
+        result.rawText = updatedRawText;
         self.postMessage({
           type: "update",
           pdfId,
-          message: `Found references section starting on page ${referencesSectionStart}`
+          message: `Found references on pages ${result.pages.join(", ")}`
         });
-        console.log("ENTERING STEP 2 ***** ");
-        console.log("referencePages: ", referencePages.length);
-        const markdownContents = await Promise.all(
-          referencePages.map(async (page) => {
-            const markdownResponse = await fetch(
-              "/api/open-ai-vision/image-2-ref-markdown",
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  filePath: page.imageData,
-                  parsedText: page.parsedContent.rawText,
-                  model: "free"
-                })
-              }
-            );
-            if (!markdownResponse.ok) {
-              throw new Error("Failed to extract references content");
-            }
-            const { markdown } = await markdownResponse.json();
-            self.postMessage({
-              type: "update",
-              pdfId,
-              message: `Grabbing references from page ${page.pageNumber}.`
-            });
-            return {
-              pageNumber: page.pageNumber,
-              markdown,
-              isStartOfSection: page.pageNumber === referencesSectionStart,
-              isNewSectionStart: page.analysis.hasNewSectionStart
-            };
-          })
-        );
+        await refPageImageService.initialize(file);
+        const updatedResult = await refPageImageService.addImageData(result);
+        console.log("Updated result with image data:", updatedResult);
+        await refPageImageService.cleanup();
         console.log("ENTERING STEP 3 ***** ");
+        const markdownResponse = await refPageMarkdownService.extractMarkdown(updatedResult);
+        const markdownContents = markdownResponse.map((content) => ({
+          pageNumber: content.pageNumber,
+          markdown: content.markdown
+        }));
+        console.log("\u{1F4C4} Extracted markdown contents:", markdownContents);
         self.postMessage({
           type: "update",
           pdfId,
@@ -42014,9 +42008,8 @@ Reference error [${errorPath}]: ${errorMessage}`,
           message: `Found ${extractedReferencesWithIndex.length} unique references: ${pdfId}`,
           references: extractedReferencesWithIndex
         });
-        let referencesWithDOI = extractedReferencesWithIndex;
         const verificationResults = await o3VerificationService.processBatch(
-          referencesWithDOI,
+          extractedReferencesWithIndex,
           (batchResults) => {
             self.postMessage({
               type: "verification-update",
@@ -42042,10 +42035,10 @@ Reference error [${errorPath}]: ${errorMessage}`,
             });
           }
         );
-        const processedReferences = verificationResults.map((result) => ({
-          ...result.reference,
-          message: result.result?.message,
-          verificationDetails: result.result
+        const processedReferences = verificationResults.map((result2) => ({
+          ...result2.reference,
+          message: result2.result?.message,
+          verificationDetails: result2.result
         }));
         self.postMessage({
           type: "complete",

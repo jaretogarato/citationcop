@@ -22,10 +22,18 @@ export type WorkerMessage =
     }
   | { type: 'error'; pdfId: string; error: string }
   | { type: 'update'; pdfId: string; message: string }
-  | { type: 'references'; pdfId: string; noReferences: number; message: string; references: Reference[] }
+  | {
+      type: 'references'
+      pdfId: string
+      noReferences: number
+      message: string
+      references: Reference[]
+    }
   | {
       type: 'reference-verified'
       pdfId: string
       verifiedReference: Reference
       message: string
     } // Add this new type
+
+

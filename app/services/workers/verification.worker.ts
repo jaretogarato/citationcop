@@ -1,9 +1,13 @@
 /// <reference lib="webworker" />
 
 import { WorkerMessage } from '../types'
-import { ReferencePageDetectionService } from '../reference-page-detection-service'
+import { DocumentParsingService } from '../document-parsing-service'
+import { ReferencePageDetectionService } from '../o;d/reference-page-detection-service'
+import { ReferencePageImageService } from '../ref-page-image-service'
+import { ReferenceMarkdownService } from '../image-to-markdown-extraction-service'
 import { ReferenceExtractFromTextService } from '../reference-extract-from-text-service'
 import { o3ReferenceVerificationService } from '../o3-reference-verification-service'
+import { RefPagesResult } from '@/app/types/reference'
 
 import type { Reference } from '@/app/types/reference'
 interface ExtractedReferenceWithIndex extends Reference {
@@ -12,8 +16,22 @@ interface ExtractedReferenceWithIndex extends Reference {
 
 declare const self: DedicatedWorkerGlobalScope
 
+// parses document
+const documentParsingService = new DocumentParsingService()
+
+// detects reference pages
 const refPageDetectionService = new ReferencePageDetectionService()
+
+// gets images for those pages
+const refPageImageService = new ReferencePageImageService()
+
+// extract markdown referneces from images
+const refPageMarkdownService = new ReferenceMarkdownService()
+
+// extract json references from markdown
 const extractionService = new ReferenceExtractFromTextService()
+
+// verify finally the references
 const o3VerificationService = new o3ReferenceVerificationService()
 
 self.onmessage = async (e: MessageEvent) => {
@@ -24,72 +42,76 @@ self.onmessage = async (e: MessageEvent) => {
       self.postMessage({
         type: 'update',
         pdfId,
-        message: `Starting!`
-      })
-
-      // Initialize the detection service
-      await refPageDetectionService.initialize(file)
-
-      // STEP 1: Find reference pages with vision and parsed text
-      self.postMessage({
-        type: 'update',
-        pdfId,
         message: `Searching for references`
       })
 
-      const referencePages =
-        await refPageDetectionService.findReferencePages(file)
+      // STEP 1: First we use text parsing to find the pages of the references.
+      await documentParsingService.initialize(file)
+      const parsingResponse = await documentParsingService.parseDocument()
 
-      const referencesSectionStart = referencePages[0].pageNumber
+      await documentParsingService.cleanup()
+
+      const documentText = parsingResponse
+        .map((page) => `Page ${page.pageNumber}:\n${page.rawText}`)
+        .join('\n\n')
+
+      const response = await fetch('/api/references/detect-pages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          text: documentText
+        })
+      })
+
+      // Type the response as an object with a "references" property of type number[]
+      const result: RefPagesResult = await response.json()
+
+      //const result = await response.json()
+      console.log('REFERENCES ARE ON PAGES: ', result.pages)
+
+      // now mape the raw text onto the pages. 
+      const updatedRawText = result.pages.map((refPageNumber) => {
+        const matchingPage = parsingResponse.find(
+          (page) => page.pageNumber === refPageNumber
+        )
+        return matchingPage ? matchingPage.rawText : ''
+      })
+      
+      // Now update the result with the mapped raw text.
+      result.rawText = updatedRawText
+      
+      //console.log('Updated raw text for reference pages:', result)
+
+
       self.postMessage({
         type: 'update',
         pdfId,
-        message: `Found references section starting on page ${referencesSectionStart}`
+        message: `Found references on pages ${result.pages.join(', ')}`
       })
+      
+      // STEP 2: Get the image data for each reference page
+    
+      await refPageImageService.initialize(file) // file is your PDF
+      const updatedResult = await refPageImageService.addImageData(result)
+      console.log('Updated result with image data:', updatedResult)
 
-      // STEP 2: Extract markdown content from reference pages
-
-      console.log('ENTERING STEP 2 ***** ')
-      console.log('referencePages: ', referencePages.length)
-
-      const markdownContents = await Promise.all(
-        referencePages.map(async (page) => {
-          //const markdownResponse = await fetch('/api/llama-vision', {
-          const markdownResponse = await fetch(
-            '/api/open-ai-vision/image-2-ref-markdown',
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                filePath: page.imageData,
-                parsedText: page.parsedContent.rawText,
-                model: 'free'
-              })
-            }
-          )
-
-          if (!markdownResponse.ok) {
-            throw new Error('Failed to extract references content')
-          }
-
-          const { markdown } = await markdownResponse.json()
-          self.postMessage({
-            type: 'update',
-            pdfId,
-            message: `Grabbing references from page ${page.pageNumber}.`
-          })
-          return {
-            pageNumber: page.pageNumber,
-            markdown,
-            isStartOfSection: page.pageNumber === referencesSectionStart,
-            isNewSectionStart: page.analysis.hasNewSectionStart
-          }
-        })
-      )
-
+      // When finished, clean up resources
+      await refPageImageService.cleanup()
+  
+      // STEP 3: Extract markdown content from reference pages
       console.log('ENTERING STEP 3 ***** ')
 
-      // STEP 3: Extract structured references from markdown
+      const markdownResponse = await refPageMarkdownService.extractMarkdown(updatedResult)
+  
+      const markdownContents = markdownResponse.map((content) => ({
+        pageNumber: content.pageNumber,
+        markdown: content.markdown
+      }))
+      console.log('📄 Extracted markdown contents:', markdownContents)
+
+      // STEP 4: Extract structured references from markdown
       self.postMessage({
         type: 'update',
         pdfId,
@@ -129,41 +151,11 @@ self.onmessage = async (e: MessageEvent) => {
         message: `Found ${extractedReferencesWithIndex.length} unique references: ${pdfId}`,
         references: extractedReferencesWithIndex
       })
-
-      // STEP 4: DOI VERIFICATION Check if any references have DOIs
-      let referencesWithDOI = extractedReferencesWithIndex
-
-      /*if (extractedReferences.some((ref: Reference) => ref.DOI)) {
-        self.postMessage({
-          type: 'update',
-          pdfId,
-          message: 'Verifying DOIs...'
-        })
-
-        const doiResponse = await fetch('/api/references/verify-doi', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ references: extractedReferences })
-        })
-
-        if (!doiResponse.ok) {
-          throw new Error('DOI verification failed')
-        }
-
-        const { references } = await doiResponse.json()
-        referencesWithDOI = references
-      } /*else {
-        self.postMessage({
-          type: 'update',
-          pdfId,
-          message: 'No DOIs found, skipping verification'
-        })
-      }*/
-
+      
       // STEP 5: Verification
 
       const verificationResults = await o3VerificationService.processBatch(
-        referencesWithDOI,
+        extractedReferencesWithIndex,
         (batchResults) => {
           self.postMessage({
             type: 'verification-update',

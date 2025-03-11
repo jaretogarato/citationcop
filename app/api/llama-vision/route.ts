@@ -37,7 +37,7 @@ Requirements:
   * DOIs and URLs
   * Special characters and symbols`
 
-  console.log('systemPrompt: ', systemPrompt)
+  //console.log('systemPrompt: ', systemPrompt)
 
   const output = await together.chat.completions.create({
     model: visionLLM,

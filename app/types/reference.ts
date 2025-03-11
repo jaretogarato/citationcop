@@ -134,3 +134,9 @@ export interface VerificationResults {
   pending: number
   totalReferences: number
 }
+
+export interface RefPagesResult {
+  pages: number[]
+  rawText: string[]
+  imageData: string[]
+}

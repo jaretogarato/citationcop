@@ -53,7 +53,9 @@ const StatusDisplay: React.FC<StatusDisplayProps> = ({
     .sort((a, b) => b[1].timestamp.getTime() - a[1].timestamp.getTime())
 
   const errorJobs = Array.from(currentJobs.entries())
-    .filter(([_, item]) => item.status === 'error')
+    .filter(
+      ([_, item]) => item.status === 'error' && item.message.includes('failed')
+    )
     .sort((a, b) => b[1].timestamp.getTime() - a[1].timestamp.getTime())
 
   return (
@@ -65,8 +67,9 @@ const StatusDisplay: React.FC<StatusDisplayProps> = ({
             <span className="relative mr-2">
               <Cog className="w-5 h-5 text-yellow-400" />
             </span>
-            Active Processing ({processingJobs.length} active,{' '}
-            {completedJobs.length} completed, {errorJobs.length} errors)
+            Active Processes{' '}
+            {/*({processingJobs.length} active,{' '}
+            {completedJobs.length} completed, {errorJobs.length} errors)*/}
           </h3>
 
           <div className="space-y-3">

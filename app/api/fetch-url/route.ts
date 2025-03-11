@@ -72,7 +72,7 @@ export async function POST(request: Request) {
   try {
     const { url } = await request.json()
 
-    console.log('*********** Received URL:', url)
+    //console.log('*********** Received URL:', url)
 
     if (!url) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 })
