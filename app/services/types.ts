@@ -34,6 +34,10 @@ export type WorkerMessage =
       pdfId: string
       verifiedReference: Reference
       message: string
-    } // Add this new type
-
-
+    }
+  | {
+      type: 'batch-complete'
+      pdfId: string
+      verifiedReference: Reference[]
+      message: string
+    }

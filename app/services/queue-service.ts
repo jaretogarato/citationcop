@@ -1,4 +1,5 @@
 import type { QueueItem, WorkerMessage } from './types'
+import type { Reference } from '@/app/types/reference'
 
 export class PDFQueueService {
   private queue: QueueItem[] = []
@@ -7,6 +8,7 @@ export class PDFQueueService {
   private workerScript: string
   private activeJobs: Map<Worker, string> = new Map()
   private updateListener: ((message: WorkerMessage) => void) | null = null
+  private onCompleteCallback: (() => void) | null = null
 
   constructor(workerScript: string) {
     this.workerScript = workerScript
@@ -22,6 +24,37 @@ export class PDFQueueService {
 
     this.queue.push(...items)
     this.processQueue()
+  }
+
+  /**
+   * Reset the queue service to its initial state
+   */
+  public reset() {
+    // Terminate all active workers
+    this.workers.forEach((worker) => {
+      worker.terminate()
+    })
+
+    // Clear all internal state
+    this.workers = []
+    this.queue = []
+    this.activeJobs = new Map()
+
+    // Notify listeners of reset if needed
+    /*if (this.updateListener) {
+      this.updateListener({
+        type: 'update',
+        pdfId: 'system',
+        message: 'Queue service reset'
+      })
+    }*/
+
+    console.log('Queue service reset complete')
+  }
+
+  // provide a method to set the callback.
+  public onAllComplete(callback: () => void) {
+    this.onCompleteCallback = callback
   }
 
   /**
@@ -149,8 +182,24 @@ export class PDFQueueService {
   }
 
   private onComplete() {
-    console.log('All PDFs processed')
+    // Gather all completed references from the queue
+    const allReferences: Reference[] = this.queue
+      .filter((item) => item.status === 'complete')
+      .flatMap((item) => item.references || [])
+
     // Add any completion callbacks here
+    if (this.onCompleteCallback) {
+      this.onCompleteCallback()
+    }
+
+    if (this.updateListener) {
+      this.updateListener({
+        type: 'batch-complete',
+        pdfId: 'system',
+        verifiedReference: allReferences,
+        message: `All PDFs have been processed. Total references: ${allReferences.length}`
+      })
+    }
   }
 
   public getStatus() {
