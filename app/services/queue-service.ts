@@ -41,13 +41,13 @@ export class PDFQueueService {
     this.activeJobs = new Map()
 
     // Notify listeners of reset if needed
-    if (this.updateListener) {
+    /*if (this.updateListener) {
       this.updateListener({
         type: 'update',
         pdfId: 'system',
         message: 'Queue service reset'
       })
-    }
+    }*/
 
     console.log('Queue service reset complete')
   }
