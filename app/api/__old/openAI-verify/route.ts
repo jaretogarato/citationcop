@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       "message": "Explain how the search results verify or not the given reference. Include links that support your conclusion.",
     }`
 
-    console.log(`prompt: ${prompt}`)
+    //console.log(`prompt: ${prompt}`)
     let lastError: Error | null = null as Error | null
 
     // Retry loop

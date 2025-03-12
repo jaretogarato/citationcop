@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import Together from 'together-ai'
 
 export const maxDuration = 300
-export const runtime = 'edge'
 
 // Helper functions
 function isBase64Image(str: string) {
@@ -38,7 +37,7 @@ Requirements:
   * DOIs and URLs
   * Special characters and symbols`
 
-  console.log('systemPrompt: ', systemPrompt)
+  //console.log('systemPrompt: ', systemPrompt)
 
   const output = await together.chat.completions.create({
     model: visionLLM,

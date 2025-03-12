@@ -7,7 +7,7 @@ export const referenceTools: ChatCompletionTool[] = [
     function: {
       name: 'check_doi',
       description:
-        'Verify a reference using its DOI via Crossref API. Returns verification status and details.',
+        'Verify a reference using its DOI via Crossref API. Returns what data is found for the given DOI.',
       parameters: {
         type: 'object',
         properties: {
@@ -31,7 +31,7 @@ export const referenceTools: ChatCompletionTool[] = [
     function: {
       name: 'search_reference',
       description:
-        "Search for a reference using Google search. Returns up to 10 relevant search results that can be used to verify the reference's existence.",
+        "Search for a reference using Google search. Best for websites, blogs, or other gray literature. Returns up to 10 relevant search results that can be used to verify the reference's existence.",
       parameters: {
         type: 'object',
         properties: {
@@ -42,6 +42,27 @@ export const referenceTools: ChatCompletionTool[] = [
           }
         },
         required: ['reference'],
+        additionalProperties: false
+      },
+      strict: true
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'scholar_search',
+      description:
+        "Search for a reference using Google scholar. Best for academic pieces. Returns up to 10 relevant search results that can be used to verify the reference's existence.",
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description:
+              'The reference text or key parts to search for. Be specific to get relevant results.'
+          }
+        },
+        required: ['query'],
         additionalProperties: false
       },
       strict: true

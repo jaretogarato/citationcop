@@ -162,11 +162,11 @@ export class SimpleWordReferenceService {
       .replace(/\s+/g, ' ') // Normalize spaces
       .trim()
 
-    console.log('Found references section:', {
+    /*console.log('Found references section:', {
       heading: currentHeading.text,
       contentLength: content.length,
       firstFewWords: content.slice(0, 100) + '...'
-    })
+    })*/
 
     return content
   }

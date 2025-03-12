@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
 export const maxDuration = 300
-export const runtime = 'edge'
 
 // Helper functions
 function isBase64Image(str: string) {
@@ -61,8 +60,8 @@ Requirements:
     output.choices[0].message &&
     output.choices[0].message.content
   ) {
-    console.log('SYSPROMPT:  ', systemPrompt)
-    console.log('RESULT: ', output.choices[0].message.content)
+    //console.log('SYSPROMPT:  ', systemPrompt)
+    //console.log('RESULT: ', output.choices[0].message.content)
     return output.choices[0].message.content
   } else {
     throw new Error('Invalid response from OpenAI API')

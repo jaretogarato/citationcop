@@ -1,5 +1,10 @@
 // app/lib/verification-service.ts
-import { checkDOI, searchReference, checkURL } from '@/app/lib/referenceToolsCode'
+import {
+  checkDOI,
+  searchReference,
+  checkURL,
+  searchScholar
+} from '@/app/lib/referenceToolsCode'
 import type { Reference, ReferenceStatus } from '@/app/types/reference'
 
 export type TokenUsage = {
@@ -8,20 +13,19 @@ export type TokenUsage = {
   total_tokens: number
 }
 
-
 interface ExtendedReference extends Reference {
   checksPerformed?: string[]
 }
 
 export type VerificationStatus = {
-  status: 'pending' | 'complete' | 'human-check-needed' | 'error'
+  status: 'pending' | 'complete' | 'needs-human' | 'error'
   messages?: any[]
   iteration?: number
   functionResult?: any
   lastToolCallId?: string
   error?: string
   result?: {
-    status: 'verified' | 'unverified' | 'human-check' | 'error'
+    status: 'verified' | 'unverified' | 'needs-human' | 'error'
     message: string
     checks_performed?: string[]
     reference: string
@@ -32,6 +36,7 @@ export type VerificationStatus = {
 export type ProcessingStep =
   | 'initializing'
   | 'search_reference'
+  | 'scholar_search'
   | 'check_doi'
   | 'check_url'
   | 'finalizing'
@@ -39,11 +44,16 @@ export type ProcessingStep =
 // Badge colors for different check types (dark mode)
 export const checkBadgeColors: Record<string, string> = {
   'DOI Lookup': 'bg-blue-900 text-blue-200 hover:bg-blue-800 border-blue-700',
-  'Google Search': 'bg-purple-900 text-purple-200 hover:bg-purple-800 border-purple-700',
-  'URL Verification': 'bg-teal-900 text-teal-200 hover:bg-teal-800 border-teal-700',
-  'Literature Search': 'bg-indigo-900 text-indigo-200 hover:bg-indigo-800 border-indigo-700',
-  'Citation Format': 'bg-emerald-900 text-emerald-200 hover:bg-emerald-800 border-emerald-700',
-  'Metadata Check': 'bg-amber-900 text-amber-200 hover:bg-amber-800 border-amber-700'
+  'Google Search':
+    'bg-purple-900 text-purple-200 hover:bg-purple-800 border-purple-700',
+  'URL Verification':
+    'bg-teal-900 text-teal-200 hover:bg-teal-800 border-teal-700',
+  'Scholar Search':
+    'bg-indigo-900 text-indigo-200 hover:bg-indigo-800 border-indigo-700',
+  'Citation Format':
+    'bg-emerald-900 text-emerald-200 hover:bg-emerald-800 border-emerald-700',
+  'Metadata Check':
+    'bg-amber-900 text-amber-200 hover:bg-amber-800 border-amber-700'
 }
 
 /**
@@ -57,7 +67,7 @@ export async function verifyReference(
   try {
     // Initialize with first processing step
     onStatusUpdate?.('initializing')
-    
+
     let currentState: VerificationStatus = {
       status: 'pending',
       messages: [],
@@ -97,6 +107,10 @@ export async function verifyReference(
             performedChecks?.add('Google Search')
             functionResult = await searchReference(args.reference)
             break
+          case 'scholar_search':
+            performedChecks?.add('Scholar Search')
+            functionResult = await searchScholar(args.query)
+            break
           case 'check_url':
             performedChecks?.add('URL Verification')
             functionResult = await checkURL(args.url, args.reference)
@@ -115,20 +129,20 @@ export async function verifyReference(
       }
 
       // Pause briefly for UX
-      await new Promise(resolve => setTimeout(resolve, 500))
+      await new Promise((resolve) => setTimeout(resolve, 500))
     }
 
     // Map the verification status to our reference status
     let refStatus: ReferenceStatus = 'pending'
     let explanation = ''
     let formattedText = reference.raw
-    
+
     if (currentState.result) {
       switch (currentState.result.status) {
         case 'verified':
           refStatus = 'verified'
           break
-        case 'human-check':
+        case 'needs-human':
           refStatus = 'needs-human'
           break
         case 'unverified':
@@ -143,7 +157,8 @@ export async function verifyReference(
       formattedText = currentState.result.reference || reference.raw
     } else if (currentState.error) {
       refStatus = 'error'
-      explanation = currentState.error || 'An error occurred during verification.'
+      explanation =
+        currentState.error || 'An error occurred during verification.'
     }
 
     // Get checks performed
@@ -170,7 +185,10 @@ export async function verifyReference(
 /**
  * Function to get checks performed from verification state
  */
-export function getChecksPerformed(currentState: any, performedChecks?: Set<string>) {
+export function getChecksPerformed(
+  currentState: any,
+  performedChecks?: Set<string>
+) {
   if (
     currentState?.result?.checks_performed &&
     currentState.result.checks_performed.length > 0
@@ -192,9 +210,11 @@ export function getChecksPerformed(currentState: any, performedChecks?: Set<stri
         if (call.function?.name === 'check_doi') {
           checks.add('DOI Lookup')
         } else if (call.function?.name === 'search_reference') {
-          checks.add('Literature Search')
+          checks.add('Google Search')
         } else if (call.function?.name === 'check_url') {
           checks.add('URL Verification')
+        } else if (call.function?.name === 'scholar_search') {
+          checks.add('Scholar Search')
         }
       })
     }
@@ -213,17 +233,17 @@ export async function extractReferences(text: string): Promise<Reference[]> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
     })
-    
+
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`)
     }
-    
+
     const data = await response.json()
-    
+
     if (!data.references || !Array.isArray(data.references)) {
       return []
     }
-    
+
     // Convert to our Reference format
     return data.references.map((ref: any, index: number) => ({
       id: `ref-${Date.now()}-${index}`,

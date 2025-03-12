@@ -24,14 +24,14 @@ type TokenUsage = {
 }
 
 type VerificationStatus = {
-  status: 'pending' | 'complete' | 'human-check-needed' | 'error'
+  status: 'pending' | 'complete' | 'needs-human' | 'error'
   messages?: any[]
   iteration?: number
   functionResult?: any
   lastToolCallId?: string
   error?: string
   result?: {
-    status: 'verified' | 'unverified' | 'human-check' | 'error'
+    status: 'verified' | 'unverified' | 'needs-human' | 'error'
     message: string
     checks_performed?: string[]
     reference: string
@@ -191,7 +191,9 @@ export default function ReferenceVerification() {
           if (call.function?.name === 'check_doi') {
             checks.add('DOI Lookup')
           } else if (call.function?.name === 'search_reference') {
-            checks.add('Literature Search')
+            checks.add('Google Search')
+          } else if (call.function?.name === 'scholar_search') {
+            checks.add('Scholar Search')
           } else if (call.function?.name === 'check_url') {
             checks.add('URL Verification')
           }

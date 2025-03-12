@@ -203,9 +203,17 @@ export default function MultiReferenceVerifier() {
           )
           if (index !== -1) {
             // Update status display
+            console.log(
+              `Updating job ${verifiedRef.reference.id} with status ${verifiedRef.reference.status}`
+            )
+
             updateCurrentJob(verifiedRef.reference.id, {
               pdfId: verifiedRef.reference.title || `Reference ${index + 1}`,
-              status: verifiedRef.status === 'complete' ? 'complete' : 'error',
+              status:
+                verifiedRef.reference.status === 'verified' ||
+                verifiedRef.reference.status === 'needs-human'
+                  ? 'complete'
+                  : 'error',
               message: `Reference verification ${verifiedRef.status === 'complete' ? 'complete' : 'failed'}: ${verifiedRef.reference.status}`,
               timestamp: new Date()
             })
@@ -216,11 +224,20 @@ export default function MultiReferenceVerifier() {
             )
 
             // Update references state with the verified reference
-            setReferences((prev) => {
-              const updated = [...prev]
-              updated[index] = verifiedRef.reference
-              return updated
-            })
+            setReferences((prev) =>
+              prev.map((ref) =>
+                ref.id === verifiedRef.reference.id
+                  ? {
+                      ...ref,
+                      ...verifiedRef.reference,
+                      fixedReference:
+                        verifiedRef.reference.fixedReference ||
+                        ref.fixedReference ||
+                        ref.raw
+                    }
+                  : ref
+              )
+            )
           }
         },
         // New callback for step-by-step updates
@@ -288,7 +305,6 @@ export default function MultiReferenceVerifier() {
       textareaRef.current.focus()
     }
   }
- 
 
   return (
     <div className="w-full max-w-6xl mx-auto">
@@ -377,14 +393,14 @@ export default function MultiReferenceVerifier() {
                 logMessages={logMessages}
                 currentJobs={currentJobs}
               />
-              { (overallStatus === 'complete' && (
-                  <button
-                    onClick={resetForm}
-                    className="w-full mt-4 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors disabled:bg-gray-500 disabled:text-gray-300"
-                  >
-                    Process New References
-                  </button>
-                ))}
+              {overallStatus === 'complete' && (
+                <button
+                  onClick={resetForm}
+                  className="w-full mt-4 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors disabled:bg-gray-500 disabled:text-gray-300"
+                >
+                  Process New References
+                </button>
+              )}
             </div>
           )}
         </CardContent>

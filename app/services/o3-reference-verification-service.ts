@@ -1,29 +1,40 @@
 // First, import the ProcessingStep type to match the verification-service API
 import type { Reference } from '@/app/types/reference'
-import {
+/*import {
   checkDOI,
   searchReference,
+  searchScholar,
   checkURL
-} from '@/app/lib/referenceToolsCode'
+} from '@/app/lib/referenceToolsCode'*/
 
-// Use the same ProcessingStep type for compatibility
-export type ProcessingStep =
-  | 'initializing'
-  | 'search_reference'
-  | 'check_doi'
-  | 'check_url'
-  | 'finalizing'
+// now using this so we can have same code everywhere.
+import { verifyReference } from '@/app/lib/verification-service'
+import type { ProcessingStep } from '@/app/lib/verification-service'
 
 type ProcessStatus = 'pending' | 'complete' | 'error'
 
+// Updated ProcessState type
 type ProcessState = {
   status: ProcessStatus
   messages?: any[]
   iteration?: number
   result?: any
   error?: string
-  functionResult?: string
+
+  // Old properties (keep for backward compatibility)
+  functionResult?: any
   lastToolCallId?: string
+
+  // New properties for multiple tool calls
+  functionResults?: any[]
+  toolCallIds?: string[]
+  toolCalls?: Array<{
+    id: string
+    name: string
+    arguments: any
+  }>
+
+  // Error handling properties
   parsingError?: boolean
   parseErrorMessage?: string
   rawContent?: string
@@ -58,7 +69,7 @@ export class o3ReferenceVerificationService {
     this.config = {
       maxRetries: 3,
       requestTimeout: 60000, // 60 seconds
-      maxIterations: 15,
+      maxIterations: 30,
       batchSize: 15,
       ...config
     }
@@ -215,37 +226,9 @@ export class o3ReferenceVerificationService {
     reference: string,
     iteration: number,
     messages: any[],
-    functionResult: any,
-    lastToolCallId: string | null
+    functionResults: any[] = [],
+    toolCallIds: string[] = []
   ) {
-    // If the function result contains error information about a URL,
-    // restructure it to be more helpful for the LLM
-    if (
-      functionResult &&
-      functionResult.success === false &&
-      functionResult.url &&
-      lastToolCallId
-    ) {
-      // Enhance the function result with more context
-      const enhancedResult = {
-        ...functionResult,
-        // Add an explicit message to help the LLM interpret the result
-        message: `URL check for ${functionResult.url} was unsuccessful (${
-          functionResult.status
-            ? `HTTP ${functionResult.status}: ${functionResult.verificationInfo?.statusMeaning || 'Error'}`
-            : 'Network Error'
-        }). ${
-          functionResult.verificationInfo?.suggestion ||
-          'Consider other verification methods.'
-        }`,
-        // Keep original error information for debugging
-        originalError: functionResult.error
-      }
-
-      // Replace the function result with our enhanced version
-      functionResult = enhancedResult
-    }
-
     try {
       const response = await this.retryableFetch('/api/o3-agent', {
         method: 'POST',
@@ -254,8 +237,8 @@ export class o3ReferenceVerificationService {
           reference,
           iteration,
           previousMessages: messages,
-          functionResult,
-          lastToolCallId
+          functionResults, // Now an array
+          toolCallIds // Now an array
         })
       })
 
@@ -288,7 +271,87 @@ export class o3ReferenceVerificationService {
     }
   }
 
-  public async verifyReference(
+  public async processBatch(
+    references: Reference[],
+    onBatchProgress?: (verifiedReferences: VerifiedReference[]) => void,
+    onReferenceVerified?: (verifiedReference: VerifiedReference) => void,
+    onStatusUpdate?: (
+      referenceId: string,
+      step: ProcessingStep,
+      args?: any
+    ) => void
+  ): Promise<VerifiedReference[]> {
+    if (!Array.isArray(references)) {
+      console.error('Invalid references array provided')
+      return []
+    }
+
+    const verifiedReferences: VerifiedReference[] = []
+    const validReferences = references.filter((ref) => ref)
+
+    if (validReferences.length === 0) {
+      console.warn('No valid references to process')
+      return []
+    }
+
+    try {
+      for (let i = 0; i < validReferences.length; i += this.config.batchSize) {
+        const batch = validReferences.slice(i, i + this.config.batchSize)
+
+        const batchPromises = batch.map(async (ref) => {
+          const performedChecks = new Set<string>()
+
+          try {
+            const result = await verifyReference(
+              ref,
+              (step, args) => {
+                if (onStatusUpdate) onStatusUpdate(ref.id, step, args)
+              },
+              performedChecks
+            )
+
+            const verified: VerifiedReference = {
+              reference: result,
+              status: result.status as ProcessStatus,
+              result
+            }
+
+            if (onReferenceVerified) onReferenceVerified(verified)
+
+            return verified
+          } catch (error) {
+            console.error('Reference verification failed:', error)
+            return {
+              reference: ref,
+              status: 'error' as ProcessStatus,
+              result: {
+                error: error instanceof Error ? error.message : String(error)
+              }
+            }
+          }
+        })
+
+        try {
+          const batchResults = await Promise.all(batchPromises)
+          verifiedReferences.push(...batchResults)
+
+          if (onBatchProgress) {
+            onBatchProgress(verifiedReferences)
+          }
+        } catch (batchError) {
+          console.error('Error processing batch:', batchError)
+        }
+      }
+    } catch (error) {
+      console.error('Error in batch processing:', error)
+    }
+
+    return verifiedReferences
+  }
+}
+
+// below is old version. now using verification-service in lib...
+/*public async verifyReference(
     reference: Reference,
     onUpdate?: (state: ProcessState) => void,
     onStatusUpdate?: (step: ProcessingStep, args?: any) => void // Add the step update parameter
@@ -318,7 +381,7 @@ export class o3ReferenceVerificationService {
   private async _verifyReference(
     reference: Reference,
     onUpdate?: (state: ProcessState) => void,
-    onStatusUpdate?: (step: ProcessingStep, args?: any) => void // Add the step update parameter
+    onStatusUpdate?: (step: ProcessingStep, args?: any) => void
   ): Promise<VerifiedReference> {
     // Validate input
     if (!reference) {
@@ -328,6 +391,8 @@ export class o3ReferenceVerificationService {
         result: { error: 'Invalid reference provided' }
       }
     }
+
+    console.log('Verifying reference:', reference)
 
     // Begin with initializing step
     onStatusUpdate?.('initializing')
@@ -352,55 +417,80 @@ export class o3ReferenceVerificationService {
         currentState.iteration! < this.config.maxIterations
       ) {
         try {
+          console.log('Iteration:', currentState.iteration)
+          console.log('Current state:', currentState)
+          console.log('Reference:', reference)
+
           // Use our enhanced agent call instead of direct fetch
           const llmResponse = await this.callVerificationAgent(
             reference.raw || JSON.stringify(reference),
             currentState.iteration || 0,
             currentState.messages || [],
-            currentState.functionResult,
-            currentState.lastToolCallId || null
+            currentState.functionResults || [], // Now an array
+            currentState.toolCallIds || [] // Now an array
           )
 
-          if (llmResponse.functionToCall) {
-            const { name, arguments: args } = llmResponse.functionToCall
-            let functionResult
+          if (llmResponse.toolCalls && llmResponse.toolCalls.length > 0) {
+            // Process multiple tool calls in parallel
+            const toolCalls = llmResponse.toolCalls
+            const functionResults = []
+            const toolCallIds = []
 
-            // Update status step based on the function being called
-            if (onStatusUpdate && name) {
-              // Cast the name to ProcessingStep if it matches one of the expected values
-              if (
-                name === 'check_doi' ||
-                name === 'search_reference' ||
-                name === 'check_url'
-              ) {
-                onStatusUpdate(name as ProcessingStep, args)
-              }
-            }
+            // Execute all tool calls
+            for (const toolCall of toolCalls) {
+              const { id, name, arguments: args } = toolCall
+              let functionResult
 
-            switch (name) {
-              case 'check_doi':
-                functionResult = await checkDOI(args.doi, args.title)
-                break
-              case 'search_reference':
-                functionResult = await searchReference(args.reference)
-             
-                break
-              case 'check_url':
-                functionResult = await checkURL(args.url, args.reference)
-                // Even if URL check failed, allow process to continue
-                break
-              default:
-                functionResult = {
-                  success: false,
-                  error: `Unknown function: ${name}`,
-                  suggestion: 'Try another verification method.'
+              // Update status step based on the function being called
+              if (onStatusUpdate && name) {
+                // Cast the name to ProcessingStep if it matches one of the expected values
+                if (
+                  name === 'check_doi' ||
+                  name === 'search_reference' ||
+                  name === 'scholar_search' ||
+                  name === 'check_url'
+                ) {
+                  onStatusUpdate(name as ProcessingStep, args)
                 }
+              }
+
+              console.log('Tool call name:@@@@', name)
+              // Execute the appropriate function
+              switch (name) {
+                case 'check_doi':
+                  functionResult = await checkDOI(args.doi, args.title)
+                  break
+                case 'search_reference':
+                  functionResult = await searchReference(args.reference)
+                  break
+                case 'scholar_search':
+                  functionResult = await searchScholar(args.query)
+                  break
+                case 'check_url':
+                  functionResult = await checkURL(args.url, args.reference)
+                  break
+                default:
+                  functionResult = {
+                    success: false,
+                    error: `Unknown function: ${name}`,
+                    suggestion: 'Try another verification method.'
+                  }
+              }
+
+              // Store results to send back to the model
+              functionResults.push(functionResult)
+              toolCallIds.push(id)
             }
 
+            // Update current state with all function results
             currentState = {
               ...llmResponse,
-              functionResult,
-              lastToolCallId: llmResponse.lastToolCallId
+              functionResults,
+              toolCallIds,
+              messages: [
+                ...(currentState.messages || []), // Keep old messages
+                ...(llmResponse.messages || []) // Add new messages
+              ]
             }
           } else {
             // No function called, likely finalizing
@@ -433,7 +523,6 @@ export class o3ReferenceVerificationService {
         }
       }
 
-      // Process the final state
       if (currentState.status === 'complete') {
         // Finalizing step
         onStatusUpdate?.('finalizing')
@@ -507,9 +596,9 @@ export class o3ReferenceVerificationService {
         }
       }
     }
-  }
+  }*/
 
-  public async processBatch(
+/*public async processBatch(
     references: Reference[],
     onBatchProgress?: (verifiedReferences: VerifiedReference[]) => void,
     onReferenceVerified?: (verifiedReference: VerifiedReference) => void,
@@ -610,5 +699,4 @@ export class o3ReferenceVerificationService {
     }
 
     return verifiedReferences
-  }
-}
+  }*/
