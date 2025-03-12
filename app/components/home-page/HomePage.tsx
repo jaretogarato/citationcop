@@ -99,15 +99,15 @@ export default function HomePage(): JSX.Element {
             disabled={isLoading}
           >
             {isLoading ? (
-                <span className="flex items-center justify-center gap-2">
+              <span className="flex items-center justify-center gap-2">
                 <span className="w-5 h-5 border-2 border-t-2 border-t-white border-indigo-300 rounded-full animate-spin"></span>
                 Loading...
-                </span>
-              ) : (
-                <span className="flex items-center justify-center gap-2">
+              </span>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
                 Give it a go
                 <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
-                </span>
+              </span>
             )}
             <div className="flex items-center gap-2 mt-2 text-indigo-300">
               <FileText className="w-4 h-4" />
@@ -160,6 +160,9 @@ export default function HomePage(): JSX.Element {
           <WhoItsFor />
         </div>
       </main>
+      <div className="text-right">
+        <p className="text-xs text-slate-500">v0113</p>
+      </div>
     </div>
   )
 }
