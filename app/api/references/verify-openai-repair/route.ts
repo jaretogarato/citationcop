@@ -1,4 +1,5 @@
-// app/api/search/route.ts
+// app/api/references/verify-openai-repair/route.ts
+
 import { OpenAI } from 'openai'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -21,13 +22,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Prepare search prompt
-    const prompt = `Please perform a comprehensive search based on the reference below. 
-    
-    1. Confirm whether the original source of the reference was confirmed or not. 
-    2. Explain how you found it including a list of the sources or platforms you accessed during your search.
-    3. If the reference seems incomplete, see if you can locate the missing information. Explain what you found.
+    const prompt = `Given the raw reference below:
 
-    Raw reference: "${reference}"`
+  "${reference}"
+
+  Search for any missing or incorrect details and provide the complete, correct reference in APA format using only verified information. If you cannot find enough data to confirm the reference, clearly indicate that.
+  
+  Respond with complete repaired reference including any new details found in APA format.`
 
     // Call OpenAI API with search capabilities
     const response = await openai.chat.completions.create({
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
         {
           role: 'system',
           content:
-            'You are a helpful research assistant that repairs incomplete or innacurate references.'
+            'You are a helpful research assistant that fixes incompete or erroneous references.'
         },
         {
           role: 'user',

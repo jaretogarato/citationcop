@@ -76,7 +76,7 @@ const PDFProcessor = () => {
     // Register the completion callback
     if (queueServiceRef.current) {
       queueServiceRef.current.onAllComplete(() => {
-        console.log('Queue service signaled all processing complete')
+        //console.log('Queue service signaled all processing complete')
         setAllProcessingComplete(true)
         setIsProcessing(false)
 
@@ -156,9 +156,9 @@ const PDFProcessor = () => {
               })
             )
 
-            console.log('Placeholder refs:', placeholderRefs)
-            console.log('PH 0:', placeholderRefs[0].id)
-            console.log('PH 1:', placeholderRefs[1].id)
+            //console.log('Placeholder refs:', placeholderRefs)
+            //console.log('PH 0:', placeholderRefs[0].id)
+            //console.log('PH 1:', placeholderRefs[1].id)
 
             // Update documents state for this pdfId.
             setDocuments((prevDocs) => {
@@ -182,8 +182,8 @@ const PDFProcessor = () => {
               `Completed: ${message.pdfId}: ${message.verifiedReference?.title || 'Unknown'}`
             ])
 
-            console.log('Reference verified:', message.verifiedReference)
-            console.log('Processed references:', message.verifiedReference?.id)
+            //console.log('Reference verified:', message.verifiedReference)
+            //console.log('Processed references:', message.verifiedReference?.id)
 
             setVerifiedCountByPdf((prev) => ({
               ...prev,
@@ -258,8 +258,8 @@ const PDFProcessor = () => {
           break
 
         case 'complete':
-          console.log('Complete message received:', message)
-          console.log('Processed references:', message.references?.length)
+          //console.log('Complete message received:', message)
+          //console.log('Processed references:', message.references?.length)
           setLogMessages((prev) => [
             ...prev,
             `✅ Processing complete for PDF ${message.pdfId}`

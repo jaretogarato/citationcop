@@ -66,7 +66,26 @@ export const referenceTools: ChatCompletionTool[] = [
       },
       strict: true
     }
-  }*/ {
+  }*/
+  {
+    type: 'function',
+    function: {
+      name: 'repair_reference',
+      description: 'Find information to correct or complete a reference.',
+      parameters: {
+        type: 'object',
+        properties: {
+          reference: {
+            type: 'string',
+            description: 'The current reference text to repair.'
+          }
+        },
+        required: ['reference'],
+        additionalProperties: false
+      },
+      strict: true
+    }
+  } /*{
     type: 'function',
     function: {
       name: 'scholar_search',
@@ -86,7 +105,8 @@ export const referenceTools: ChatCompletionTool[] = [
       },
       strict: true
     }
-  },
+  }, */,
+
   {
     type: 'function',
     function: {

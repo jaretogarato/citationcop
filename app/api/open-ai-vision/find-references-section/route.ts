@@ -109,8 +109,8 @@ Do not include any other pages that are not part of the references section. IF a
 
       finalMessage = completion.choices[0].message
       tokenUsage = completion.usage
-      console.log('LLM Response received : ', finalMessage)
-      console.log('TOols call : ', finalMessage.tool_calls)
+      //console.log('LLM Response received : ', finalMessage)
+      //console.log('TOols call : ', finalMessage.tool_calls)
 
       // If the response includes tool calls, accept it as valid.
       if (finalMessage.tool_calls && finalMessage.tool_calls.length > 0) {

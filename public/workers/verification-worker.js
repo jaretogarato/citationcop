@@ -25471,7 +25471,6 @@
         arrayBuffer = file;
       }
       this.pdfDoc = await __webpack_exports__getDocument({ data: arrayBuffer }).promise;
-      console.log(`Loaded PDF with ${this.pdfDoc.numPages} pages`);
     }
     /**
      * Parse the entire document and return an array with the text content for each page.
@@ -25545,7 +25544,6 @@
       if (this.pdfDoc) {
         await this.pdfDoc.destroy();
         this.pdfDoc = null;
-        console.log("Cleaned up PDF document resources.");
       }
     }
   };
@@ -41415,8 +41413,6 @@
           }
           return references;
         } catch (error2) {
-          console.log(`Error processing chunk ${startIndex + index + 1}:`, error2);
-          console.log("Error processing chunk:", chunk);
           console.error(
             `Error processing chunk ${startIndex + index + 1}:`,
             error2
@@ -41459,9 +41455,6 @@
       const chunks = this.splitIntoChunks(text);
       const allReferences = [];
       const totalChunks = chunks.length;
-      console.log(
-        `Processing ${totalChunks} chunks in batches of ${_ReferenceExtractFromTextService.BATCH_SIZE}`
-      );
       for (let i = 0; i < chunks.length; i += _ReferenceExtractFromTextService.BATCH_SIZE) {
         const batchChunks = chunks.slice(
           i,
@@ -41531,15 +41524,33 @@
       };
     }
   }
+  async function repairReference(reference, config = {}) {
+    try {
+      const response = await fetch("/api/references/verify-openai-repair", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference })
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to search reference: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error2) {
+      console.error("Error searching reference:", error2);
+      return {
+        success: false,
+        error: `Failed to search reference: ${error2 instanceof Error ? error2.message : String(error2)}`,
+        suggestion: "Oh no an error occured trying to fix the reference."
+      };
+    }
+  }
   async function searchScholar(query, config = {}) {
-    console.log("Payload to be sent:", JSON.stringify({ query }));
     try {
       const response = await fetch("/api/references/verify-search-scholar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query })
       });
-      console.log("Response google scholar:", response);
       if (!response.ok) {
         throw new Error(`Failed to search scholar: ${response.statusText}`);
       }
@@ -41633,8 +41644,12 @@
               functionResult = await checkDOI(args.doi, args.title);
               break;
             case "search_reference":
-              performedChecks?.add("Google Search");
+              performedChecks?.add("Web Search");
               functionResult = await searchReference(args.reference);
+              break;
+            case "repair_reference":
+              performedChecks?.add("Repairing Reference");
+              functionResult = await repairReference(args.reference);
               break;
             case "scholar_search":
               performedChecks?.add("Scholar Search");
@@ -41843,7 +41858,6 @@ Reference error [${errorPath}]: ${errorMessage}`,
           })
         });
         const responseData = await response.json();
-        console.log("Agent response:", responseData);
         if (responseData.status === "error") {
           console.error("==================\nAGENT ERROR RESPONSE:", {
             error: responseData.error,
@@ -41970,22 +41984,18 @@ ${page.rawText}`).join("\n\n");
         });
         await refPageImageService.initialize(file);
         const updatedResult = await refPageImageService.addImageData(result);
-        console.log("Updated result with image data:", updatedResult);
         await refPageImageService.cleanup();
-        console.log("ENTERING STEP 3 ***** ");
         const markdownResponse = await refPageMarkdownService.extractMarkdown(updatedResult);
         const markdownContents = markdownResponse.map((content) => ({
           pageNumber: content.pageNumber,
           markdown: content.markdown
         }));
-        console.log("\u{1F4C4} Extracted markdown contents:", markdownContents);
         self.postMessage({
           type: "update",
           pdfId,
           message: `Preparing references for analysis`
         });
         const referencePagesMarkdown = markdownContents.map((content) => content.markdown).join("\n");
-        console.log("\u{1F4C4} Extracted markdown contents:", referencePagesMarkdown);
         const extractedReferences = await extractionService.processTextWithProgress(
           referencePagesMarkdown,
           (processed, total) => {

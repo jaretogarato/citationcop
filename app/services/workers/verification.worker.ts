@@ -95,13 +95,13 @@ self.onmessage = async (e: MessageEvent) => {
     
       await refPageImageService.initialize(file) // file is your PDF
       const updatedResult = await refPageImageService.addImageData(result)
-      console.log('Updated result with image data:', updatedResult)
+      //console.log('Updated result with image data:', updatedResult)
 
       // When finished, clean up resources
       await refPageImageService.cleanup()
   
       // STEP 3: Extract markdown content from reference pages
-      console.log('ENTERING STEP 3 ***** ')
+      //console.log('ENTERING STEP 3 ***** ')
 
       const markdownResponse = await refPageMarkdownService.extractMarkdown(updatedResult)
   
@@ -109,7 +109,7 @@ self.onmessage = async (e: MessageEvent) => {
         pageNumber: content.pageNumber,
         markdown: content.markdown
       }))
-      console.log('📄 Extracted markdown contents:', markdownContents)
+      //console.log('📄 Extracted markdown contents:', markdownContents)
 
       // STEP 4: Extract structured references from markdown
       self.postMessage({
@@ -122,7 +122,7 @@ self.onmessage = async (e: MessageEvent) => {
         .map((content) => content.markdown)
         .join('\n')
 
-      console.log('📄 Extracted markdown contents:', referencePagesMarkdown)
+      //console.log('📄 Extracted markdown contents:', referencePagesMarkdown)
 
       const extractedReferences =
         await extractionService.processTextWithProgress(

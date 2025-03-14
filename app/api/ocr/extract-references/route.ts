@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       markdown: page.markdown
     }))
 
-    console.log('DONE GETTINC PAGES')
+    //console.log('DONE GETTINC PAGES')
 
     // Combine all the markdown content for reference extraction
     const allMarkdown = extractedPages.map((page) => page.markdown).join('\n\n')
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     const references =
       chatResponse.choices?.[0]?.message.content || 'No references found'
 
-    console.log(references)
+    //console.log(references)
     // Return the extracted references
     return NextResponse.json({
       references

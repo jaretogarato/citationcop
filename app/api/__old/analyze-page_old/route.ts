@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
       // Initialize the appropriate client based on the model
       let togetherClient, openaiClient
 
-      console.log('Vision LLM:', visionLLM)
+      //console.log('Vision LLM:', visionLLM)
 
       if (visionLLM.includes('gpt-4o')) {
         if (!openaiApiKey) {
