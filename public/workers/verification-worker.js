@@ -41105,7 +41105,6 @@
         }
         const result = await apiResponse.json();
         if (result.status === "pending" && result.functionToCall) {
-          console.log(`Executing tool: ${result.functionToCall.name}`);
           if (result.functionToCall.name === "next_page") {
             const args = result.functionToCall.arguments;
             const toolResult = await this.earlierPage(args.current_page);
@@ -41514,7 +41513,7 @@
   }
   async function searchReference(reference, config = {}) {
     try {
-      const response = await fetch("/api/references/verify-search", {
+      const response = await fetch("/api/references/verify-openai-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reference })

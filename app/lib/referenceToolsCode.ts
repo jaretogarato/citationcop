@@ -27,7 +27,7 @@ export async function checkDOI(doi: string, title: string, config = {}) {
 
 export async function searchReference(reference: string, config = {}) {
   try {
-    const response = await fetch('/api/references/verify-search', {
+    const response = await fetch('/api/references/verify-openai-search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reference })
@@ -48,11 +48,33 @@ export async function searchReference(reference: string, config = {}) {
   }
 }
 
+/*export async function searchReference(reference: string, config = {}) {
+  try {
+    const response = await fetch('/api/references/verify-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reference })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to search reference: ${response.statusText}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Error searching reference:', error)
+    return {
+      success: false,
+      error: `Failed to search reference: ${error instanceof Error ? error.message : String(error)}`,
+      suggestion: 'Try scholar search if available, or check the URL directly.'
+    }
+  }
+}*/
+
 export async function searchScholar(query: string, config = {}) {
   //.log('Searching scholar for:', query)
   console.log('Payload to be sent:', JSON.stringify({ query }))
   try {
-
     const response = await fetch('/api/references/verify-search-scholar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

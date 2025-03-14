@@ -2,7 +2,7 @@
 import type { ChatCompletionTool } from 'openai/resources/chat/completions'
 
 export const referenceTools: ChatCompletionTool[] = [
-  {
+  /*{
     type: 'function', // This must be literally "function", not a variable string
     function: {
       name: 'check_doi',
@@ -25,8 +25,28 @@ export const referenceTools: ChatCompletionTool[] = [
       },
       strict: true
     }
-  },
+  },*/
   {
+    type: 'function',
+    function: {
+      name: 'search_reference',
+      description:
+        'Search for a reference using a search agent. Returns its assessment of whether or not the reference exists along with relevant details.',
+      parameters: {
+        type: 'object',
+        properties: {
+          reference: {
+            type: 'string',
+            description: 'The raw reference text.'
+          }
+        },
+        required: ['reference'],
+        additionalProperties: false
+      },
+      strict: true
+    }
+  },
+  /* {
     type: 'function',
     function: {
       name: 'search_reference',
@@ -46,8 +66,7 @@ export const referenceTools: ChatCompletionTool[] = [
       },
       strict: true
     }
-  },
-  {
+  }*/ {
     type: 'function',
     function: {
       name: 'scholar_search',
