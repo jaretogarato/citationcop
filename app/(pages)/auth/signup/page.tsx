@@ -1,20 +1,42 @@
-// app/auth/signup/page.js
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import type { ReadonlyURLSearchParams } from 'next/navigation'
 
-export default function Signup() {
+interface CheckoutSession {
+  customer: string
+  subscription: string
+  line_items?: {
+    data: Array<{
+      price?: {
+        id: string
+      }
+    }>
+  }
+  metadata?: {
+    plan?: string
+  }
+  customer_details?: {
+    email?: string
+  }
+}
+
+// Component that uses searchParams with proper typing
+function SignupContent({
+  searchParams
+}: {
+  searchParams: ReadonlyURLSearchParams
+}) {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const session_id = searchParams.get('session_id')
 
-  const [sessionData, setSessionData] = useState(null)
+  const [sessionData, setSessionData] = useState<CheckoutSession | null>(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   const supabase = createClientComponentClient()
 
@@ -22,6 +44,8 @@ export default function Signup() {
     // Fetch session data when session_id is available
     if (session_id) {
       fetchCheckoutSession()
+    } else {
+      setLoading(false)
     }
   }, [session_id])
 
@@ -48,17 +72,30 @@ export default function Signup() {
     }
   }
 
-  async function handleSignup(e) {
+  async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
+    if (!sessionData) {
+      setError('No session data available')
+      return
+    }
+
     try {
-      // Create user in Supabase Auth
+      // Create user in Supabase Auth with metadata
       const {
         data: { user },
         error: signUpError
       } = await supabase.auth.signUp({
         email,
-        password
+        password,
+        options: {
+          data: {
+            stripe_customer_id: sessionData.customer,
+            subscription_id: sessionData.subscription,
+            subscription_status: 'active',
+            plan: sessionData.metadata?.plan || 'default'
+          }
+        }
       })
 
       if (signUpError) throw signUpError
@@ -99,7 +136,11 @@ export default function Signup() {
         router.push('/dashboard')
       }
     } catch (err) {
-      setError(err.message)
+      if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError('An unknown error occurred')
+      }
     }
   }
 
@@ -136,5 +177,20 @@ export default function Signup() {
         <button type="submit">Create Account</button>
       </form>
     </div>
+  )
+}
+
+// Client component that accesses searchParams
+function SignupWithSearchParams() {
+  const searchParams = useSearchParams()
+  return <SignupContent searchParams={searchParams} />
+}
+
+// Main component with Suspense boundary
+export default function Signup() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SignupWithSearchParams />
+    </Suspense>
   )
 }
