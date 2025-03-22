@@ -1,31 +1,22 @@
+// app/auth/signup/page.js
+'use client'
+
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/router'
-import { createClient } from '@supabase/supabase-js'
-
-// Initialize Supabase client using environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-const supabaseClient = createClient(supabaseUrl, supabaseAnonKey)
-
-interface CheckoutSession {
-  customer: string
-  subscription: string
-  metadata?: {
-    plan?: string
-  }
-  customer_details?: {
-    email?: string
-  }
-}
+import { useRouter, useSearchParams } from 'next/navigation'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export default function Signup() {
   const router = useRouter()
-  const { session_id } = router.query
-  const [sessionData, setSessionData] = useState<CheckoutSession | null>(null)
+  const searchParams = useSearchParams()
+  const session_id = searchParams.get('session_id')
+
+  const [sessionData, setSessionData] = useState(null)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(null)
+
+  const supabase = createClientComponentClient()
 
   useEffect(() => {
     // Fetch session data when session_id is available
@@ -37,7 +28,7 @@ export default function Signup() {
   async function fetchCheckoutSession() {
     try {
       const response = await fetch(
-        '/api/stripe/checkout-session?session_id=' + session_id
+        `/api/stripe/checkout-session?session_id=${session_id}`
       )
       const data = await response.json()
 
@@ -57,58 +48,58 @@ export default function Signup() {
     }
   }
 
-  async function handleSignup(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSignup(e) {
     e.preventDefault()
 
-    if (!sessionData) {
-      setError('No session data available')
-      return
-    }
-
     try {
-      // Now TypeScript knows sessionData isn't null
+      // Create user in Supabase Auth
       const {
         data: { user },
         error: signUpError
-      } = await supabaseClient.auth.signUp({
+      } = await supabase.auth.signUp({
         email,
-        password,
-        options: {
-          data: {
-            stripe_customer_id: sessionData.customer,
-            subscription_id: sessionData.subscription,
-            subscription_status: 'active',
-            plan: sessionData.metadata?.plan || 'default'
-          }
-        }
+        password
       })
 
       if (signUpError) throw signUpError
 
       if (user) {
-        // Call a serverless function or RPC to link the user with subscription
-        const { error: linkError } = await supabaseClient.functions.invoke(
-          'link-subscription',
-          {
-            body: {
-              user_id: user.id,
-              stripe_customer_id: sessionData.customer,
-              subscription_id: sessionData.subscription
-            }
-          }
-        )
+        // Create customer record linking Stripe customer with Supabase user
+        const { error: customerError } = await supabase
+          .from('customers')
+          .insert({
+            id: user.id, // Using the same ID for customer and user
+            user_id: user.id,
+            stripe_customer_id: sessionData.customer,
+            subscription_status: 'active'
+          })
 
-        if (linkError) throw linkError
+        if (customerError) throw customerError
+
+        // Insert subscription record
+        if (sessionData.subscription) {
+          const { error: subscriptionError } = await supabase
+            .from('subscriptions')
+            .insert({
+              id: sessionData.subscription,
+              user_id: user.id,
+              status: 'active',
+              price_id: sessionData.line_items?.data[0]?.price?.id,
+              created: new Date().toISOString(),
+              current_period_start: new Date().toISOString(),
+              current_period_end: new Date(
+                Date.now() + 30 * 24 * 60 * 60 * 1000
+              ).toISOString() // 30 days from now as a placeholder
+            })
+
+          if (subscriptionError) throw subscriptionError
+        }
 
         // Redirect to dashboard after successful signup
         router.push('/dashboard')
       }
     } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message)
-      } else {
-        setError('An unknown error occurred')
-      }
+      setError(err.message)
     }
   }
 
