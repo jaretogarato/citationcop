@@ -1,7 +1,5 @@
 'use client'
 
-// a distinction without a difference
-
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
