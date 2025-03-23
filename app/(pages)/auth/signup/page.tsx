@@ -120,7 +120,32 @@ function SignupContent({
       // Create customer record if we have a user
       if (data?.user) {
         try {
-          // Format the customer ID correctly
+          //const customerId =
+          //  typeof sessionData.customer === 'object' &&
+          //  sessionData.customer !== null
+          //    ? sessionData.customer.id
+          //    : (sessionData.customer as string)
+
+          //const { error: customerError } = await supabase
+          //  .from('customers')
+          //  .insert({
+          //    id: data.user.id,
+          //    user_id: data.user.id,
+          //    stripe_customer_id: customerId,
+          //    subscription_status: 'active'
+          //  })
+
+          // First, create a record in the users table
+          const { error: userError } = await supabase.from('users').insert({
+            id: data.user.id // Use the same ID from auth.users
+            // Add any other required fields for your users table
+          })
+
+          if (userError && !userError.message.includes('duplicate key')) {
+            throw userError
+          }
+
+          // Now create the customer record
           const customerId =
             typeof sessionData.customer === 'object' &&
             sessionData.customer !== null
@@ -135,16 +160,7 @@ function SignupContent({
               stripe_customer_id: customerId,
               subscription_status: 'active'
             })
-          //const { error: customerError } = await supabase
-          //  .from('customers')
-          //  .insert({
-          //    id: data.user.id,
-          //    user_id: data.user.id,
-          //    stripe_customer_id: sessionData.customer,
-          //    subscription_status: 'active'
-          //  })
 
-          // If we get a duplicate key error, that's fine
           if (
             customerError &&
             !customerError.message.includes('duplicate key')
