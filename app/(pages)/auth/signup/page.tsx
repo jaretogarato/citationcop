@@ -37,6 +37,7 @@ function SignupContent({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [accountCreated, setAccountCreated] = useState(false)
+  const [rateLimited, setRateLimited] = useState(false)
 
   const supabase = createClientComponentClient()
 
@@ -164,14 +165,23 @@ function SignupContent({
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          //emailRedirectTo: `${window.location.origin}/dashboard`
           emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
         }
       })
 
-      if (otpError) throw otpError
-
-      setAccountCreated(true)
+      if (otpError) {
+        // Handle rate limiting error specifically
+        if (otpError.message.includes('seconds')) {
+          // This is a rate limit error - still consider account creation successful
+          // but let the user know about the email delay
+          setAccountCreated(true)
+          setRateLimited(true) // You'll need to add this state variable
+        } else {
+          throw otpError
+        }
+      } else {
+        setAccountCreated(true)
+      }
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message)
@@ -181,93 +191,6 @@ function SignupContent({
     }
   }
 
-  //async function createAccountWithMagicLink(
-  //  email: string,
-  //  sessionData: CheckoutSession
-  //) {
-  //  try {
-  //    // First, check if user already exists
-  //    const { data: existingUser } =
-  //      await supabase.auth.admin.getUserByEmail(email)
-
-  //    if (!existingUser) {
-  //      // Generate a random password since Supabase requires one
-  //      const randomPassword =
-  //        Math.random().toString(36).slice(-10) +
-  //        Math.random().toString(36).toUpperCase().slice(-2) +
-  //        Math.random().toString(36).slice(-2) +
-  //        '!'
-
-  //      // Create user with a password (required by Supabase)
-  //      const { data, error } = await supabase.auth.signUp({
-  //        email,
-  //        password: randomPassword, // Random secure password that won't be used
-  //        options: {
-  //          data: {
-  //            stripe_customer_id: sessionData.customer,
-  //            subscription_id: sessionData.subscription,
-  //            subscription_status: 'active',
-  //            plan: sessionData.metadata?.plan || 'default'
-  //          }
-  //        }
-  //      })
-
-  //      if (error) throw error
-
-  //      // Create customer record
-  //      if (data.user) {
-  //        const { error: customerError } = await supabase
-  //          .from('customers')
-  //          .insert({
-  //            id: data.user.id,
-  //            user_id: data.user.id,
-  //            stripe_customer_id: sessionData.customer,
-  //            subscription_status: 'active'
-  //          })
-
-  //        if (customerError) throw customerError
-
-  //        // Insert subscription record
-  //        if (sessionData.subscription) {
-  //          const { error: subscriptionError } = await supabase
-  //            .from('subscriptions')
-  //            .insert({
-  //              id: sessionData.subscription,
-  //              user_id: data.user.id,
-  //              status: 'active',
-  //              price_id: sessionData.line_items?.data[0]?.price?.id,
-  //              created: new Date().toISOString(),
-  //              current_period_start: new Date().toISOString(),
-  //              current_period_end: new Date(
-  //                Date.now() + 30 * 24 * 60 * 60 * 1000
-  //              ).toISOString()
-  //            })
-
-  //          if (subscriptionError) throw subscriptionError
-  //        }
-  //      }
-  //    }
-
-  //    // Send magic link (whether new user or existing)
-  //    const { error: otpError } = await supabase.auth.signInWithOtp({
-  //      email,
-  //      options: {
-  //        emailRedirectTo: `${window.location.origin}/dashboard`
-  //      }
-  //    })
-
-  //    if (otpError) throw otpError
-
-  //    setAccountCreated(true)
-  //  } catch (err) {
-  //    if (err instanceof Error) {
-  //      setError(err.message)
-  //    } else {
-  //      setError('An unknown error occurred')
-  //    }
-  //  }
-  //}
-
   if (loading) return <div>Verifying your purchase...</div>
   if (error) return <div>Error: {error}</div>
 
@@ -275,11 +198,25 @@ function SignupContent({
     return (
       <div>
         <h1>Account Created Successfully!</h1>
-        <p>We've sent a login link to your email at {email}.</p>
-        <p>
-          Please check your inbox and click the link to access your dashboard.
-        </p>
-        <p>If you don't see the email, please check your spam folder.</p>
+        {rateLimited ? (
+          <>
+            <p>Your account has been created successfully.</p>
+            <p>
+              Due to security measures, we couldn't send another login link
+              right now. Please check your email for a previous link or try
+              again in a minute.
+            </p>
+          </>
+        ) : (
+          <>
+            <p>We've sent a login link to your email at {email}.</p>
+            <p>
+              Please check your inbox and click the link to access your
+              dashboard.
+            </p>
+            <p>If you don't see the email, please check your spam folder.</p>
+          </>
+        )}
       </div>
     )
   }
