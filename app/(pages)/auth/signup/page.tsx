@@ -6,7 +6,13 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { ReadonlyURLSearchParams } from 'next/navigation'
 
 interface CheckoutSession {
-  customer: string
+  customer:
+    | string
+    | {
+        id: string
+        object: string
+        [key: string]: any // For other properties that might exist
+      }
   subscription: string
   line_items?: {
     data: Array<{
@@ -114,14 +120,29 @@ function SignupContent({
       // Create customer record if we have a user
       if (data?.user) {
         try {
+          // Format the customer ID correctly
+          const customerId =
+            typeof sessionData.customer === 'object' &&
+            sessionData.customer !== null
+              ? sessionData.customer.id
+              : (sessionData.customer as string)
+
           const { error: customerError } = await supabase
             .from('customers')
             .insert({
               id: data.user.id,
               user_id: data.user.id,
-              stripe_customer_id: sessionData.customer,
+              stripe_customer_id: customerId,
               subscription_status: 'active'
             })
+          //const { error: customerError } = await supabase
+          //  .from('customers')
+          //  .insert({
+          //    id: data.user.id,
+          //    user_id: data.user.id,
+          //    stripe_customer_id: sessionData.customer,
+          //    subscription_status: 'active'
+          //  })
 
           // If we get a duplicate key error, that's fine
           if (
@@ -165,9 +186,18 @@ function SignupContent({
       const { error: otpError } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
+          // Make sure the environment variable is set and used correctly
+          emailRedirectTo: process.env.NEXT_PUBLIC_SITE_URL
+            ? `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
+            : 'https://stagingtowntwo.sourceverify.ai/dashboard' // Fallback for testing
         }
       })
+      //const { error: otpError } = await supabase.auth.signInWithOtp({
+      //  email,
+      //  options: {
+      //    emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
+      //  }
+      //})
 
       if (otpError) {
         // Handle rate limiting error specifically
