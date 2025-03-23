@@ -10,39 +10,71 @@ import s from './Navbar.module.css'
 import { useEffect, useState } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-export default function Navlinks() {
+interface NavlinksProps {
+  user?: any
+}
+
+export default function Navlinks({ user: propUser }: NavlinksProps) {
   const router = getRedirectMethod() === 'client' ? useRouter() : null
   const pathname = usePathname()
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(propUser || null)
+  const [loading, setLoading] = useState(!propUser)
   const supabase = createClientComponentClient()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      console.log('Current session:', data.session)
-    })
-  }, [])
+    // Only fetch user if not provided as prop
+    if (!propUser) {
+      // Check auth status on mount and auth state changes
+      const { data: authListener } = supabase.auth.onAuthStateChange(
+        (event, session) => {
+          setUser(session?.user || null)
+          setLoading(false)
+          // Add this line for debugging
+          console.log('Auth state changed:', session)
+        }
+      )
 
-  useEffect(() => {
-    // Check auth status on mount and auth state changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      // Initial auth check
+      supabase.auth.getSession().then(({ data: { session } }) => {
         setUser(session?.user || null)
         setLoading(false)
+        // Add this line for debugging
+        console.log('Current session:', session)
+      })
+
+      return () => {
+        // Clean up subscription when component unmounts
+        authListener?.subscription.unsubscribe()
       }
-    )
-
-    // Initial auth check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user || null)
-      setLoading(false)
-    })
-
-    return () => {
-      // Clean up subscription when component unmounts
-      authListener?.subscription.unsubscribe()
     }
-  }, [supabase.auth])
+  }, [supabase.auth, propUser])
+
+  //useEffect(() => {
+  //  supabase.auth.getSession().then(({ data }) => {
+  //    console.log('Current session:', data.session)
+  //  })
+  //}, [])
+
+  //useEffect(() => {
+  //  // Check auth status on mount and auth state changes
+  //  const { data: authListener } = supabase.auth.onAuthStateChange(
+  //    (event, session) => {
+  //      setUser(session?.user || null)
+  //      setLoading(false)
+  //    }
+  //  )
+
+  //  // Initial auth check
+  //  supabase.auth.getSession().then(({ data: { session } }) => {
+  //    setUser(session?.user || null)
+  //    setLoading(false)
+  //  })
+
+  //  return () => {
+  //    // Clean up subscription when component unmounts
+  //    authListener?.subscription.unsubscribe()
+  //  }
+  //}, [supabase.auth])
 
   // Show a simplified nav while loading auth state
   if (loading) {
