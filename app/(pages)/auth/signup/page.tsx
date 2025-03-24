@@ -84,6 +84,159 @@ function SignupContent({
     }
   }
 
+  //async function createAccountWithMagicLink(
+  //  email: string,
+  //  sessionData: CheckoutSession
+  //) {
+  //  try {
+  //    // Generate a random password since Supabase requires one
+  //    const randomPassword =
+  //      Math.random().toString(36).slice(-10) +
+  //      Math.random().toString(36).toUpperCase().slice(-2) +
+  //      Math.random().toString(36).slice(-2) +
+  //      '!'
+
+  //    // Create user with a password (required by Supabase)
+  //    const { data, error } = await supabase.auth.signUp({
+  //      email,
+  //      password: randomPassword, // Random secure password that won't be used
+  //      options: {
+  //        data: {
+  //          stripe_customer_id: sessionData.customer,
+  //          subscription_id: sessionData.subscription,
+  //          subscription_status: 'active',
+  //          plan: sessionData.metadata?.plan || 'default'
+  //        }
+  //      }
+  //    })
+
+  //    if (error) {
+  //      // If error is "User already registered", that's fine - proceed with magic link
+  //      if (!error.message.includes('already registered')) {
+  //        throw error
+  //      }
+  //    }
+
+  //    // Create customer record if we have a user
+  //    if (data?.user) {
+  //      try {
+  //        //const customerId =
+  //        //  typeof sessionData.customer === 'object' &&
+  //        //  sessionData.customer !== null
+  //        //    ? sessionData.customer.id
+  //        //    : (sessionData.customer as string)
+
+  //        //const { error: customerError } = await supabase
+  //        //  .from('customers')
+  //        //  .insert({
+  //        //    id: data.user.id,
+  //        //    user_id: data.user.id,
+  //        //    stripe_customer_id: customerId,
+  //        //    subscription_status: 'active'
+  //        //  })
+
+  //        // First, create a record in the users table
+  //        const { error: userError } = await supabase.from('users').insert({
+  //          id: data.user.id // Use the same ID from auth.users
+  //          // Add any other required fields for your users table
+  //        })
+
+  //        if (userError && !userError.message.includes('duplicate key')) {
+  //          throw userError
+  //        }
+
+  //        // Now create the customer record
+  //        const customerId =
+  //          typeof sessionData.customer === 'object' &&
+  //          sessionData.customer !== null
+  //            ? sessionData.customer.id
+  //            : (sessionData.customer as string)
+
+  //        const { error: customerError } = await supabase
+  //          .from('customers')
+  //          .insert({
+  //            id: data.user.id,
+  //            user_id: data.user.id,
+  //            stripe_customer_id: customerId,
+  //            subscription_status: 'active'
+  //          })
+
+  //        if (
+  //          customerError &&
+  //          !customerError.message.includes('duplicate key')
+  //        ) {
+  //          throw customerError
+  //        }
+
+  //        // Insert subscription record
+  //        if (sessionData.subscription) {
+  //          const { error: subscriptionError } = await supabase
+  //            .from('subscriptions')
+  //            .insert({
+  //              id: sessionData.subscription,
+  //              user_id: data.user.id,
+  //              status: 'active',
+  //              price_id: sessionData.line_items?.data[0]?.price?.id,
+  //              created: new Date().toISOString(),
+  //              current_period_start: new Date().toISOString(),
+  //              current_period_end: new Date(
+  //                Date.now() + 30 * 24 * 60 * 60 * 1000
+  //              ).toISOString()
+  //            })
+
+  //          // Again, if we get a duplicate key error, that's fine
+  //          if (
+  //            subscriptionError &&
+  //            !subscriptionError.message.includes('duplicate key')
+  //          ) {
+  //            throw subscriptionError
+  //          }
+  //        }
+  //      } catch (err) {
+  //        console.error('Error creating records:', err)
+  //        // Continue anyway to send magic link
+  //      }
+  //    }
+
+  //    // Send magic link (whether new user or existing)
+  //    const { error: otpError } = await supabase.auth.signInWithOtp({
+  //      email,
+  //      options: {
+  //        // Make sure the environment variable is set and used correctly
+  //        emailRedirectTo: process.env.NEXT_PUBLIC_SITE_URL
+  //          ? `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
+  //          : 'https://stagingtowntwo.sourceverify.ai/dashboard' // Fallback for testing
+  //      }
+  //    })
+  //    //const { error: otpError } = await supabase.auth.signInWithOtp({
+  //    //  email,
+  //    //  options: {
+  //    //    emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
+  //    //  }
+  //    //})
+
+  //    if (otpError) {
+  //      // Handle rate limiting error specifically
+  //      if (otpError.message.includes('seconds')) {
+  //        // This is a rate limit error - still consider account creation successful
+  //        // but let the user know about the email delay
+  //        setAccountCreated(true)
+  //        setRateLimited(true) // You'll need to add this state variable
+  //      } else {
+  //        throw otpError
+  //      }
+  //    } else {
+  //      setAccountCreated(true)
+  //    }
+  //  } catch (err) {
+  //    if (err instanceof Error) {
+  //      setError(err.message)
+  //    } else {
+  //      setError('An unknown error occurred')
+  //    }
+  //  }
+  //}
+
   async function createAccountWithMagicLink(
     email: string,
     sessionData: CheckoutSession
@@ -120,38 +273,15 @@ function SignupContent({
       // Create customer record if we have a user
       if (data?.user) {
         try {
-          //const customerId =
-          //  typeof sessionData.customer === 'object' &&
-          //  sessionData.customer !== null
-          //    ? sessionData.customer.id
-          //    : (sessionData.customer as string)
-
-          //const { error: customerError } = await supabase
-          //  .from('customers')
-          //  .insert({
-          //    id: data.user.id,
-          //    user_id: data.user.id,
-          //    stripe_customer_id: customerId,
-          //    subscription_status: 'active'
-          //  })
-
-          // First, create a record in the users table
-          const { error: userError } = await supabase.from('users').insert({
-            id: data.user.id // Use the same ID from auth.users
-            // Add any other required fields for your users table
-          })
-
-          if (userError && !userError.message.includes('duplicate key')) {
-            throw userError
-          }
-
-          // Now create the customer record
+          // Extract customer ID correctly
           const customerId =
             typeof sessionData.customer === 'object' &&
             sessionData.customer !== null
               ? sessionData.customer.id
               : (sessionData.customer as string)
 
+          // Skip creating user record directly since the trigger handles it
+          // Just create the customer record
           const { error: customerError } = await supabase
             .from('customers')
             .insert({
@@ -163,7 +293,8 @@ function SignupContent({
 
           if (
             customerError &&
-            !customerError.message.includes('duplicate key')
+            !customerError.message.includes('duplicate key') &&
+            !customerError.message.includes('violates row-level security')
           ) {
             throw customerError
           }
@@ -184,10 +315,10 @@ function SignupContent({
                 ).toISOString()
               })
 
-            // Again, if we get a duplicate key error, that's fine
             if (
               subscriptionError &&
-              !subscriptionError.message.includes('duplicate key')
+              !subscriptionError.message.includes('duplicate key') &&
+              !subscriptionError.message.includes('violates row-level security')
             ) {
               throw subscriptionError
             }
@@ -208,12 +339,6 @@ function SignupContent({
             : 'https://stagingtowntwo.sourceverify.ai/dashboard' // Fallback for testing
         }
       })
-      //const { error: otpError } = await supabase.auth.signInWithOtp({
-      //  email,
-      //  options: {
-      //    emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
-      //  }
-      //})
 
       if (otpError) {
         // Handle rate limiting error specifically
@@ -221,7 +346,7 @@ function SignupContent({
           // This is a rate limit error - still consider account creation successful
           // but let the user know about the email delay
           setAccountCreated(true)
-          setRateLimited(true) // You'll need to add this state variable
+          setRateLimited(true)
         } else {
           throw otpError
         }
