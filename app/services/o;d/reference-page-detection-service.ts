@@ -215,7 +215,7 @@ export class ReferencePageDetectionService {
 
       // If a tool call is requested (e.g. "next_page"), execute it and re-call recursively
       if (result.status === 'pending' && result.functionToCall) {
-        console.log(`Executing tool: ${result.functionToCall.name}`)
+        //console.log(`Executing tool: ${result.functionToCall.name}`)
         if (result.functionToCall.name === 'next_page') {
           const args = result.functionToCall.arguments
           const toolResult = await this.earlierPage(args.current_page)

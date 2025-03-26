@@ -147,9 +147,9 @@ export default function MultiReferenceVerifier() {
           if (!ref.id) {
             // Generate a unique ID if one doesn't exist
             const uniqueId = `ref-${Date.now()}-${index}`
-            console.log(
-              `Assigning ID ${uniqueId} to reference "${ref.title || 'Untitled'}"`
-            )
+            //console.log(
+            //  `Assigning ID ${uniqueId} to reference "${ref.title || 'Untitled'}"`
+            // )
             return { ...ref, id: uniqueId }
           }
           return ref

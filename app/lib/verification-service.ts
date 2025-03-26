@@ -3,7 +3,8 @@ import {
   checkDOI,
   searchReference,
   checkURL,
-  searchScholar
+  searchScholar,
+  repairReference
 } from '@/app/lib/referenceToolsCode'
 import type { Reference, ReferenceStatus } from '@/app/types/reference'
 
@@ -104,9 +105,14 @@ export async function verifyReference(
             functionResult = await checkDOI(args.doi, args.title)
             break
           case 'search_reference':
-            performedChecks?.add('Google Search')
+            performedChecks?.add('Web Search')
             functionResult = await searchReference(args.reference)
             break
+          case 'repair_reference':
+            performedChecks?.add('Repairing Reference')
+            functionResult = await repairReference(args.reference)
+            break
+
           case 'scholar_search':
             performedChecks?.add('Scholar Search')
             functionResult = await searchScholar(args.query)

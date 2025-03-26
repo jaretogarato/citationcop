@@ -5,17 +5,20 @@ import { ArrowRight, ChevronsDown, FileText } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import WhoItsFor from '@/app/components/home-page/WhoItsFor'
 import QuickFeatures from '@/app/components/home-page/QuickFeatures'
-import Stats from '@/app/components/home-page/Stats'
+//import Stats from '@/app/components/home-page/Stats'
 import ReferenceVerifier from '../verify-reference/ReferenceVerifier'
+import ReferenceRepair from '@/app/components/ReferenceRepair'
 
 export default function HomePage(): JSX.Element {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [isVerifierVisible, setIsVerifierVisible] = useState(false)
+  const [isRepairVisible, setIsRepairVisible] = useState(false)
   const [isWhoItsForVisible, setIsWhoItsForVisible] = useState(false)
   const [isQuickFeaturesVisible, setIsQuickFeaturesVisible] = useState(false)
 
   const verifierRef = useRef<HTMLDivElement>(null)
+  const repairRef = useRef<HTMLDivElement>(null)
   const whoItsForRef = useRef<HTMLDivElement>(null)
   const quickFeaturesRef = useRef<HTMLDivElement>(null)
 
@@ -37,6 +40,11 @@ export default function HomePage(): JSX.Element {
           // Set the corresponding state based on the ref
           if (entry.target === verifierRef.current && entry.isIntersecting) {
             setIsVerifierVisible(true)
+          } else if (
+            entry.target === repairRef.current &&
+            entry.isIntersecting
+          ) {
+            setIsRepairVisible(true)
           } else if (
             entry.target === whoItsForRef.current &&
             entry.isIntersecting
@@ -63,12 +71,14 @@ export default function HomePage(): JSX.Element {
 
     // Observe all section refs
     if (verifierRef.current) observer.observe(verifierRef.current)
+    if (repairRef.current) observer.observe(repairRef.current)
     if (whoItsForRef.current) observer.observe(whoItsForRef.current)
     if (quickFeaturesRef.current) observer.observe(quickFeaturesRef.current)
 
     // Cleanup
     return () => {
       if (verifierRef.current) observer.unobserve(verifierRef.current)
+      if (repairRef.current) observer.unobserve(repairRef.current)
       if (whoItsForRef.current) observer.unobserve(whoItsForRef.current)
       if (quickFeaturesRef.current) observer.unobserve(quickFeaturesRef.current)
     }
@@ -137,6 +147,20 @@ export default function HomePage(): JSX.Element {
             <ReferenceVerifier />
           </div>
         </div>
+
+        {/* Reference Repair Section 
+        <div
+          ref={repairRef}
+          className={`transition-all duration-700 transform ${
+            isRepairVisible
+              ? 'opacity-100 translate-y-0'
+              : 'opacity-0 translate-y-16'
+          }`}
+        >
+          <div className="mb-16">
+            <ReferenceRepair />
+          </div>
+        </div>*/}
 
         <div
           ref={quickFeaturesRef}

@@ -243,7 +243,7 @@ export class o3ReferenceVerificationService {
       })
 
       const responseData = await response.json()
-      console.log('Agent response:', responseData)
+      //console.log('Agent response:', responseData)
 
       // Add detailed logging for specific cases
       if (responseData.status === 'error') {

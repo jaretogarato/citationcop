@@ -72,8 +72,8 @@ export class ReferenceExtractFromTextService {
         }
         return references
       } catch (error) {
-        console.log(`Error processing chunk ${startIndex + index + 1}:`, error)
-        console.log('Error processing chunk:', chunk)
+        //console.log(`Error processing chunk ${startIndex + index + 1}:`, error)
+        //console.log('Error processing chunk:', chunk)
 
         console.error(
           `Error processing chunk ${startIndex + index + 1}:`,
@@ -135,9 +135,9 @@ export class ReferenceExtractFromTextService {
     const allReferences: Reference[] = []
     const totalChunks = chunks.length
 
-    console.log(
-      `Processing ${totalChunks} chunks in batches of ${ReferenceExtractFromTextService.BATCH_SIZE}`
-    )
+    //console.log(
+    //  `Processing ${totalChunks} chunks in batches of ${ReferenceExtractFromTextService.//BATCH_SIZE}`
+    //)
 
     // Process chunks in parallel batches
     for (

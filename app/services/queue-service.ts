@@ -49,7 +49,7 @@ export class PDFQueueService {
       })
     }*/
 
-    console.log('Queue service reset complete')
+    //console.log('Queue service reset complete')
   }
 
   // provide a method to set the callback.
