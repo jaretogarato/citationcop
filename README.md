@@ -1,6 +1,7 @@
 # SourceVerify!
 
 run locally with 'npm run dev'
+use node 20.18.0
 
 # Awesome references verification app
 
