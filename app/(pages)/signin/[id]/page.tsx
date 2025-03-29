@@ -80,9 +80,9 @@ export default async function SignIn({
   return (
     <div className="flex justify-center height-screen-helper">
       <div className="flex flex-col justify-between max-w-lg p-3 m-auto w-80 ">
-        <div className="flex justify-center pb-12 ">
+        {/*<div className="flex justify-center pb-12 ">
           <Logo width="64px" height="64px" />
-        </div>
+        </div>*/}
         <Card
           title={
             viewProp === 'forgot_password'
@@ -104,9 +104,9 @@ export default async function SignIn({
           )}
           {viewProp === 'email_signin' && (
             <EmailSignIn
-              allowPassword={allowPassword}
-              redirectMethod={redirectMethod}
-              disableButton={searchParams.disable_button}
+            //allowPassword={allowPassword}
+            //redirectMethod={redirectMethod}
+            //disableButton={searchParams.disable_button}
             />
           )}
           {viewProp === 'forgot_password' && (
@@ -126,14 +126,14 @@ export default async function SignIn({
               stripeSession={stripeSession}
             />
           )}
-          {viewProp !== 'update_password' &&
+          {/*{viewProp !== 'update_password' &&
             viewProp !== 'signup' &&
             allowOauth && (
               <>
                 <Separator text="Third-party sign-in" />
                 <OauthSignIn />
               </>
-            )}
+            )}*/}
         </Card>
       </div>
     </div>
