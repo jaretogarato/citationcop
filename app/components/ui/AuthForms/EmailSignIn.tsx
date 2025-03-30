@@ -26,7 +26,8 @@ export default function EmailSignIn() {
         options: {
           emailRedirectTo: process.env.NEXT_PUBLIC_SITE_URL
             ? `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`
-            : 'https://stagingtowntwo.sourceverify.ai/dashboard'
+            : 'https://stagingtowntwo.sourceverify.ai/dashboard',
+          shouldCreateUser: false
         }
       })
 
