@@ -1,24 +1,27 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import Link from 'next/link'
 import Button from '@/app/components/ui/Button'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
-export default function Dashboard() {
+// Create a client component that uses useSearchParams
+function DashboardContent() {
   const [user, setUser] = useState<any>(null)
   const [subscription, setSubscription] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [subscriptionSuccess, setSubscriptionSuccess] = useState(false)
   const supabase = createClientComponentClient()
-  const searchParams = useSearchParams()
   const router = useRouter()
 
   useEffect(() => {
-    // Check if redirected from successful subscription
-    if (searchParams?.get('subscription_success') === 'true') {
-      setSubscriptionSuccess(true)
+    // Check if redirected from successful subscription using URLSearchParams instead of useSearchParams
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      if (urlParams.get('subscription_success') === 'true') {
+        setSubscriptionSuccess(true)
+      }
     }
 
     const getUser = async () => {
@@ -50,7 +53,7 @@ export default function Dashboard() {
     }
 
     getUser()
-  }, [searchParams])
+  }, [])
 
   const handleManageSubscription = () => {
     router.push('/pricing')
@@ -212,6 +215,24 @@ export default function Dashboard() {
         </div>
       </div>
     </div>
+  )
+}
+
+// Main dashboard component with Suspense
+export default function Dashboard() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="p-8 bg-white rounded-lg shadow-md dark:bg-gray-800 dark:text-white">
+            <h1 className="text-2xl font-bold mb-4">Loading dashboard...</h1>
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          </div>
+        </div>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   )
 }
 
