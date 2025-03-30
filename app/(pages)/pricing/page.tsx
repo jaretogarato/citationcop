@@ -1,3 +1,4 @@
+// app/(pages)/pricing/page.tsx
 import React from 'react'
 import Pricing from '@/app/components/ui/Pricing/Pricing'
 //import { User } from '@supabase/supabase-js';
