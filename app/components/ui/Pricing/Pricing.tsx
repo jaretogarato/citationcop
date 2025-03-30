@@ -10,6 +10,7 @@ import { User } from '@supabase/supabase-js'
 import cn from 'classnames'
 import { useRouter, usePathname } from 'next/navigation'
 import { useState } from 'react'
+import EmailVerificationStep from './EmailVerificationStep'
 
 type Subscription = Tables<'subscriptions'>
 type Product = Tables<'products'>
@@ -30,134 +31,6 @@ interface Props {
 }
 
 type BillingInterval = 'lifetime' | 'year' | 'month'
-
-// Email verification step component
-function EmailVerificationStep({
-  onBack,
-  onContinue,
-  selectedPrice,
-  billingInterval
-}: {
-  onBack: () => void
-  onContinue: (email: string) => void
-  selectedPrice: Price
-  billingInterval: BillingInterval
-}) {
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    try {
-      // First, check if the email is valid
-      if (!email || !email.includes('@')) {
-        setError('Please enter a valid email address')
-        setLoading(false)
-        return
-      }
-
-      // Check if user exists
-      const response = await fetch('/api/check-user-exists', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to check user existence')
-      }
-
-      const { exists } = await response.json()
-
-      if (exists) {
-        // User exists, redirect to sign in page with return URL
-        const priceWithMetadata = {
-          ...selectedPrice,
-          metadata: {
-            requires_account: 'true',
-            billing_interval: billingInterval
-          }
-        }
-
-        // Store the price info for after sign-in
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('selectedPriceId', selectedPrice.id)
-          localStorage.setItem('selectedInterval', billingInterval)
-          localStorage.setItem('userEmail', email)
-        }
-
-        // Redirect to sign in page
-        window.location.href = `/signin?subscription_started=true&email=${encodeURIComponent(email)}`
-      } else {
-        // No existing user, proceed to checkout
-        onContinue(email)
-      }
-    } catch (err) {
-      console.error('Error checking user:', err)
-      setError('An error occurred. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="max-w-md mx-auto p-6 bg-zinc-900 rounded-lg shadow-md border border-zinc-800">
-      <h2 className="text-2xl font-bold mb-6 text-white">Confirm your email</h2>
-      <p className="mb-4 text-zinc-300">
-        Please enter your email address to continue with your subscription.
-      </p>
-
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label
-            htmlFor="email"
-            className="block text-sm font-medium text-zinc-300 mb-1"
-          >
-            Email address
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-white"
-            placeholder="you@example.com"
-            required
-          />
-        </div>
-
-        {error && (
-          <div className="mb-4 p-2 text-sm text-red-400 bg-red-900 bg-opacity-30 rounded-md">
-            {error}
-          </div>
-        )}
-
-        <div className="flex space-x-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex-1 py-2 px-4 border border-zinc-700 rounded-md shadow-sm text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50"
-          >
-            Back
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50 disabled:opacity-50"
-          >
-            {loading ? 'Checking...' : 'Continue'}
-          </button>
-        </div>
-      </form>
-    </div>
-  )
-}
 
 export default function Pricing({ products, subscription }: Props) {
   const intervals = Array.from(
@@ -395,6 +268,134 @@ export default function Pricing({ products, subscription }: Props) {
     </section>
   )
 }
+
+// Email verification step component
+//function EmailVerificationStep({
+//  onBack,
+//  onContinue,
+//  selectedPrice,
+//  billingInterval
+//}: {
+//  onBack: () => void
+//  onContinue: (email: string) => void
+//  selectedPrice: Price
+//  billingInterval: BillingInterval
+//}) {
+//  const [email, setEmail] = useState('')
+//  const [loading, setLoading] = useState(false)
+//  const [error, setError] = useState<string | null>(null)
+
+//  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+//    e.preventDefault()
+//    setLoading(true)
+//    setError(null)
+
+//    try {
+//      // First, check if the email is valid
+//      if (!email || !email.includes('@')) {
+//        setError('Please enter a valid email address')
+//        setLoading(false)
+//        return
+//      }
+
+//      // Check if user exists
+//      const response = await fetch('/api/check-user-exists', {
+//        method: 'POST',
+//        headers: {
+//          'Content-Type': 'application/json'
+//        },
+//        body: JSON.stringify({ email })
+//      })
+
+//      if (!response.ok) {
+//        throw new Error('Failed to check user existence')
+//      }
+
+//      const { exists } = await response.json()
+
+//      if (exists) {
+//        // User exists, redirect to sign in page with return URL
+//        const priceWithMetadata = {
+//          ...selectedPrice,
+//          metadata: {
+//            requires_account: 'true',
+//            billing_interval: billingInterval
+//          }
+//        }
+
+//        // Store the price info for after sign-in
+//        if (typeof window !== 'undefined') {
+//          localStorage.setItem('selectedPriceId', selectedPrice.id)
+//          localStorage.setItem('selectedInterval', billingInterval)
+//          localStorage.setItem('userEmail', email)
+//        }
+
+//        // Redirect to sign in page
+//        window.location.href = `/signin?subscription_started=true&email=${encodeURIComponent(email)}`
+//      } else {
+//        // No existing user, proceed to checkout
+//        onContinue(email)
+//      }
+//    } catch (err) {
+//      console.error('Error checking user:', err)
+//      setError('An error occurred. Please try again.')
+//    } finally {
+//      setLoading(false)
+//    }
+//  }
+
+//  return (
+//    <div className="max-w-md mx-auto p-6 bg-zinc-900 rounded-lg shadow-md border border-zinc-800">
+//      <h2 className="text-2xl font-bold mb-6 text-white">Confirm your email</h2>
+//      <p className="mb-4 text-zinc-300">
+//        Please enter your email address to continue with your subscription.
+//      </p>
+
+//      <form onSubmit={handleSubmit}>
+//        <div className="mb-4">
+//          <label
+//            htmlFor="email"
+//            className="block text-sm font-medium text-zinc-300 mb-1"
+//          >
+//            Email address
+//          </label>
+//          <input
+//            id="email"
+//            type="email"
+//            value={email}
+//            onChange={(e) => setEmail(e.target.value)}
+//            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 text-white"
+//            placeholder="you@example.com"
+//            required
+//          />
+//        </div>
+
+//        {error && (
+//          <div className="mb-4 p-2 text-sm text-red-400 bg-red-900 bg-opacity-30 rounded-md">
+//            {error}
+//          </div>
+//        )}
+
+//        <div className="flex space-x-3">
+//          <button
+//            type="button"
+//            onClick={onBack}
+//            className="flex-1 py-2 px-4 border border-zinc-700 rounded-md shadow-sm text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50"
+//          >
+//            Back
+//          </button>
+//          <button
+//            type="submit"
+//            disabled={loading}
+//            className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-pink-600 hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-opacity-50 disabled:opacity-50"
+//          >
+//            {loading ? 'Checking...' : 'Continue'}
+//          </button>
+//        </div>
+//      </form>
+//    </div>
+//  )
+//}
 
 //'use client'
 
