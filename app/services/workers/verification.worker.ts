@@ -49,6 +49,8 @@ self.onmessage = async (e: MessageEvent) => {
       await documentParsingService.initialize(file)
       const parsingResponse = await documentParsingService.parseDocument()
 
+      console.log('Parsing response:', parsingResponse)
+
       await documentParsingService.cleanup()
 
       const documentText = parsingResponse
@@ -71,40 +73,39 @@ self.onmessage = async (e: MessageEvent) => {
       //const result = await response.json()
       console.log('REFERENCES ARE ON PAGES: ', result.pages)
 
-      // now mape the raw text onto the pages. 
+      // now mape the raw text onto the pages.
       const updatedRawText = result.pages.map((refPageNumber) => {
         const matchingPage = parsingResponse.find(
           (page) => page.pageNumber === refPageNumber
         )
         return matchingPage ? matchingPage.rawText : ''
       })
-      
+
       // Now update the result with the mapped raw text.
       result.rawText = updatedRawText
-      
-      //console.log('Updated raw text for reference pages:', result)
 
+      //console.log('Updated raw text for reference pages:', result)
 
       self.postMessage({
         type: 'update',
         pdfId,
         message: `Found references on pages ${result.pages.join(', ')}`
       })
-      
+
       // STEP 2: Get the image data for each reference page
-    
+
       await refPageImageService.initialize(file) // file is your PDF
       const updatedResult = await refPageImageService.addImageData(result)
-      //console.log('Updated result with image data:', updatedResult)
 
       // When finished, clean up resources
       await refPageImageService.cleanup()
-  
+
       // STEP 3: Extract markdown content from reference pages
       //console.log('ENTERING STEP 3 ***** ')
 
-      const markdownResponse = await refPageMarkdownService.extractMarkdown(updatedResult)
-  
+      const markdownResponse =
+        await refPageMarkdownService.extractMarkdown(updatedResult)
+
       const markdownContents = markdownResponse.map((content) => ({
         pageNumber: content.pageNumber,
         markdown: content.markdown
@@ -151,8 +152,12 @@ self.onmessage = async (e: MessageEvent) => {
         message: `Found ${extractedReferencesWithIndex.length} unique references: ${pdfId}`,
         references: extractedReferencesWithIndex
       })
-      
-      // STEP 5: Verification
+
+      console.log(
+        '📚 Extracted references with index:',
+        extractedReferencesWithIndex
+      )
+      // STEP 5: Verify references
 
       const verificationResults = await o3VerificationService.processBatch(
         extractedReferencesWithIndex,

@@ -85,7 +85,7 @@ export default function ReferenceVerification() {
               performedChecksRef.current.add('DOI Lookup')
               functionResult = await checkDOI(args.doi, args.title)
               break
-            case 'search_reference':
+            case 'google_search':
               performedChecksRef.current.add('Google Search')
               functionResult = await searchReference(args.reference)
               //console.log('Search result:', functionResult)
@@ -190,7 +190,7 @@ export default function ReferenceVerification() {
         msg.tool_calls.forEach((call: any) => {
           if (call.function?.name === 'check_doi') {
             checks.add('DOI Lookup')
-          } else if (call.function?.name === 'search_reference') {
+          } else if (call.function?.name === 'google_search') {
             checks.add('Google Search')
           } else if (call.function?.name === 'scholar_search') {
             checks.add('Scholar Search')
