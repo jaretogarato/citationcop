@@ -150,7 +150,13 @@ export default function Navlinks({ user: propUser }: NavlinksProps) {
           </>
         ) : (
           <>
-            <Link href="/signin" className={s.link}>
+            {/*<Link href="/signin" className={s.link}>
+              Sign In
+            </Link>*/}
+            <Link
+              href="/signin/email_signin?subscription_started=true"
+              className={s.link}
+            >
               Sign In
             </Link>
             <Link href="/pricing">
