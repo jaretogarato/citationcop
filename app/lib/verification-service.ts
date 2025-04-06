@@ -4,7 +4,8 @@ import {
   searchReference,
   checkURL,
   searchScholar,
-  repairReference
+  //smartSearchReference,
+  //smsartRepairReference
 } from '@/app/lib/referenceToolsCode'
 import type { Reference, ReferenceStatus } from '@/app/types/reference'
 
@@ -25,6 +26,16 @@ export type VerificationStatus = {
   functionResult?: any
   lastToolCallId?: string
   error?: string
+  webSearchResults?: {
+    output_text: string
+    citations: Array<{
+      type: 'url_citation'
+      start_index: number
+      end_index: number
+      url: string
+      title?: string
+    }>
+  }
   result?: {
     status: 'verified' | 'unverified' | 'needs-human' | 'error'
     message: string
@@ -36,7 +47,8 @@ export type VerificationStatus = {
 
 export type ProcessingStep =
   | 'initializing'
-  | 'search_reference'
+  | 'web_search'
+  | 'google_search'
   | 'scholar_search'
   | 'check_doi'
   | 'check_url'
@@ -47,6 +59,8 @@ export const checkBadgeColors: Record<string, string> = {
   'DOI Lookup': 'bg-blue-900 text-blue-200 hover:bg-blue-800 border-blue-700',
   'Google Search':
     'bg-purple-900 text-purple-200 hover:bg-purple-800 border-purple-700',
+  'Web Search':
+    'bg-orange-900 text-orange-200 hover:bg-orange-800 border-orange-700',
   'URL Verification':
     'bg-teal-900 text-teal-200 hover:bg-teal-800 border-teal-700',
   'Scholar Search':
@@ -55,6 +69,36 @@ export const checkBadgeColors: Record<string, string> = {
     'bg-emerald-900 text-emerald-200 hover:bg-emerald-800 border-emerald-700',
   'Metadata Check':
     'bg-amber-900 text-amber-200 hover:bg-amber-800 border-amber-700'
+}
+
+/**
+ * Perform a web search for a reference
+ */
+async function performWebSearch(reference: string) {
+  try {
+    console.log('performWebSearch:', reference)
+
+    const response = await fetch('/api/references/openAI-websearch/responses-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reference })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Web search API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error('Error in web search:', error)
+    return {
+      status: 'error',
+      error: 'Failed to perform web search',
+      output_text: 'Web search failed.',
+      citations: []
+    }
+  }
 }
 
 /**
@@ -75,7 +119,28 @@ export async function verifyReference(
       iteration: 0
     }
 
-    // Process steps with real API calls
+    console.log('****** Verifying reference:', reference)
+    console.log('****** Reference ID:', reference.id)
+    console.log('****** Reference raw:', reference.raw)
+    console.log('****** Reference DOI:', reference.DOI)
+    console.log('****** Reference URL:', reference.url)
+    console.log('****** Reference title:', reference.title)
+    console.log('****** Reference type:', reference.type)
+
+    // Perform web search first
+    /*onStatusUpdate?.('web_search', { reference: reference.raw })
+    performedChecks?.add('Web Search')
+
+    const webSearchResults = await performWebSearch(reference.raw)
+    if (webSearchResults.status === 'success') {
+      currentState.webSearchResults = {
+        output_text: webSearchResults.output_text,
+        citations: webSearchResults.citations
+      }
+    }
+
+    console.log('****** Web search results:', webSearchResults)*/
+
     while (currentState.status === 'pending' && currentState.iteration! < 8) {
       // Call the API
       const response = await fetch('/api/o3-agent', {
@@ -87,6 +152,7 @@ export async function verifyReference(
           previousMessages: currentState.messages,
           functionResult: currentState.functionResult,
           lastToolCallId: currentState.lastToolCallId
+          //webSearchResults: currentState.webSearchResults // Pass search results to o3-agent
         })
       })
 
@@ -104,15 +170,14 @@ export async function verifyReference(
             performedChecks?.add('DOI Lookup')
             functionResult = await checkDOI(args.doi, args.title)
             break
-          case 'search_reference':
-            performedChecks?.add('Web Search')
+          case 'google_search':
+            performedChecks?.add('Google Search')
             functionResult = await searchReference(args.reference)
             break
-          case 'repair_reference':
+          /*case 'smart_repair_reference':
             performedChecks?.add('Repairing Reference')
-            functionResult = await repairReference(args.reference)
-            break
-
+            functionResult = await smartRepairReference(args.reference)
+            break*/
           case 'scholar_search':
             performedChecks?.add('Scholar Search')
             functionResult = await searchScholar(args.query)
@@ -126,12 +191,16 @@ export async function verifyReference(
         currentState = {
           ...llmResponse,
           functionResult,
-          lastToolCallId: llmResponse.lastToolCallId
+          lastToolCallId: llmResponse.lastToolCallId,
+          webSearchResults: currentState.webSearchResults // Preserve web search results
         }
       } else {
         // If no function is being called, we're likely finalizing
         onStatusUpdate?.('finalizing')
-        currentState = llmResponse
+        currentState = {
+          ...llmResponse,
+          webSearchResults: currentState.webSearchResults // Preserve web search results
+        }
       }
 
       // Pause briefly for UX
@@ -210,12 +279,17 @@ export function getChecksPerformed(
   // Last resort: try to extract from message history
   const checks = new Set<string>()
 
+  // Add Web Search if we have web search results
+  if (currentState?.webSearchResults) {
+    checks.add('Web Search')
+  }
+
   currentState?.messages?.forEach((msg: any) => {
     if (msg.role === 'assistant' && msg.tool_calls) {
       msg.tool_calls.forEach((call: any) => {
         if (call.function?.name === 'check_doi') {
           checks.add('DOI Lookup')
-        } else if (call.function?.name === 'search_reference') {
+        } else if (call.function?.name === 'google_search') {
           checks.add('Google Search')
         } else if (call.function?.name === 'check_url') {
           checks.add('URL Verification')

@@ -41505,8 +41505,10 @@
     }
   }
   async function searchReference(reference, config = {}) {
+    console.log("****Searching reference for:", reference);
+    console.log("Payload to be sent:", JSON.stringify({ reference }));
     try {
-      const response = await fetch("/api/references/verify-openai-search", {
+      const response = await fetch("/api/references/verify-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reference })
@@ -41521,26 +41523,6 @@
         success: false,
         error: `Failed to search reference: ${error2 instanceof Error ? error2.message : String(error2)}`,
         suggestion: "Try scholar search if available, or check the URL directly."
-      };
-    }
-  }
-  async function repairReference(reference, config = {}) {
-    try {
-      const response = await fetch("/api/references/verify-openai-repair", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reference })
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to search reference: ${response.statusText}`);
-      }
-      return await response.json();
-    } catch (error2) {
-      console.error("Error searching reference:", error2);
-      return {
-        success: false,
-        error: `Failed to search reference: ${error2 instanceof Error ? error2.message : String(error2)}`,
-        suggestion: "Oh no an error occured trying to fix the reference."
       };
     }
   }
@@ -41621,6 +41603,13 @@
         messages: [],
         iteration: 0
       };
+      console.log("****** Verifying reference:", reference);
+      console.log("****** Reference ID:", reference.id);
+      console.log("****** Reference raw:", reference.raw);
+      console.log("****** Reference DOI:", reference.DOI);
+      console.log("****** Reference URL:", reference.url);
+      console.log("****** Reference title:", reference.title);
+      console.log("****** Reference type:", reference.type);
       while (currentState.status === "pending" && currentState.iteration < 8) {
         const response = await fetch("/api/o3-agent", {
           method: "POST",
@@ -41631,6 +41620,7 @@
             previousMessages: currentState.messages,
             functionResult: currentState.functionResult,
             lastToolCallId: currentState.lastToolCallId
+            //webSearchResults: currentState.webSearchResults // Pass search results to o3-agent
           })
         });
         const llmResponse = await response.json();
@@ -41643,14 +41633,14 @@
               performedChecks?.add("DOI Lookup");
               functionResult = await checkDOI(args.doi, args.title);
               break;
-            case "search_reference":
-              performedChecks?.add("Web Search");
+            case "google_search":
+              performedChecks?.add("Google Search");
               functionResult = await searchReference(args.reference);
               break;
-            case "repair_reference":
-              performedChecks?.add("Repairing Reference");
-              functionResult = await repairReference(args.reference);
-              break;
+            /*case 'smart_repair_reference':
+              performedChecks?.add('Repairing Reference')
+              functionResult = await smartRepairReference(args.reference)
+              break*/
             case "scholar_search":
               performedChecks?.add("Scholar Search");
               functionResult = await searchScholar(args.query);
@@ -41663,11 +41653,17 @@
           currentState = {
             ...llmResponse,
             functionResult,
-            lastToolCallId: llmResponse.lastToolCallId
+            lastToolCallId: llmResponse.lastToolCallId,
+            webSearchResults: currentState.webSearchResults
+            // Preserve web search results
           };
         } else {
           onStatusUpdate?.("finalizing");
-          currentState = llmResponse;
+          currentState = {
+            ...llmResponse,
+            webSearchResults: currentState.webSearchResults
+            // Preserve web search results
+          };
         }
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
@@ -41720,12 +41716,15 @@
       return Array.from(performedChecks);
     }
     const checks = /* @__PURE__ */ new Set();
+    if (currentState?.webSearchResults) {
+      checks.add("Web Search");
+    }
     currentState?.messages?.forEach((msg) => {
       if (msg.role === "assistant" && msg.tool_calls) {
         msg.tool_calls.forEach((call) => {
           if (call.function?.name === "check_doi") {
             checks.add("DOI Lookup");
-          } else if (call.function?.name === "search_reference") {
+          } else if (call.function?.name === "google_search") {
             checks.add("Google Search");
           } else if (call.function?.name === "check_url") {
             checks.add("URL Verification");
@@ -41842,43 +41841,54 @@ Reference error [${errorPath}]: ${errorMessage}`,
       throw lastError || new Error("All retry attempts failed");
     }
     // Enhanced wrapper around the o3-agent API call
-    async callVerificationAgent(reference, iteration, messages, functionResults = [], toolCallIds = []) {
-      try {
-        const response = await this.retryableFetch("/api/o3-agent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reference,
-            iteration,
-            previousMessages: messages,
-            functionResults,
-            // Now an array
-            toolCallIds
-            // Now an array
+    /*private async callVerificationAgent(
+        reference: string,
+        iteration: number,
+        messages: any[],
+        functionResults: any[] = [],
+        toolCallIds: string[] = []
+      ) {
+        try {
+          const response = await this.retryableFetch('/api/o3-agent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              reference,
+              iteration,
+              previousMessages: messages,
+              functionResults, // Now an array
+              toolCallIds // Now an array
+            })
           })
-        });
-        const responseData = await response.json();
-        if (responseData.status === "error") {
-          console.error("==================\nAGENT ERROR RESPONSE:", {
-            error: responseData.error,
-            errorType: responseData.errorType,
-            iteration,
-            referenceStart: reference.substring(0, 100) + "..."
-          });
+    
+          const responseData = await response.json()
+          //console.log('Agent response:', responseData)
+    
+          // Add detailed logging for specific cases
+          if (responseData.status === 'error') {
+            console.error('==================\nAGENT ERROR RESPONSE:', {
+              error: responseData.error,
+              errorType: responseData.errorType,
+              iteration,
+              referenceStart: reference.substring(0, 100) + '...'
+            })
+          }
+    
+          // Log when we receive a parsing error
+          if (responseData.parsingError) {
+            console.warn('==================\nPARSING ERROR DETECTED:', {
+              parseErrorMessage: responseData.parseErrorMessage,
+              iteration,
+              resultStatus: responseData.result?.status || 'unknown'
+            })
+          }
+    
+          return responseData
+        } catch (error) {
+          console.error('Error calling verification agent:', error)
+          throw error
         }
-        if (responseData.parsingError) {
-          console.warn("==================\nPARSING ERROR DETECTED:", {
-            parseErrorMessage: responseData.parseErrorMessage,
-            iteration,
-            resultStatus: responseData.result?.status || "unknown"
-          });
-        }
-        return responseData;
-      } catch (error2) {
-        console.error("Error calling verification agent:", error2);
-        throw error2;
-      }
-    }
+      }*/
     async processBatch(references, onBatchProgress, onReferenceVerified, onStatusUpdate) {
       if (!Array.isArray(references)) {
         console.error("Invalid references array provided");
@@ -41911,7 +41921,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
               if (onReferenceVerified) onReferenceVerified(verified);
               return verified;
             } catch (error2) {
-              console.error("Reference verification failed:", error2);
+              console.error("??Reference verification failed:", error2);
               return {
                 reference: ref,
                 status: "error",
@@ -41956,6 +41966,7 @@ Reference error [${errorPath}]: ${errorMessage}`,
         });
         await documentParsingService.initialize(file);
         const parsingResponse = await documentParsingService.parseDocument();
+        console.log("Parsing response:", parsingResponse);
         await documentParsingService.cleanup();
         const documentText = parsingResponse.map((page) => `Page ${page.pageNumber}:
 ${page.rawText}`).join("\n\n");
@@ -42017,6 +42028,10 @@ ${page.rawText}`).join("\n\n");
           message: `Found ${extractedReferencesWithIndex.length} unique references: ${pdfId}`,
           references: extractedReferencesWithIndex
         });
+        console.log(
+          "\u{1F4DA} Extracted references with index:",
+          extractedReferencesWithIndex
+        );
         const verificationResults = await o3VerificationService.processBatch(
           extractedReferencesWithIndex,
           (batchResults) => {

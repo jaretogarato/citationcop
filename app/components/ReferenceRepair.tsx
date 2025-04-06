@@ -30,7 +30,7 @@ export default function ReferenceRepair() {
     setError(null)
 
     try {
-      const response = await fetch('/api/references/verify-openai-repair/', {
+      const response = await fetch('/api/references/openAI-websearch/repair/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

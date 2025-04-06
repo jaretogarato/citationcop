@@ -260,7 +260,7 @@ export default function MultiReferenceVerifier() {
           // For certain steps, we can add checks to the performed checks set
           if (step === 'check_doi') {
             performedChecksRef.current.add('DOI Lookup')
-          } else if (step === 'search_reference') {
+          } else if (step === 'google_search') {
             performedChecksRef.current.add('Google Search')
           } else if (step === 'check_url') {
             performedChecksRef.current.add('URL Verification')

@@ -45,7 +45,7 @@ async function makeOpenAIRequestWithRetry(
   let attempt = 0
   let lastError: Error | null = null
 
-  //console.log('Documnet', text)
+  console.log('Documnet', text)
 
   while (attempt < MAX_RETRIES) {
     try {
@@ -75,9 +75,9 @@ async function makeOpenAIRequestWithRetry(
       if (attempt >= MAX_RETRIES) break
       const delay =
         RETRY_DELAY_MS * Math.pow(2, attempt - 1) * (0.5 + Math.random())
-      //console.log(
-      //  `Retry attempt ${attempt}/${MAX_RETRIES} after ${delay.toFixed(0)}ms: ${lastError.message}`
-      //)
+      console.log(
+        `Retry attempt ${attempt}/${MAX_RETRIES} after ${delay.toFixed(0)}ms: ${lastError.message}`
+      )
       await sleep(delay)
     }
   }
@@ -92,7 +92,6 @@ export async function POST(request: Request) {
     // Call the LLM to detect reference pages
     const { pages } = await makeOpenAIRequestWithRetry(text)
 
-
     const rawTextArray = pages.map(() => '')
     // Prepare imageData as empty strings (to be added later)
     const imageDataArray = pages.map(() => '')
@@ -102,6 +101,7 @@ export async function POST(request: Request) {
       rawText: rawTextArray,
       imageData: imageDataArray
     }
+    console.log('Final result:', finalResult)
 
     return NextResponse.json(finalResult)
   } catch (error) {
