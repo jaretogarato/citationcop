@@ -1,4 +1,4 @@
-// app/api/o3-agent/route.ts - with diagnostic checks
+// app/api/o3-agent/route.ts 
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { ChatCompletionMessageParam } from 'openai/resources/chat'
@@ -18,10 +18,11 @@ export async function POST(request: Request) {
       messageCount: requestBody.previousMessages?.length || 0,
       hasFunctionResult: !!requestBody.functionResult,
       hasLastToolCallId: !!requestBody.lastToolCallId,
+      hasWebSearchResults: !!requestBody.webSearchResults,
       iteration: requestBody.iteration || 0
     }
 
-    //console.log('DIAGNOSTIC INFO - REQUEST:', diagnosticInfo)
+    console.log('DIAGNOSTIC INFO - REQUEST:', diagnosticInfo)
 
     // Check for inconsistencies that might cause problems
     if (requestBody.functionResult && !requestBody.lastToolCallId) {
@@ -41,7 +42,8 @@ export async function POST(request: Request) {
       iteration = 0,
       previousMessages = [],
       functionResult = null,
-      lastToolCallId = null
+      lastToolCallId = null,
+      webSearchResults = null
     } = requestBody
 
     // Always ensure we have a valid messages array
@@ -65,7 +67,7 @@ export async function POST(request: Request) {
           toolCallCount += msg.tool_calls.length
 
           msg.tool_calls.forEach((call: any) => {
-            //console.log(`  - ${call.function.name} (ID: ${call.id})`)
+            console.log(`  - ${call.function.name} (ID: ${call.id})`)
 
             // Check if this tool call has a response
             const hasResponse = previousMessages.some(
@@ -77,13 +79,13 @@ export async function POST(request: Request) {
           })
         } else if (msg.role === 'tool') {
           toolResponseCount++
-          //console.log(`Message ${i}: Tool response for ID: ${msg.tool_call_id}`)
+          console.log(`Message ${i}: Tool response for ID: ${msg.tool_call_id}`)
         }
       })
 
-      /*console.log(
+      console.log(
         `FOUND: ${toolCallCount} tool calls, ${toolResponseCount} tool responses`
-      )*/
+      )
       if (unresolvedToolCalls.length > 0) {
         console.warn(
           `⚠️ UNRESOLVED TOOL CALLS: ${unresolvedToolCalls.join(', ')}`
@@ -132,24 +134,17 @@ A reference status must be one of:
 - "unverified": if there is no evidence of its existence
 - "needs-human": if the reference might exist, but has discrepancies or missing information that requires human verification
 
-When searching:
-1. First identify key elements from the reference (authors, title, year, publication)
-2. Create specific search queries using these elements - prioritize exact titles and author names
-3. If the first search isn't conclusive, try alternative queries focusing on different elements
-4. Analyze search results by looking for:
-   - Title matches
-   - Author name matches
-   - Publication/venue matches
-   - Year matches
-   - Similar content descriptions
+Use as many tools as possible to verify the reference. ALWAYS use Reference Search as one of the tools. If you find minor typos or issues, you can correct them.
 
-Do not provide a response unless you have used at least one tool to verify the reference. 
+When searching, do multiple searches, and ALAWAYS try GOOGLE SEARCH. Make sure you try the full raw reference in one search, and just the title in another. 
+
+**PROVIDE ALL LINKS THAT YOU USE IN YOUR RESPONSE.**
 
 Return a final JSON response only when you have sufficient evidence:
 {
-  "status": "verified" | "unverified" | "needs-human" ,
-  "message": "Detailed explanation of findings. Mention results from all chacks done. Include relevant links if available.",
-  "reference": "Reference in APA format including any new information found."
+  "status": "verified" | "unverified" | "needs-human",
+  "message": "Detailed explanation of findings. Mention results from all chacks done.",
+  "reference": "Reference in APA format including any new information or corrections found."
 }
 
 IMPORTANT: Your final response must be valid JSON. Do NOT include any additional text, markdown, or formatting outside the JSON object.
@@ -163,13 +158,22 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
           content: `Please verify this reference: ${reference}`
         }
       ]
+
+      // Add web search results if we have them (for first-time requests)
+      if (webSearchResults) {
+        // Format and add web search results to message history
+        const webSearchMessage = formatWebSearchResultsMessage(webSearchResults)
+        messages.push(webSearchMessage)
+      }
     }
 
     // Log tool definitions for debugging
-    //console.log('TOOL DEFINITIONS:')
+    console.log('TOOL DEFINITIONS:')
     referenceTools.forEach((tool: any, i: number) => {
       console.log(`Tool ${i + 1}: ${tool.function.name}`)
     })
+
+    console.log('*** messages !!!! ::: ', messages)
 
     const completion = await openai.chat.completions.create({
       model: 'o3-mini',
@@ -180,11 +184,16 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
     })
 
     const message = completion.choices[0].message
-    /*console.log('RESPONSE FROM OPENAI:')
+    const links = completion.choices[0].message.annotations
+
+    console.log('RESPONSE FROM OPENAI:', message.content)
+    console.log('LINKS:', links)
+
+    console.log('RESPONSE FROM OPENAI:')
     console.log(`- Content: ${message.content ? 'present' : 'null'}`)
     console.log(
       `- Tool calls: ${message.tool_calls ? message.tool_calls.length : 0}`
-    )*/
+    )
 
     // DIAGNOSTIC: Validate no duplicate tool call IDs exist in history
     if (message.tool_calls && message.tool_calls.length > 0) {
@@ -258,6 +267,12 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
           if (!result.checks_performed) {
             // Extract used functions from the message history
             const tools = new Set<string>()
+
+            // Add web search check if it was performed
+            if (webSearchResults) {
+              tools.add('Web Search')
+            }
+
             messages.forEach((msg) => {
               if (
                 msg.role === 'assistant' &&
@@ -267,8 +282,8 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
                 msg.tool_calls.forEach((call: any) => {
                   if (call.function?.name === 'check_doi')
                     tools.add('DOI Lookup')
-                  if (call.function?.name === 'search_reference')
-                    tools.add('Literature Search')
+                  if (call.function?.name === 'google_search')
+                    tools.add('Google Search')
                   if (call.function?.name === 'check_url')
                     tools.add('URL Verification')
                   if (call.function?.name === 'scholar_search')
@@ -282,6 +297,12 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
             } else {
               result.checks_performed = ['Reference Analysis']
             }
+          } else if (
+            webSearchResults &&
+            !result.checks_performed.includes('Web Search')
+          ) {
+            // Ensure web search is in the checks performed list
+            result.checks_performed.push('Web Search')
           }
         }
 
@@ -309,6 +330,11 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
           checks_performed: [] as string[]
         }
 
+        // Add web search to checks performed if it was done
+        if (webSearchResults) {
+          fallbackResult.checks_performed.push('Web Search')
+        }
+
         // Extract function calls from message history
         messages.forEach((msg) => {
           if (
@@ -323,7 +349,7 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
               )
                 fallbackResult.checks_performed.push('DOI Lookup')
               if (
-                call.function?.name === 'search_reference' &&
+                call.function?.name === 'google_search' &&
                 !fallbackResult.checks_performed.includes('Google Search')
               )
                 fallbackResult.checks_performed.push('Google Search')
@@ -412,5 +438,36 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
       },
       { status: 500 }
     )
+  }
+}
+
+/**
+ * Format web search results into a message that can be added to the conversation
+ */
+function formatWebSearchResultsMessage(
+  webSearchResults: any
+): ChatCompletionMessageParam {
+  // Check if we have valid web search results
+  if (!webSearchResults || !webSearchResults.output_text) {
+    return {
+      role: 'system',
+      content: 'Web search was attempted but did not return usable results.'
+    }
+  }
+
+  // Format citations if available
+  let citationsText = ''
+  if (webSearchResults.citations && webSearchResults.citations.length > 0) {
+    citationsText = '\n\nCitations found:\n'
+    webSearchResults.citations.forEach((citation: any, index: number) => {
+      citationsText +=
+        `[${index + 1}] ${citation.url} - "${citation.title || 'No title'}"` +
+        '\n'
+    })
+  }
+
+  return {
+    role: 'system',
+    content: `Web search results for the reference:\n\n${webSearchResults.output_text}${citationsText}`
   }
 }

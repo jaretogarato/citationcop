@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import type { Reference } from '@/app/types/reference'
+//import type { Reference } from '@/app/types/reference'
 
 export const maxDuration = 300
 const EMAIL = process.env.DOI_EMAIL

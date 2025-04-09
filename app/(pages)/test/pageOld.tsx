@@ -55,7 +55,7 @@ export default function ReferenceTest() {
             case 'check_doi':
               functionResult = await checkDOI(args.doi, args.title)
               break
-            case 'search_reference':
+            case 'google_search':
               functionResult = await searchReference(args.reference)
               break
             case 'check_url':

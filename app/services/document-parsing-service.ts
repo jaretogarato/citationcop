@@ -39,7 +39,7 @@ export class DocumentParsingService {
       arrayBuffer = file
     }
     this.pdfDoc = await getDocument({ data: arrayBuffer }).promise
-    console.log(`Loaded PDF with ${this.pdfDoc.numPages} pages`)
+    //console.log(`Loaded PDF with ${this.pdfDoc.numPages} pages`)
   }
 
   /**
@@ -137,7 +137,7 @@ export class DocumentParsingService {
     if (this.pdfDoc) {
       await this.pdfDoc.destroy()
       this.pdfDoc = null
-      console.log('Cleaned up PDF document resources.')
+      //console.log('Cleaned up PDF document resources.')
     }
   }
 }

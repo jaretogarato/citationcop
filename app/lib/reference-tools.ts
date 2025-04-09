@@ -29,7 +29,7 @@ export const referenceTools: ChatCompletionTool[] = [
   {
     type: 'function',
     function: {
-      name: 'search_reference',
+      name: 'google_search',
       description:
         "Search for a reference using Google search. Best for websites, blogs, or other gray literature. Returns up to 10 relevant search results that can be used to verify the reference's existence.",
       parameters: {
@@ -92,6 +92,45 @@ export const referenceTools: ChatCompletionTool[] = [
       strict: true
     }
   }
+   /* {
+    type: 'function',
+    function: {
+      name: 'smart_search_reference',
+      description:
+        'Search for a reference using a search agent. The agent returns its assessment of whether or not the reference exists along with relevant details.',
+      parameters: {
+        type: 'object',
+        properties: {
+          reference: {
+            type: 'string',
+            description: 'The raw reference text.'
+          }
+        },
+        required: ['reference'],
+        additionalProperties: false
+      },
+      strict: true
+    }
+  },*/
+   /*{
+    type: 'function',
+    function: {
+      name: 'repair_reference',
+      description: 'Find information to correct or complete a reference.',
+      parameters: {
+        type: 'object',
+        properties: {
+          reference: {
+            type: 'string',
+            description: 'The current reference text to repair.'
+          }
+        },
+        required: ['reference'],
+        additionalProperties: false
+      },
+      strict: true
+    }
+  } */
 ]
 
 export const referencePageDetectionTools: ChatCompletionTool[] = [

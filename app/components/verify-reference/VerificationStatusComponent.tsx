@@ -38,7 +38,7 @@ export const ProcessingStepDisplay: React.FC<ProcessingStepDisplayProps> = ({
           <span>analyzing reference structure</span>
         </div>
       )
-    case 'search_reference':
+    case 'google_search':
       return (
         <div className="flex items-center gap-2">
           <Search className="h-4 w-4 text-purple-400" />

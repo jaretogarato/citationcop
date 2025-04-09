@@ -81,9 +81,9 @@ export default function ReferenceVerifier() {
         },
         performedChecksRef.current
       )
-      console.log('Verified reference:', verifiedRef)
-      console.log('Performed checks:', Array.from(performedChecksRef.current))
-      console.log('Status:', verifiedRef.status)
+      //console.log('Verified reference:', verifiedRef)
+      //console.log('Performed checks:', Array.from(performedChecksRef.current))
+      //console.log('Status:', verifiedRef.status)
       // Map the status from the verification API to our UI statuses
       let finalUIStatus: UIStatus = 'idle'
 

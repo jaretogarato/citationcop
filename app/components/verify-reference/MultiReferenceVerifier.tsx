@@ -147,9 +147,9 @@ export default function MultiReferenceVerifier() {
           if (!ref.id) {
             // Generate a unique ID if one doesn't exist
             const uniqueId = `ref-${Date.now()}-${index}`
-            console.log(
-              `Assigning ID ${uniqueId} to reference "${ref.title || 'Untitled'}"`
-            )
+            //console.log(
+            //  `Assigning ID ${uniqueId} to reference "${ref.title || 'Untitled'}"`
+            // )
             return { ...ref, id: uniqueId }
           }
           return ref
@@ -260,7 +260,7 @@ export default function MultiReferenceVerifier() {
           // For certain steps, we can add checks to the performed checks set
           if (step === 'check_doi') {
             performedChecksRef.current.add('DOI Lookup')
-          } else if (step === 'search_reference') {
+          } else if (step === 'google_search') {
             performedChecksRef.current.add('Google Search')
           } else if (step === 'check_url') {
             performedChecksRef.current.add('URL Verification')

@@ -25,7 +25,10 @@ import {
   DropdownMenuTrigger
 } from '@/app/components/ui/dropdown-menu'
 import Button from '@/app/components/ui/Button'
-import { exportReferencesToCSV, exportReferencesToExcel } from '@/app/utils/reference-helpers/reference-export-utility'
+import {
+  exportReferencesToCSV,
+  exportReferencesToExcel
+} from '@/app/utils/reference-helpers/reference-export-utility'
 
 const PDFProcessor = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -76,7 +79,7 @@ const PDFProcessor = () => {
     // Register the completion callback
     if (queueServiceRef.current) {
       queueServiceRef.current.onAllComplete(() => {
-        console.log('Queue service signaled all processing complete')
+        //console.log('Queue service signaled all processing complete')
         setAllProcessingComplete(true)
         setIsProcessing(false)
 
@@ -156,9 +159,9 @@ const PDFProcessor = () => {
               })
             )
 
-            console.log('Placeholder refs:', placeholderRefs)
-            console.log('PH 0:', placeholderRefs[0].id)
-            console.log('PH 1:', placeholderRefs[1].id)
+            //console.log('Placeholder refs:', placeholderRefs)
+            //console.log('PH 0:', placeholderRefs[0].id)
+            //console.log('PH 1:', placeholderRefs[1].id)
 
             // Update documents state for this pdfId.
             setDocuments((prevDocs) => {
@@ -182,8 +185,8 @@ const PDFProcessor = () => {
               `Completed: ${message.pdfId}: ${message.verifiedReference?.title || 'Unknown'}`
             ])
 
-            console.log('Reference verified:', message.verifiedReference)
-            console.log('Processed references:', message.verifiedReference?.id)
+            //console.log('Reference verified:', message.verifiedReference)
+            //console.log('Processed references:', message.verifiedReference?.id)
 
             setVerifiedCountByPdf((prev) => ({
               ...prev,
@@ -258,8 +261,8 @@ const PDFProcessor = () => {
           break
 
         case 'complete':
-          console.log('Complete message received:', message)
-          console.log('Processed references:', message.references?.length)
+          //console.log('Complete message received:', message)
+          //console.log('Processed references:', message.references?.length)
           setLogMessages((prev) => [
             ...prev,
             `✅ Processing complete for PDF ${message.pdfId}`
@@ -396,46 +399,17 @@ const PDFProcessor = () => {
         <h2 className="text-xl font-bold text-slate-200">
           PDF Reference Processor
         </h2>
+      </div>
 
-        <div className="flex gap-2">
-          {allProcessingComplete && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button className="bg-blue-700 hover:bg-blue-600 text-white">
-                  <DownloadCloud className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={handleExportCSV}>
-                  Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExportExcel}>
-                  Export as Excel
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {allProcessingComplete && (
-            <Button
-              onClick={handleReset}
-              className="bg-indigo-700 hover:bg-indigo-600 text-white"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Start New Batch
-            </Button>
-          )}
+      {!allProcessingComplete && (
+        <div className="mb-8">
+          <PDFDropZone
+            onFilesSelected={handleFilesSelected}
+            isProcessing={isProcessing}
+            onProcess={handleProcessFiles}
+          />
         </div>
-      </div>
-
-      <div className="mb-8">
-        <PDFDropZone
-          onFilesSelected={handleFilesSelected}
-          isProcessing={isProcessing}
-          onProcess={handleProcessFiles}
-        />
-      </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 md:grid-cols-4">
         {[
@@ -480,6 +454,35 @@ const PDFProcessor = () => {
           </div>
         ))}
       </div>
+
+      {allProcessingComplete && (
+        <div className="flex justify-end gap-2 mb-6">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="bg-indigo-700 hover:bg-indigo-600 text-white">
+                <DownloadCloud className="h-4 w-4 mr-2" />
+                Export References
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={handleExportCSV}>
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportExcel}>
+                Export as Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            onClick={handleReset}
+            className="bg-indigo-700 hover:bg-indigo-600 text-white"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Start New Batch
+          </Button>
+        </div>
+      )}
 
       {/* Render a ReferenceGrid for each document */}
       {documents.length > 0 &&

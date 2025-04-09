@@ -1,8 +1,7 @@
-'use server';
+'use server'
 
 import OpenAI from 'openai'
 import { Reference } from '@/app/types/reference'
-
 
 const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
@@ -12,8 +11,6 @@ export async function verifyGoogleSearchResultWithLLM(
   searchResults: any,
   maxRetries: number = 1
 ): Promise<{ isValid: boolean; message: string }> {
-
-
   const reference_string = [
     reference.authors?.join(' '),
     reference.title,
@@ -54,77 +51,93 @@ export async function verifyGoogleSearchResultWithLLM(
         model: model,
         messages: [{ role: 'system', content: prompt }],
         temperature: 0.0,
-        response_format: { type: "json_object" },
+        response_format: { type: 'json_object' }
       })
 
-      const content = response.choices[0]?.message?.content;
+      const content = response.choices[0]?.message?.content
       if (!content) {
-        console.warn(`Attempt ${attempt + 1}: No content received from LLM`);
-        continue;  // Skip to next attempt instead of throwing
+        console.warn(`Attempt ${attempt + 1}: No content received from LLM`)
+        continue // Skip to next attempt instead of throwing
       }
 
       try {
-        const result = JSON.parse(content);
+        const result = JSON.parse(content)
 
         // Validate the result structure
-        if (typeof result.isValid !== 'boolean' || typeof result.message !== 'string') {
-          console.warn(`Attempt ${attempt + 1}: Invalid response structure`);
-          continue;  // Skip to next attempt instead of throwing
+        if (
+          typeof result.isValid !== 'boolean' ||
+          typeof result.message !== 'string'
+        ) {
+          console.warn(`Attempt ${attempt + 1}: Invalid response structure`)
+          continue // Skip to next attempt instead of throwing
         }
 
         // If we get here, we have a valid result
         return {
           isValid: result.isValid,
           message: result.message
-        };
-
+        }
       } catch (parseError) {
-        console.warn(`Attempt ${attempt + 1}: JSON parsing failed:`,
-          parseError instanceof Error ? parseError.message : 'Unknown parsing error');
-        lastError = parseError instanceof Error ? parseError : new Error('Unknown parsing error');
+        console.warn(
+          `Attempt ${attempt + 1}: JSON parsing failed:`,
+          parseError instanceof Error
+            ? parseError.message
+            : 'Unknown parsing error'
+        )
+        lastError =
+          parseError instanceof Error
+            ? parseError
+            : new Error('Unknown parsing error')
         if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          continue;  // Skip to next attempt
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+          continue // Skip to next attempt
         }
       }
     } catch (error) {
-      console.warn(`Attempt ${attempt + 1}: Request failed:`,
-        error instanceof Error ? error.message : 'Unknown error');
-      lastError = error instanceof Error ? error : new Error('Unknown error');
+      console.warn(
+        `Attempt ${attempt + 1}: Request failed:`,
+        error instanceof Error ? error.message : 'Unknown error'
+      )
+      lastError = error instanceof Error ? error : new Error('Unknown error')
 
       if (attempt < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        continue;  // Skip to next attempt
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+        continue // Skip to next attempt
       }
     }
   }
 
   // If we've exhausted all retries, return an error result
-  console.error('All verification attempts failed. Last error:', lastError?.message);
+  console.error(
+    'All verification attempts failed. Last error:',
+    lastError?.message
+  )
   return {
     isValid: false,
     message: `Verification failed after ${maxRetries + 1} attempts. Last error: ${lastError?.message}`
-  };
+  }
 }
 
-export async function verifyURL(reference: Reference): Promise<{ isValid: boolean; message: string }> {
+export async function verifyURL(
+  reference: Reference
+): Promise<{ isValid: boolean; message: string }> {
   if (!reference.url) {
-    return { isValid: false, message: "No URL provided." };
+    return { isValid: false, message: 'No URL provided.' }
   }
 
   try {
     // Fetch the URL content
-    const URLresponse = await fetch(reference.url);
+    const URLresponse = await fetch(reference.url)
     if (!URLresponse.ok) {
-      return { isValid: false, message: "URL is inaccessible or broken." };
+      return { isValid: false, message: 'URL is inaccessible or broken.' }
     }
 
     // Get the text content and clean it
-    const htmlContent = await URLresponse.text();
-    const cleanContent = extractTextContent(htmlContent);
+    const htmlContent = await URLresponse.text()
+    const cleanContent = extractTextContent(htmlContent)
 
     // Initialize OpenAI
-    const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openAI = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const model = process.env.LLM_MODEL_ID || 'gpt-4o-mini'
 
     // Create reference string
@@ -137,10 +150,10 @@ export async function verifyURL(reference: Reference): Promise<{ isValid: boolea
       reference.pages,
       reference.publisher,
       reference.conference,
-      reference.url,
+      reference.url
     ]
       .filter((field) => field !== null && field !== undefined)
-      .join(' ');
+      .join(' ')
 
     // Create prompt for OpenAI
     const prompt = `Given the following webpage content and reference information, determine if this webpage contains or represents the referenced work. The webpage should contain information that confirms this is the correct source for the reference.
@@ -160,41 +173,45 @@ Answer in the following format:
       model: model,
       messages: [{ role: 'system', content: prompt }],
       temperature: 0.0
-    });
+    })
 
-    let content = response.choices[0]?.message?.content;
-    if (!content) throw new Error('No content received from LLM');
+    let content = response.choices[0]?.message?.content
+    if (!content) throw new Error('No content received from LLM')
 
     // Parse JSON response
-    const jsonStartIndex = content.indexOf('{');
-    const jsonEndIndex = content.lastIndexOf('}');
+    const jsonStartIndex = content.indexOf('{')
+    const jsonEndIndex = content.lastIndexOf('}')
     if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
-      content = content.slice(jsonStartIndex, jsonEndIndex + 1);
+      content = content.slice(jsonStartIndex, jsonEndIndex + 1)
     } else {
-      throw new Error('Response does not contain recognizable JSON structure.');
+      throw new Error('Response does not contain recognizable JSON structure.')
     }
 
-    const result = JSON.parse(content);
+    const result = JSON.parse(content)
     return {
       isValid: result.isValid,
       message: result.message
-    };
-
+    }
   } catch (error) {
     //console.error('Error verifying URL with LLM:', error);
-    return { isValid: false, message: 'URL verification failed due to an error.' };
+    return {
+      isValid: false,
+      message: 'URL verification failed due to an error.'
+    }
   }
 }
 
 // Helper function to extract text content from HTML
 function extractTextContent(html: string): string {
   // Remove script and style elements
-  html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  html = html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
 
   // Remove HTML tags and decode entities
-  return html.replace(/<[^>]+>/g, ' ')
+  return html
+    .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
 }
