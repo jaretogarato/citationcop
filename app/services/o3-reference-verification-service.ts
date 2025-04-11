@@ -304,24 +304,53 @@ export class o3ReferenceVerificationService {
               performedChecks
             )
 
-            const verified: VerifiedReference = {
+            /*const verified: VerifiedReference = {
               reference: result,
               status: result.status as ProcessStatus,
               result
+            }*/
+            const verified: VerifiedReference = {
+              reference: result, // Contains the outcome status (e.g., 'verified')
+              status: 'complete', // The verification *process* for this ref finished.
+              result: result // Still potentially redundant, but keeping for now.
             }
 
             if (onReferenceVerified) onReferenceVerified(verified)
 
             return verified
           } catch (error) {
-            console.error('??Reference verification failed:', error)
-            return {
-              reference: ref,
-              status: 'error' as ProcessStatus,
-              result: {
-                error: error instanceof Error ? error.message : String(error)
-              }
+            console.error(
+              `Reference verification failed during processing for ID ${ref.id}:`,
+              error
+            )
+
+            // 1. Define the error message
+            const errorMessage =
+              error instanceof Error ? error.message : String(error)
+
+            // 2. Create the reference object that reflects the error state,
+            //    ensuring it conforms to the Reference type.
+            const errorReference: Reference = {
+              ...ref, // Start with the original reference data
+              status: 'error', // Set status to 'error' (which is a valid ReferenceStatus)
+              message: errorMessage // Add the error message
+              // Ensure other required fields from Reference are present via ...ref
             }
+
+            // 3. Construct the final object conforming to VerifiedReference
+            //    Use the correctly typed errorReference.
+            const verifiedErrorResult: VerifiedReference = {
+              reference: errorReference,
+              status: 'error', // The *process* status is 'error'
+              result: {
+                // Optional: include error details in the result field too
+                error: errorMessage
+              }
+              // Note: We don't need 'as VerifiedReference' here because
+              // we constructed it according to the type definition.
+            }
+
+            return verifiedErrorResult // Return the correctly typed object
           }
         })
 

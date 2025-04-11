@@ -41915,20 +41915,41 @@ Reference error [${errorPath}]: ${errorMessage}`,
               );
               const verified = {
                 reference: result,
-                status: result.status,
+                // Contains the outcome status (e.g., 'verified')
+                status: "complete",
+                // The verification *process* for this ref finished.
                 result
+                // Still potentially redundant, but keeping for now.
               };
               if (onReferenceVerified) onReferenceVerified(verified);
               return verified;
             } catch (error2) {
-              console.error("??Reference verification failed:", error2);
-              return {
-                reference: ref,
+              console.error(
+                `Reference verification failed during processing for ID ${ref.id}:`,
+                error2
+              );
+              const errorMessage = error2 instanceof Error ? error2.message : String(error2);
+              const errorReference = {
+                ...ref,
+                // Start with the original reference data
                 status: "error",
-                result: {
-                  error: error2 instanceof Error ? error2.message : String(error2)
-                }
+                // Set status to 'error' (which is a valid ReferenceStatus)
+                message: errorMessage
+                // Add the error message
+                // Ensure other required fields from Reference are present via ...ref
               };
+              const verifiedErrorResult = {
+                reference: errorReference,
+                status: "error",
+                // The *process* status is 'error'
+                result: {
+                  // Optional: include error details in the result field too
+                  error: errorMessage
+                }
+                // Note: We don't need 'as VerifiedReference' here because
+                // we constructed it according to the type definition.
+              };
+              return verifiedErrorResult;
             }
           });
           try {
