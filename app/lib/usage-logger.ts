@@ -70,7 +70,7 @@ export async function logTokenUsage(params: LogUsageParams): Promise<void> {
 
     // --- Console Logging (Current Implementation) ---
     console.log(`Usage logging simulated for endpoint: ${params.apiEndpoint}`)
-    console.log(`User ID: ${params.userId ?? 'Anonymous/System'}`)
+    console.log(`User ID: ${userId ?? 'Anonymous/System'}`)
     console.log(`Model Name: ${params.modelName}`)
     console.log(`Prompt Tokens: ${params.promptTokens ?? 'N/A'}`)
     console.log(`Completion Tokens: ${params.completionTokens ?? 'N/A'}`)
