@@ -1,14 +1,17 @@
-// app/api/o3-agent/route.ts 
+// app/api/o3-agent/route.ts
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { ChatCompletionMessageParam } from 'openai/resources/chat'
 import { referenceTools } from '@/app/lib/reference-tools'
+import { logTokenUsage } from '@/app/lib/usage-logger'
 
 export const maxDuration = 300
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
+
+const MODEL_NAME: string = 'o3-mini'
 
 export async function POST(request: Request) {
   try {
@@ -168,32 +171,49 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
     }
 
     // Log tool definitions for debugging
-    console.log('TOOL DEFINITIONS:')
-    referenceTools.forEach((tool: any, i: number) => {
-      console.log(`Tool ${i + 1}: ${tool.function.name}`)
-    })
+    //console.log('TOOL DEFINITIONS:')
+    //referenceTools.forEach((tool: any, i: number) => {
+    //  console.log(`Tool ${i + 1}: ${tool.function.name}`)
+    //})
 
-    console.log('*** messages !!!! ::: ', messages)
+    //console.log('*** messages !!!! ::: ', messages)
 
     const completion = await openai.chat.completions.create({
-      model: 'o3-mini',
+      model: MODEL_NAME,
       messages,
       tools: referenceTools,
       tool_choice: 'auto',
       store: true
     })
 
+    // Capture the token usage for the completion
+    if (completion.usage) {
+      // Call the server action - DO NOT await if you don't want it to block the response
+      logTokenUsage({
+        //userId: null, // <--- Placeholder: API Route doesn't have user session easily
+        modelName: MODEL_NAME,
+        totalTokens: completion.usage.total_tokens,
+        promptTokens: completion.usage.prompt_tokens,
+        completionTokens: completion.usage.completion_tokens,
+        apiEndpoint: '/api/o3-agent'
+      }).catch((err: any) => {
+        console.error('Error calling logTokenUsage server action:', err)
+      })
+    } else {
+      console.warn('OpenAI response did not include usage data.')
+    }
+
     const message = completion.choices[0].message
-    const links = completion.choices[0].message.annotations
+    //const links = completion.choices[0].message.annotations
 
-    console.log('RESPONSE FROM OPENAI:', message.content)
-    console.log('LINKS:', links)
+    //console.log('RESPONSE FROM OPENAI:', message.content)
+    //console.log('LINKS:', links)
 
-    console.log('RESPONSE FROM OPENAI:')
-    console.log(`- Content: ${message.content ? 'present' : 'null'}`)
-    console.log(
-      `- Tool calls: ${message.tool_calls ? message.tool_calls.length : 0}`
-    )
+    //console.log('RESPONSE FROM OPENAI:')
+    //console.log(`- Content: ${message.content ? 'present' : 'null'}`)
+    //console.log(
+    //  `- Tool calls: ${message.tool_calls ? message.tool_calls.length : 0}`
+    //)
 
     // DIAGNOSTIC: Validate no duplicate tool call IDs exist in history
     if (message.tool_calls && message.tool_calls.length > 0) {
@@ -218,7 +238,7 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
 
     // If no tool_calls, we have our final answer
     if (!message.tool_calls || message.tool_calls.length === 0) {
-      console.log('Processing final answer (no tool calls)')
+      //console.log('Processing final answer (no tool calls)')
       try {
         if (message.content === null) {
           throw new Error('Message content is null')
@@ -306,7 +326,7 @@ Do NOT use tool_calls when giving your final response. Make sure to try multiple
           }
         }
 
-        console.log('Returning complete status with result:', result)
+        //console.log('Returning complete status with result:', result)
         return NextResponse.json({
           status: 'complete',
           result,

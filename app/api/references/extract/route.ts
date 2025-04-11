@@ -1,15 +1,18 @@
 // app/api/references/extract/route.ts
 import OpenAI from 'openai'
 import { NextResponse } from 'next/server'
+import { logTokenUsage } from '@/app/lib/usage-logger'
 
 export const maxDuration = 300 // Increased to 5 minutes (300 seconds)
-export const runtime = 'edge'
+//export const runtime = 'edge'
 
 const openAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
 
-const model = process.env.LLM_MODEL_ID || 'o3-mini' // 'gpt-4o-mini'
+const API_ENDPOINT = 'reference-extraction'
+
+const MODEL_NAME = process.env.LLM_MODEL_ID || 'o3-mini' // 'gpt-4o-mini' or your chosen model
 
 const REFERENCE_EXTRACTION_PROMPT = `Your role is to precisely extract ALL the references from the following text. 
 
@@ -69,9 +72,14 @@ async function makeOpenAIRequestWithRetry(text: string) {
   while (attempt < MAX_RETRIES) {
     try {
       const llmStartTime = performance.now()
-      console.log(REFERENCE_EXTRACTION_PROMPT.replace('{text}', text))
+      //console.log(REFERENCE_EXTRACTION_PROMPT.replace('{text}', text))
+
+      console.log(
+        `Requesting completion from ${MODEL_NAME} (Attempt ${attempt + 1})`
+      )
+
       const response = await openAI.chat.completions.create({
-        model: model,
+        model: MODEL_NAME,
         messages: [
           {
             role: 'user',
@@ -84,6 +92,25 @@ async function makeOpenAIRequestWithRetry(text: string) {
 
       const llmEndTime = performance.now()
       const llmTime = llmEndTime - llmStartTime
+      console.log(`LLM call to ${MODEL_NAME} took ${llmTime.toFixed(0)}ms`)
+
+      if (response.usage) {
+        console.log('OpenAI Usage Data:', response.usage)
+        // Call logTokenUsage asynchronously (don't await) and catch errors
+        logTokenUsage({
+          modelName: MODEL_NAME, // Pass the model name used
+          totalTokens: response.usage.total_tokens,
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          apiEndpoint: API_ENDPOINT // Pass the endpoint name
+        }).catch((err) => {
+          console.error(`Error logging token usage for ${API_ENDPOINT}:`, err)
+        })
+      } else {
+        console.warn(
+          `Warning: OpenAI response for ${API_ENDPOINT} did not include usage data.`
+        )
+      }
 
       const content = response.choices[0]?.message?.content
       if (!content) {

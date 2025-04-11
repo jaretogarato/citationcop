@@ -41599,7 +41599,7 @@
     try {
       onStatusUpdate?.("initializing");
       let currentState = {
-        status: "pending",
+        processStatus: "pending",
         messages: [],
         iteration: 0
       };
@@ -41610,7 +41610,7 @@
       console.log("****** Reference URL:", reference.url);
       console.log("****** Reference title:", reference.title);
       console.log("****** Reference type:", reference.type);
-      while (currentState.status === "pending" && currentState.iteration < 8) {
+      while (currentState.processStatus === "pending" && currentState.iteration < 8) {
         const response = await fetch("/api/o3-agent", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -41624,6 +41624,10 @@
           })
         });
         const llmResponse = await response.json();
+        console.log(
+          `****** Agent Response (Iteration ${currentState.iteration}) for ${reference.id}:`,
+          JSON.stringify(llmResponse, null, 2)
+        );
         if (llmResponse.functionToCall) {
           const { name, arguments: args } = llmResponse.functionToCall;
           let functionResult;
@@ -41651,11 +41655,19 @@
               break;
           }
           currentState = {
-            ...llmResponse,
-            functionResult,
+            // Keep existing webSearchResults if needed
+            webSearchResults: currentState.webSearchResults,
+            // Explicitly map fields from llmResponse to VerificationStatus type
+            processStatus: llmResponse.status,
+            // Map 'status' to 'processStatus'
+            messages: llmResponse.messages,
+            iteration: llmResponse.iteration,
             lastToolCallId: llmResponse.lastToolCallId,
-            webSearchResults: currentState.webSearchResults
-            // Preserve web search results
+            error: llmResponse.error,
+            result: llmResponse.result,
+            tokenUsage: llmResponse.tokenUsage,
+            // Add the new function result
+            functionResult
           };
         } else {
           onStatusUpdate?.("finalizing");
@@ -41766,19 +41778,32 @@
         clearTimeout(timeoutId);
       }
     }
-    logError(reference, errorPath, error2, state) {
-      const errorMessage = error2 instanceof Error ? error2.message : typeof error2 === "string" ? error2 : JSON.stringify(error2);
-      console.error(
-        `##################### 
-Reference error [${errorPath}]: ${errorMessage}`,
-        {
-          referenceId: reference.id || "unknown",
-          reference: reference.raw?.substring(0, 100) || "no raw reference",
-          iteration: state?.iteration || 0,
-          state: state ? { ...state, messages: `[${state.messages?.length || 0} messages]` } : "no state"
-        }
-      );
-    }
+    /*private logError(
+        reference: Reference,
+        errorPath: string,
+        error: any,
+        state?: ProcessState
+      ) {
+        // First, properly format the error message
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : typeof error === 'string'
+              ? error
+              : JSON.stringify(error)
+    
+        console.error(
+          `##################### \nReference error [${errorPath}]: ${errorMessage}`,
+          {
+            referenceId: reference.id || 'unknown',
+            reference: reference.raw?.substring(0, 100) || 'no raw reference',
+            iteration: state?.iteration || 0,
+            state: state
+              ? { ...state, messages: `[${state.messages?.length || 0} messages]` }
+              : 'no state'
+          }
+        )
+      }*/
     // Expose a method to get error statistics
     getErrorStats() {
       const commonErrors = {};
@@ -41794,52 +41819,77 @@ Reference error [${errorPath}]: ${errorMessage}`,
         commonErrors
       };
     }
-    async retryableFetch(url, options) {
-      let lastError = null;
-      let lastResponse = null;
-      for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
-        try {
-          if (attempt > 0) {
-            await new Promise(
-              (resolve) => setTimeout(resolve, 1e3 * Math.pow(2, attempt - 1))
-            );
-          }
-          const response = await this.fetchWithTimeout(
-            url,
-            options,
-            this.config.requestTimeout
-          );
-          lastResponse = response;
-          if (url.includes("/api/fetch-url")) {
-            return response;
-          }
-          if (!response.ok) {
-            const errorText = await response.text().catch(() => "No error details available");
-            throw new Error(
-              `HTTP error ${response.status}: ${response.statusText}. Details: ${errorText}`
-            );
-          }
-          return response;
-        } catch (error2) {
-          console.error(
-            `Attempt ${attempt + 1}/${this.config.maxRetries} failed:`,
-            error2
-          );
-          lastError = error2 instanceof Error ? error2 : new Error(String(error2));
-          if (error2 instanceof DOMException && error2.name === "AbortError") {
-            this.logError({}, "retryableFetch", error2);
-            throw new Error(
-              `Request timed out after ${this.config.requestTimeout}ms`
-            );
+    /*private async retryableFetch(
+        url: string,
+        options: RequestInit
+      ): Promise<Response> {
+        let lastError: Error | null = null
+        let lastResponse: Response | null = null
+    
+        for (let attempt = 0; attempt < this.config.maxRetries; attempt++) {
+          try {
+            // Exponential backoff for retries
+            if (attempt > 0) {
+              await new Promise((resolve) =>
+                setTimeout(resolve, 1000 * Math.pow(2, attempt - 1))
+              )
+            }
+    
+            const response = await this.fetchWithTimeout(
+              url,
+              options,
+              this.config.requestTimeout
+            )
+            lastResponse = response
+    
+            // For URL verification, we want to return the response even if it's not OK
+            // so we can analyze the status code
+            if (url.includes('/api/fetch-url')) {
+              return response
+            }
+    
+            // For other endpoints, we'll still require OK status
+            if (!response.ok) {
+              const errorText = await response
+                .text()
+                .catch(() => 'No error details available')
+              throw new Error(
+                `HTTP error ${response.status}: ${response.statusText}. Details: ${errorText}`
+              )
+            }
+    
+            return response
+          } catch (error) {
+            console.error(
+              `Attempt ${attempt + 1}/${this.config.maxRetries} failed:`,
+              error
+            )
+            lastError = error instanceof Error ? error : new Error(String(error))
+    
+            // Don't retry if it was an abort error (timeout)
+            if (error instanceof DOMException && error.name === 'AbortError') {
+              this.logError({} as Reference, 'retryableFetch', error)
+    
+              throw new Error(
+                `Request timed out after ${this.config.requestTimeout}ms`
+              )
+            }
           }
         }
-      }
-      if (options.body && typeof options.body === "string" && options.body.includes("/api/fetch-url") && lastResponse) {
-        return lastResponse;
-      }
-      this.logError({}, "retryableFetch", lastError);
-      throw lastError || new Error("All retry attempts failed");
-    }
+    
+        // If we're checking a URL and we have a response with a status code, return it
+        // even if it's an error status
+        if (
+          options.body &&
+          typeof options.body === 'string' &&
+          options.body.includes('/api/fetch-url') &&
+          lastResponse
+        ) {
+          return lastResponse
+        }
+        this.logError({} as Reference, 'retryableFetch', lastError)
+        throw lastError || new Error('All retry attempts failed')
+      }*/
     // Enhanced wrapper around the o3-agent API call
     /*private async callVerificationAgent(
         reference: string,
@@ -41913,22 +41963,46 @@ Reference error [${errorPath}]: ${errorMessage}`,
                 },
                 performedChecks
               );
+              console.log("Verification result:", result);
+              const checksPerformed = Array.from(performedChecks);
+              console.log("Checks performed:", checksPerformed);
               const verified = {
                 reference: result,
-                status: result.status,
+                // Contains the outcome status (e.g., 'verified')
+                status: "complete",
+                // The verification *process* for this ref finished.
                 result
+                // Still potentially redundant, but keeping for now.
               };
               if (onReferenceVerified) onReferenceVerified(verified);
               return verified;
             } catch (error2) {
-              console.error("??Reference verification failed:", error2);
-              return {
-                reference: ref,
+              console.error(
+                `Reference verification failed during processing for ID ${ref.id}:`,
+                error2
+              );
+              const errorMessage = error2 instanceof Error ? error2.message : String(error2);
+              const errorReference = {
+                ...ref,
+                // Start with the original reference data
                 status: "error",
-                result: {
-                  error: error2 instanceof Error ? error2.message : String(error2)
-                }
+                // Set status to 'error' (which is a valid ReferenceStatus)
+                message: errorMessage
+                // Add the error message
+                // Ensure other required fields from Reference are present via ...ref
               };
+              const verifiedErrorResult = {
+                reference: errorReference,
+                status: "error",
+                // The *process* status is 'error'
+                result: {
+                  // Optional: include error details in the result field too
+                  error: errorMessage
+                }
+                // Note: We don't need 'as VerifiedReference' here because
+                // we constructed it according to the type definition.
+              };
+              return verifiedErrorResult;
             }
           });
           try {

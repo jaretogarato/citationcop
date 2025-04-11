@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import { NextResponse } from 'next/server'
 import { RefPagesResult } from '@/app/types/reference'
+import { logTokenUsage } from '@/app/lib/usage-logger'
 
 export const maxDuration = 300 // 5 minutes
 
@@ -8,7 +9,8 @@ const openAI = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
 
-const model = 'o3-mini'
+const MODEL_NAME = 'o3-mini'
+const API_ENDPOINT = 'references/detect-pages'
 
 const REFERENCES_PAGE_DETECTION_PROMPT = `Your task is to analyze the following text extracted from a PDF document.
 Each page in the text is denoted by "Page <number>:" at the start.
@@ -49,8 +51,12 @@ async function makeOpenAIRequestWithRetry(
 
   while (attempt < MAX_RETRIES) {
     try {
+      console.log(
+        `Requesting page detection from ${MODEL_NAME} (Attempt ${attempt + 1}) for ${API_ENDPOINT}`
+      )
+
       const response = await openAI.chat.completions.create({
-        model,
+        model: MODEL_NAME,
         messages: [
           {
             role: 'user',
@@ -59,6 +65,26 @@ async function makeOpenAIRequestWithRetry(
         ],
         response_format: { type: 'json_object' }
       })
+
+      // --- Log Token Usage ---
+      if (response.usage) {
+        console.log('OpenAI Usage Data:', response.usage)
+        // Call logTokenUsage asynchronously (don't await) and catch errors
+        logTokenUsage({
+          modelName: MODEL_NAME,
+          totalTokens: response.usage.total_tokens,
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          apiEndpoint: API_ENDPOINT
+        }).catch((err) => {
+          console.error(`Error logging token usage for ${API_ENDPOINT}:`, err)
+        })
+      } else {
+        console.warn(
+          `Warning: OpenAI response for ${API_ENDPOINT} did not include usage data.`
+        )
+      }
+      // --- End Log Token Usage ---
 
       const content = response.choices[0]?.message?.content
       if (!content) {

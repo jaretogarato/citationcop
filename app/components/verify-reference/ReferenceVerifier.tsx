@@ -127,7 +127,7 @@ export default function ReferenceVerifier() {
       })
       setUIStatus('error')
       setVerificationState({
-        status: 'error',
+        processStatus: 'error',
         error: 'Failed to verify reference'
       })
     }

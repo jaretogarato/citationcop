@@ -66,8 +66,8 @@ export async function POST(request: Request) {
       )
     }
 
-    console.log("*******************************************")
-    console.log("Reference to search:", reference)
+    //console.log("*******************************************")
+    //console.log("Reference to search:", reference)
 
     const results = await fetchGoogleSearchResults(reference)
     return NextResponse.json(results)

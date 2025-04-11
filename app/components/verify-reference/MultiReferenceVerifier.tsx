@@ -204,8 +204,10 @@ export default function MultiReferenceVerifier() {
           if (index !== -1) {
             // Update status display
             console.log(
-              `Updating job ${verifiedRef.reference.id} with status ${verifiedRef.reference.status}`
+              `MultiRefVerifier (207). Updating job ${verifiedRef.reference.id} with status ${verifiedRef.reference.status}`
             )
+
+            console.log('(210) verifiedRef.status', verifiedRef.status)
 
             updateCurrentJob(verifiedRef.reference.id, {
               pdfId: verifiedRef.reference.title || `Reference ${index + 1}`,
