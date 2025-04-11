@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       iteration: requestBody.iteration || 0
     }
 
-    console.log('DIAGNOSTIC INFO - REQUEST:', diagnosticInfo)
+    //console.log('DIAGNOSTIC INFO - REQUEST:', diagnosticInfo)
 
     // Check for inconsistencies that might cause problems
     if (requestBody.functionResult && !requestBody.lastToolCallId) {
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
           toolCallCount += msg.tool_calls.length
 
           msg.tool_calls.forEach((call: any) => {
-            console.log(`  - ${call.function.name} (ID: ${call.id})`)
+            //console.log(`  - ${call.function.name} (ID: ${call.id})`)
 
             // Check if this tool call has a response
             const hasResponse = previousMessages.some(
@@ -82,13 +82,13 @@ export async function POST(request: Request) {
           })
         } else if (msg.role === 'tool') {
           toolResponseCount++
-          console.log(`Message ${i}: Tool response for ID: ${msg.tool_call_id}`)
+          //console.log(`Message ${i}: Tool response for ID: ${msg.tool_call_id}`)
         }
       })
 
-      console.log(
-        `FOUND: ${toolCallCount} tool calls, ${toolResponseCount} tool responses`
-      )
+      //console.log(
+      //  `FOUND: ${toolCallCount} tool calls, $///{toolResponseCount} tool responses`
+      //)
       if (unresolvedToolCalls.length > 0) {
         console.warn(
           `⚠️ UNRESOLVED TOOL CALLS: ${unresolvedToolCalls.join(', ')}`
@@ -109,9 +109,9 @@ export async function POST(request: Request) {
             `⚠️ Current request is responding to tool_call_id ${lastToolCallId} but this ID wasn't found in message history!`
           )
         } else {
-          console.log(
-            `✅ Current request is properly responding to tool_call_id ${lastToolCallId}`
-          )
+          //console.log(
+          //  `✅ Current request is properly responding to //tool_call_id ${lastToolCallId}`
+         // )
         }
       }
 
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
       }
     } else {
       // Initial messages if we don't have any previous ones
-      console.log('First request - initializing with system message')
+      //console.log('First request - initializing with system message')
       messages = [
         {
           role: 'system',

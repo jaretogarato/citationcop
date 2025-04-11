@@ -29,8 +29,8 @@ export async function checkDOI(doi: string, title: string, config = {}) {
 
 
 export async function searchReference(reference: string, config = {}) {
-  console.log('****Searching reference for:', reference)
-  console.log('Payload to be sent:', JSON.stringify({ reference }))
+  //console.log('****Searching reference for:', reference)
+  //console.log('Payload to be sent:', JSON.stringify({ reference }))
   try {
     const response = await fetch('/api/references/verify-search', {
       method: 'POST',

@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { logTokenUsage } from '@/app/lib/usage-logger'
+
+// --- Constants ---
+//const MODEL_NAME = 'o1'
+const MODEL_NAME = 'gpt-4o-mini'
+const API_ENDPOINT = 'open-ai-vision/image-2-ref-markdown'
 
 export const maxDuration = 300
 
@@ -31,8 +37,7 @@ Requirements:
 `
 
   const output = await openai.chat.completions.create({
-    //model: 'gpt-4o-mini',
-    model: 'o1',
+    model: MODEL_NAME,
     messages: [
       {
         role: 'system',
@@ -50,9 +55,32 @@ Requirements:
         ]
       }
     ]
-    //temperature: 0.0,
-    //max_tokens: 4096
   })
+
+  // --- Log Token Usage ---
+  if (output.usage) {
+    console.log('OpenAI Usage Data:', output.usage)
+    console.log(
+      'Cahced tokens: ',
+      output.usage.prompt_tokens_details?.cached_tokens
+    )
+    // Call logTokenUsage asynchronously (don't await) and catch errors
+    logTokenUsage({
+      modelName: MODEL_NAME, // Pass the model name used
+      totalTokens: output.usage.total_tokens,
+      promptTokens: output.usage.prompt_tokens,
+      completionTokens: output.usage.completion_tokens,
+      cachedTokens: output.usage.prompt_tokens_details?.cached_tokens,
+      apiEndpoint: API_ENDPOINT
+    }).catch((err) => {
+      console.error(`Error logging token usage for ${API_ENDPOINT}:`, err)
+    })
+  } else {
+    console.warn(
+      `Warning: OpenAI response for ${API_ENDPOINT} did not include usage data.`
+    )
+  }
+  // --- End Log Token Usage ---
 
   if (
     output.choices &&
@@ -60,8 +88,6 @@ Requirements:
     output.choices[0].message &&
     output.choices[0].message.content
   ) {
-    //console.log('SYSPROMPT:  ', systemPrompt)
-    //console.log('RESULT: ', output.choices[0].message.content)
     return output.choices[0].message.content
   } else {
     throw new Error('Invalid response from OpenAI API')

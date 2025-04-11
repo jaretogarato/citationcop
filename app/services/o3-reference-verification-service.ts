@@ -275,11 +275,11 @@ export class o3ReferenceVerificationService {
               },
               performedChecks
             )
-            console.log('Verification result:', result)
+            //console.log('Verification result:', result)
 
             const checksPerformed = Array.from(performedChecks)
             // Log the checks performed
-            console.log('Checks performed:', checksPerformed)
+            //console.log('Checks performed:', checksPerformed)
 
             /*const verified: VerifiedReference = {
               reference: result,

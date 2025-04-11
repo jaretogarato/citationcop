@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     })
 
     // Extract and format the search results
-    console.log('OpenAI response:', response.choices[0].message.content)
+    //console.log('OpenAI response:', response.choices[0].message.content)
 
     return NextResponse.json(
       {
