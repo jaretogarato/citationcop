@@ -74,9 +74,9 @@ async function makeOpenAIRequestWithRetry(text: string) {
       const llmStartTime = performance.now()
       //console.log(REFERENCE_EXTRACTION_PROMPT.replace('{text}', text))
 
-      console.log(
-        `Requesting completion from ${MODEL_NAME} (Attempt ${attempt + 1})`
-      )
+      //console.log(
+      //  `Requesting completion from ${MODEL_NAME} (Attempt ${attempt + 1})`
+      //)
 
       const response = await openAI.chat.completions.create({
         model: MODEL_NAME,
@@ -92,10 +92,10 @@ async function makeOpenAIRequestWithRetry(text: string) {
 
       const llmEndTime = performance.now()
       const llmTime = llmEndTime - llmStartTime
-      console.log(`LLM call to ${MODEL_NAME} took ${llmTime.toFixed(0)}ms`)
+      //console.log(`LLM call to ${MODEL_NAME} took ${llmTime.toFixed(0)}ms`)
 
       if (response.usage) {
-        console.log('OpenAI Usage Data:', response.usage)
+        //console.log('OpenAI Usage Data:', response.usage)
         // Call logTokenUsage asynchronously (don't await) and catch errors
         logTokenUsage({
           modelName: MODEL_NAME, // Pass the model name used

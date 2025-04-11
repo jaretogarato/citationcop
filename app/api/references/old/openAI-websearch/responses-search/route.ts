@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     //console.log('OpenAI request:', input)
     /*const input: string =
       'try to find the reference in the following text: ' + body.reference*/
-    console.log('OpenAI request:', input)
+    //console.log('OpenAI request:', input)
     const response = await client.responses.create({
       model: 'gpt-4o-mini',
       temperature: 0.0,
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       input: input
     })
 
-    console.log('OpenAI response:', response)
+    //console.log('OpenAI response:', response)
 
     // Extract output_text from top-level field
     const outputText = response.output_text

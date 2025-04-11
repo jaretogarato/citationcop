@@ -149,9 +149,9 @@ export class ReferenceExtractFromTextService {
         i,
         i + ReferenceExtractFromTextService.BATCH_SIZE
       )
-      console.log(
-        `Processing batch ${Math.floor(i / ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`
-      )
+      //console.log(
+      //  `Processing batch ${Math.floor(i / ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`
+      //)
 
       //const startTime = performance.now()
       const batchReferences = await this.processBatch(

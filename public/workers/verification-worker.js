@@ -41460,9 +41460,6 @@
           i,
           i + _ReferenceExtractFromTextService.BATCH_SIZE
         );
-        console.log(
-          `Processing batch ${Math.floor(i / _ReferenceExtractFromTextService.BATCH_SIZE) + 1} (chunks ${i + 1}-${i + batchChunks.length})`
-        );
         const batchReferences = await this.processBatch(
           batchChunks,
           i,
@@ -41505,8 +41502,6 @@
     }
   }
   async function searchReference(reference, config = {}) {
-    console.log("****Searching reference for:", reference);
-    console.log("Payload to be sent:", JSON.stringify({ reference }));
     try {
       const response = await fetch("/api/references/verify-search", {
         method: "POST",
@@ -41603,13 +41598,6 @@
         messages: [],
         iteration: 0
       };
-      console.log("****** Verifying reference:", reference);
-      console.log("****** Reference ID:", reference.id);
-      console.log("****** Reference raw:", reference.raw);
-      console.log("****** Reference DOI:", reference.DOI);
-      console.log("****** Reference URL:", reference.url);
-      console.log("****** Reference title:", reference.title);
-      console.log("****** Reference type:", reference.type);
       while (currentState.processStatus === "pending" && currentState.iteration < 8) {
         const response = await fetch("/api/o3-agent", {
           method: "POST",
@@ -41624,10 +41612,6 @@
           })
         });
         const llmResponse = await response.json();
-        console.log(
-          `****** Agent Response (Iteration ${currentState.iteration}) for ${reference.id}:`,
-          JSON.stringify(llmResponse, null, 2)
-        );
         if (llmResponse.functionToCall) {
           const { name, arguments: args } = llmResponse.functionToCall;
           let functionResult;
@@ -41963,9 +41947,7 @@
                 },
                 performedChecks
               );
-              console.log("Verification result:", result);
               const checksPerformed = Array.from(performedChecks);
-              console.log("Checks performed:", checksPerformed);
               const verified = {
                 reference: result,
                 // Contains the outcome status (e.g., 'verified')

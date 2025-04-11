@@ -78,7 +78,7 @@ export const checkBadgeColors: Record<string, string> = {
  */
 async function performWebSearch(reference: string) {
   try {
-    console.log('performWebSearch:', reference)
+    //console.log('performWebSearch:', reference)
 
     const response = await fetch(
       '/api/references/openAI-websearch/responses-search',
@@ -124,13 +124,13 @@ export async function verifyReference(
       iteration: 0
     }
 
-    console.log('****** Verifying reference:', reference)
-    console.log('****** Reference ID:', reference.id)
-    console.log('****** Reference raw:', reference.raw)
-    console.log('****** Reference DOI:', reference.DOI)
-    console.log('****** Reference URL:', reference.url)
-    console.log('****** Reference title:', reference.title)
-    console.log('****** Reference type:', reference.type)
+    //console.log('****** Verifying reference:', reference)
+    //console.log('****** Reference ID:', reference.id)
+    //console.log('****** Reference raw:', reference.raw)
+    //console.log('****** Reference DOI:', reference.DOI)
+    //console.log('****** Reference URL:', reference.url)
+    //console.log('****** Reference title:', reference.title)
+    //console.log('****** Reference type:', reference.type)
 
     // Perform web search first
     /*onStatusUpdate?.('web_search', { reference: reference.raw })
@@ -166,10 +166,10 @@ export async function verifyReference(
 
       const llmResponse = await response.json()
 
-      console.log(
-        `****** Agent Response (Iteration ${currentState.iteration}) for ${reference.id}:`,
-        JSON.stringify(llmResponse, null, 2)
-      )
+      //console.log(
+      //  `****** Agent Response (Iteration ${currentState.iteration}) for ${reference.id}:`,
+      //  JSON.stringify(llmResponse, null, 2)
+      //)
 
       if (llmResponse.functionToCall) {
         const { name, arguments: args } = llmResponse.functionToCall

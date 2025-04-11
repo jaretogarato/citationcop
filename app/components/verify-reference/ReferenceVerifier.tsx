@@ -110,8 +110,8 @@ export default function ReferenceVerifier() {
         checksPerformed: verifiedRef.checksPerformed || []
       }))
 
-      console.log('Final UI Status:', finalUIStatus)
-      console.log('Result State Before Updating:', result)
+      //console.log('Final UI Status:', finalUIStatus)
+      //console.log('Result State Before Updating:', result)
 
       setUIStatus(finalUIStatus)
     } catch (error) {

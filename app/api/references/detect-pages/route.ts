@@ -47,13 +47,13 @@ async function makeOpenAIRequestWithRetry(
   let attempt = 0
   let lastError: Error | null = null
 
-  console.log('Documnet', text)
+  //console.log('Document', text)
 
   while (attempt < MAX_RETRIES) {
     try {
-      console.log(
-        `Requesting page detection from ${MODEL_NAME} (Attempt ${attempt + 1}) for ${API_ENDPOINT}`
-      )
+      //console.log(
+      //  `Requesting page detection from ${MODEL_NAME} (Attempt ${attempt + 1}) for ${API_ENDPOINT}`
+      //)
 
       const response = await openAI.chat.completions.create({
         model: MODEL_NAME,
@@ -68,7 +68,7 @@ async function makeOpenAIRequestWithRetry(
 
       // --- Log Token Usage ---
       if (response.usage) {
-        console.log('OpenAI Usage Data:', response.usage)
+        //console.log('OpenAI Usage Data:', response.usage)
         // Call logTokenUsage asynchronously (don't await) and catch errors
         logTokenUsage({
           modelName: MODEL_NAME,
@@ -101,9 +101,9 @@ async function makeOpenAIRequestWithRetry(
       if (attempt >= MAX_RETRIES) break
       const delay =
         RETRY_DELAY_MS * Math.pow(2, attempt - 1) * (0.5 + Math.random())
-      console.log(
-        `Retry attempt ${attempt}/${MAX_RETRIES} after ${delay.toFixed(0)}ms: ${lastError.message}`
-      )
+      //console.log(
+      //  `Retry attempt ${attempt}/${MAX_RETRIES} after ${delay.toFixed(0)}ms: ${lastError.message}`
+      //)
       await sleep(delay)
     }
   }
