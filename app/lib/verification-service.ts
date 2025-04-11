@@ -5,7 +5,7 @@ import {
   checkDOI,
   searchReference,
   checkURL,
-  searchScholar,
+  searchScholar
   //smartSearchReference,
   //smsartRepairReference
 } from '@/app/lib/referenceToolsCode'
@@ -80,11 +80,14 @@ async function performWebSearch(reference: string) {
   try {
     console.log('performWebSearch:', reference)
 
-    const response = await fetch('/api/references/openAI-websearch/responses-search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reference })
-    })
+    const response = await fetch(
+      '/api/references/openAI-websearch/responses-search',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reference })
+      }
+    )
 
     if (!response.ok) {
       throw new Error(`Web search API error: ${response.status}`)
@@ -143,7 +146,10 @@ export async function verifyReference(
 
     console.log('****** Web search results:', webSearchResults)*/
 
-    while (currentState.processStatus === 'pending' && currentState.iteration! < 8) {
+    while (
+      currentState.processStatus === 'pending' &&
+      currentState.iteration! < 8
+    ) {
       // Call the API
       const response = await fetch('/api/o3-agent', {
         method: 'POST',
@@ -160,11 +166,15 @@ export async function verifyReference(
 
       const llmResponse = await response.json()
 
+      console.log(
+        `****** Agent Response (Iteration ${currentState.iteration}) for ${reference.id}:`,
+        JSON.stringify(llmResponse, null, 2)
+      )
+
       if (llmResponse.functionToCall) {
         const { name, arguments: args } = llmResponse.functionToCall
         let functionResult
 
-        // Update processing step based on the tool being called
         onStatusUpdate?.(name as ProcessingStep, args)
 
         switch (name) {
@@ -191,10 +201,20 @@ export async function verifyReference(
         }
 
         currentState = {
-          ...llmResponse,
-          functionResult,
+          // Keep existing webSearchResults if needed
+          webSearchResults: currentState.webSearchResults,
+
+          // Explicitly map fields from llmResponse to VerificationStatus type
+          processStatus: llmResponse.status as ProcessStatus, // Map 'status' to 'processStatus'
+          messages: llmResponse.messages,
+          iteration: llmResponse.iteration,
           lastToolCallId: llmResponse.lastToolCallId,
-          webSearchResults: currentState.webSearchResults // Preserve web search results
+          error: llmResponse.error, 
+          result: llmResponse.result,
+          tokenUsage: llmResponse.tokenUsage,
+
+          // Add the new function result
+          functionResult: functionResult
         }
       } else {
         // If no function is being called, we're likely finalizing

@@ -41624,6 +41624,10 @@
           })
         });
         const llmResponse = await response.json();
+        console.log(
+          `****** Agent Response (Iteration ${currentState.iteration}) for ${reference.id}:`,
+          JSON.stringify(llmResponse, null, 2)
+        );
         if (llmResponse.functionToCall) {
           const { name, arguments: args } = llmResponse.functionToCall;
           let functionResult;
@@ -41651,11 +41655,19 @@
               break;
           }
           currentState = {
-            ...llmResponse,
-            functionResult,
+            // Keep existing webSearchResults if needed
+            webSearchResults: currentState.webSearchResults,
+            // Explicitly map fields from llmResponse to VerificationStatus type
+            processStatus: llmResponse.status,
+            // Map 'status' to 'processStatus'
+            messages: llmResponse.messages,
+            iteration: llmResponse.iteration,
             lastToolCallId: llmResponse.lastToolCallId,
-            webSearchResults: currentState.webSearchResults
-            // Preserve web search results
+            error: llmResponse.error,
+            result: llmResponse.result,
+            tokenUsage: llmResponse.tokenUsage,
+            // Add the new function result
+            functionResult
           };
         } else {
           onStatusUpdate?.("finalizing");
@@ -41951,6 +41963,9 @@
                 },
                 performedChecks
               );
+              console.log("Verification result:", result);
+              const checksPerformed = Array.from(performedChecks);
+              console.log("Checks performed:", checksPerformed);
               const verified = {
                 reference: result,
                 // Contains the outcome status (e.g., 'verified')
