@@ -5,35 +5,7 @@ import type { Reference } from '@/app/types/reference'
 import { verifyReference } from '@/app/lib/verification-service'
 import type { ProcessingStep } from '@/app/lib/verification-service'
 
-type ProcessStatus = 'pending' | 'complete' | 'error'
-
-// Updated ProcessState type
-type ProcessState = {
-  status: ProcessStatus
-  messages?: any[]
-  iteration?: number
-  result?: any
-  error?: string
-
-  // Old properties (keep for backward compatibility)
-  functionResult?: any
-  lastToolCallId?: string
-
-  // New properties for multiple tool calls
-  functionResults?: any[]
-  toolCallIds?: string[]
-  toolCalls?: Array<{
-    id: string
-    name: string
-    arguments: any
-  }>
-
-  // Error handling properties
-  parsingError?: boolean
-  parseErrorMessage?: string
-  rawContent?: string
-  resultWasFallback?: boolean
-}
+import type { ProcessStatus, ProcessState } from '@/app/types/verification'
 
 type VerifiedReference = {
   reference: Reference
@@ -91,7 +63,7 @@ export class o3ReferenceVerificationService {
     }
   }
 
-  private logError(
+  /*private logError(
     reference: Reference,
     errorPath: string,
     error: any,
@@ -116,7 +88,7 @@ export class o3ReferenceVerificationService {
           : 'no state'
       }
     )
-  }
+  }*/
 
   // Expose a method to get error statistics
   public getErrorStats(): {
@@ -143,7 +115,7 @@ export class o3ReferenceVerificationService {
     }
   }
 
-  private async retryableFetch(
+  /*private async retryableFetch(
     url: string,
     options: RequestInit
   ): Promise<Response> {
@@ -213,7 +185,7 @@ export class o3ReferenceVerificationService {
     }
     this.logError({} as Reference, 'retryableFetch', lastError)
     throw lastError || new Error('All retry attempts failed')
-  }
+  }*/
 
   // Enhanced wrapper around the o3-agent API call
   /*private async callVerificationAgent(

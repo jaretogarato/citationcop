@@ -1,4 +1,6 @@
 // app/lib/verification-service.ts
+import type { ProcessStatus } from '@/app/types/verification'
+
 import {
   checkDOI,
   searchReference,
@@ -20,7 +22,7 @@ interface ExtendedReference extends Reference {
 }
 
 export type VerificationStatus = {
-  status: 'pending' | 'complete' | 'needs-human' | 'error'
+  processStatus: ProcessStatus
   messages?: any[]
   iteration?: number
   functionResult?: any
@@ -114,7 +116,7 @@ export async function verifyReference(
     onStatusUpdate?.('initializing')
 
     let currentState: VerificationStatus = {
-      status: 'pending',
+      processStatus: 'pending',
       messages: [],
       iteration: 0
     }
@@ -141,7 +143,7 @@ export async function verifyReference(
 
     console.log('****** Web search results:', webSearchResults)*/
 
-    while (currentState.status === 'pending' && currentState.iteration! < 8) {
+    while (currentState.processStatus === 'pending' && currentState.iteration! < 8) {
       // Call the API
       const response = await fetch('/api/o3-agent', {
         method: 'POST',
